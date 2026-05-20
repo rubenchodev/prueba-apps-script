@@ -1,0 +1,602 @@
+<script>
+/**
+ * Librería con funciones genericas para su uso en el aplicativo
+ * @autor Equipo de Desarrollo Sinova S.A.S.
+*/
+var SnvaJsApi = {
+  /**
+  * Función encargada de mostrar un mensaje de error producido en el archivo Code.gs
+  * @params: {String} error: Error producido ejecutando alguna de las funciones del archivo Code.gs.
+  */
+  onFailure: function(error) {
+    
+    // Variable para referenciar el mensaje de error personalizado
+    var customError = "";
+    
+    //Convertimos el error a String
+    error = String(error);
+    
+    //Mostramos el error en la consola
+    console.error(error);
+    
+    // Si es un error de red
+    if(error == "NetworkError: Connection failure due to HTTP 0" || error == "NetworkError: Error de conexión debido a HTTP 0"){
+    
+      // Mostramos al usuario un mensaje de error personalizado
+      customError = "Revisa tu conexión a internet.";
+    } else {
+      
+      // dejamos como mensaje el que retorna en el servidor
+      customError = error;
+    }
+    
+    // eliminamos el contenido de las tablas de especies
+    $("#ctnTempConcept").html("");
+    
+    // iniciamos la variable de imagenes
+    IMAGE_LIST = [];
+    
+    //Mostramos el mensaje de error
+    M.toast({
+      html: customError,
+      displayLength: 6000,
+      classes: "red"
+    });
+    
+    // hahilitamos el boton de actualizar proyectos y agregar especies por proyectos
+    $("#btnUpdateProjects, #btnAddConceptsByProject, #btnSearchConceptByProject").attr({disabled: false});
+    
+    //Oculta el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...")
+    
+  },
+  /*
+  @desc: Permite ocultar y mostrar el loading de engranaje
+  @param {String} displayStyle: variable con las opciones de (block,none)
+  @param {String} text: Texto que se desea mostrar en el loading
+  */
+  manageLoading: function(displayStyle, text){
+    
+    // ocultamos o mostramos el loading
+    if(displayStyle == "block") {
+      
+      //Mostramos el Loading
+      $("#loading").fadeIn();
+      
+    } else {
+      
+      //Ocultamos el Loading
+      $("#loading").fadeOut();
+      
+    }
+    
+    //agregamos el texto que pasa por parametro
+    document.getElementById("text-loading").innerHTML = text;
+    
+  },
+  /*
+  * Función encargada de mostrar un mensaje de alerta
+  */
+  showAlert: function(message){
+    
+    // mostramos ventana de confirmación
+    mbox.custom({
+      message: message,
+      options: {}, // see Options below for options and defaults
+      buttons: [{
+        label: "Aceptar",
+        color: "waves-effect waves-light btn light-blue darken-2",
+        callback: function() {}
+      }]
+    });
+    
+  },
+
+  /*
+  * Función encargada de mostrar una ventana de confirmación
+  */
+  confirmTitle: function(title_, message_, callback_){
+    
+    // mostramos el mensaje de confirmación
+    mbox.custom({
+      message: ("<b style=\"font-size: 24px;margin-bottom: 1em;\">" + title_ + "</b><br><br>" + message_),
+      options: {}, // see Options below for options and defaults
+      buttons: [
+        {
+          label: "Cancelar",
+          color: "btn-cancel-confirm",
+          callback: function() {}
+        },
+        {
+          label: "Aceptar",
+          color: "btn-ok-confirm",
+          callback: callback_
+        }
+      ]
+    });
+    
+  },
+
+  /*
+  * Función encargada de mostrar una ventana de confirmación
+  */
+  confirm: function(message, callback, cancelCallback){
+    
+    // mostramos el mensaje de confirmación
+    mbox.custom({
+      message: message,
+      options: {}, // see Options below for options and defaults
+      buttons: [
+        {
+          label: "Cancelar",
+          color: "btn-cancel-confirm",
+          callback: (typeof cancelCallback === "function") ? cancelCallback : function() {}
+        },
+        {
+          label: "Aceptar",
+          color: "btn-ok-confirm",
+          callback: callback
+        }
+      ]
+    });
+  },
+  /*
+  * Función encargada de mostrar una ventana de confirmación con la opción de cambiar el nombre de las opciones
+  */
+  confirmAvanced: function(message, btnPrimary, btnSecundary, callback){
+    
+    // mostramos el mensaje de confirmación
+    mbox.custom({
+      message: message,
+      options: {}, // see Options below for options and defaults
+      buttons: [
+          {
+              label: btnSecundary,
+              color: "btn-cancel-confirm",
+              callback: function() {}
+          },
+          {
+              label: btnPrimary,
+              color: "btn-ok-confirm",
+              callback: callback
+          }
+      ]
+    });
+    
+  },
+  /**
+  * Función que remplaza los acentos y caracteres latinos, por las respectivas vocales.
+  * @param {String} text Texto sobre el cual se reemplazan los caracteres.
+  * @return {String} Retorna el texto con los caracteres sustituidos.
+  */
+  removeLatinSymbols: function (text) {
+     // se valida si existe un texto para comparar
+     if (text) {
+
+      // se define un objeto con los valores a reemplazar
+      var object = {
+        "A": /[ÃÀÁÄÂ]/g,
+        "E": /[ÈÉËÊ]/g,
+        "I": /[ÌÍÏÎ]/g,
+        "O": /[ÒÓÖÔ]/g,
+        "U": /[ÙÚÜÛ]/g,
+        "a": /[ãàáäâ]/g,
+        "e": /[èéëê]/g,
+        "i": /[ìíïî]/g,
+        "o": /[òóöô]/g,
+        "u": /[ùúüû]/g
+      };
+      
+      // recorremos cada uno de los registros de caracteres especiales
+      for (var i in object) {
+        
+        // validamos que no sea una propiedad del sistema
+        if (object.hasOwnProperty(i)) {
+        
+          // realizamos el reemplazo de la información
+          text = text.replace(object[i], i);
+        }
+      }
+    }
+
+    // remueve el texto 
+    return text;
+  },
+  
+  /**
+   * Permite eliminar acentos y convertir el texto en minusculas o mayusculas
+  **/
+  clearString: function(stringText, isUpperCase){
+    
+    // se elimina los acentos
+    stringText = SnvaJsApi.removeLatinSymbols(stringText).trim();
+    
+    // validamos si se debe convertir en mayuscula
+    if(isUpperCase){
+      
+      // retornamos el texto en mayusculas
+      return stringText.toUpperCase();
+      
+    } else {
+      
+      // retornamos el texto en minuscula
+      return stringText.toLowerCase();
+      
+    }
+    
+  },
+  
+  /**
+   * Permite agregar caracter de escape para una expresión regular
+  **/
+  escapeRegExp: function(str){
+    
+    // se definen los caracteres especiales
+    var specials = [
+      // el orden es importante para estos
+      "-","[", "]",
+      // el orden no importa para ninguno de estos
+      "/", "{", "}", "(", ")", "*", "+", "?", ".", "\\", "^", "$", "|"
+    ], regex = RegExp('[' + specials.join('\\') + ']', 'g');
+    
+    // Retornamos el texto respectivo
+    return str.replace(regex, "\\$&");
+    
+  },
+  
+  /**
+   * Función que permite insertar valores en una campo de select
+  **/
+  insertOptionFromSelect: function($select, arrayData, isEmpty, hasInitialOption){
+    
+    // validmos si debe borrar el contenido actual
+    if(isEmpty){
+      
+      // eliminamos el contenido
+      $select.html("");
+    }
+    
+    if(!hasInitialOption){
+    
+      // agregamos la opción vacia
+      $select.append(
+        $("<option>").attr({value: ""}).text("-- Seleccione una opción --")
+      );
+    }
+    // recorremos cada uno de los registros
+    for(var i = 0; i < arrayData.length; i++){
+      
+      // agregamos cada una de las opciones
+      $select.append(
+        $("<option>").attr({value: arrayData[i]}).text(arrayData[i])
+      );
+    }
+  },
+  
+  /*
+  * Función encargada de agregar las opciones en un select a partir de una matrix
+  * @param {Object} objectData Objeto con los datos de sedes, ciudades, regionales y empresas
+  */
+  insertOptionToSelect: function($select, matriz, columnValue, columnText,nameData, hasInitialOption, initSelect){
+    
+    if(hasInitialOption){
+    
+      // reseteamos el select
+      $select.html('<option value="">--Seleccione--</option>');
+    }else{
+      //Insertamos vacío
+      $select.html("");
+    }
+    
+    // recorremos cada uno de los valores a ingresar en los selects
+    for(var i = 0; i < matriz.length; i++){
+      
+      // agregamos cada una de las opciones
+      $select.append(
+        $("<option>").attr("value", matriz[i][columnValue]).text(matriz[i][columnText]).data(nameData, matriz[i])
+      );
+      
+    }
+    
+    // Validamos si se requiere inicializar el select
+    if(initSelect){
+     // inicializamos los selects
+     $select.formSelect();
+    }
+  },
+  
+  /**
+   * Función que permite inicializar el paginador de una determinada tabla
+  **/
+  initPaginationByTable: function($table, contenPaginationId, perPage){
+    
+    // se inicializar el paginador
+    $table.pageMe({
+      pagerSelector: ("#" + contenPaginationId),
+      activeColor: 'background-base',
+      prevText: 'Anterior',
+      nextText: 'Siguiente',
+      showPrevNext: true,
+      hidePageNumbers: false,
+      perPage: perPage || 5
+    });
+    
+  },
+  /**
+   * Función que permite generar un id unico
+  **/
+  generateUUID: function (){
+    
+    // se obtiene la fecha actual
+    var currentTime = new Date().getTime();
+    var uuid = "xxxxx5xxx4xxxx".replace(/[xy]/g, function (c) {
+        var r = (currentTime + Math.random() * 16) % 16 | 0;
+        currentTime = Math.floor(currentTime / 16);
+        return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+    return uuid;
+  },
+  /**
+  * Función que aplica el formato separados por miles a un número.
+  * @param {Number|String} number Número al que se desea aplicar el formato separado por miles.
+  * @return {undefined|String} Retorna el número con el formato aplicado.
+  */
+  getMilesNumberFormat: function(number) {
+    if(number) {
+      
+      // convertimos en texto
+      number = number.toString();
+      
+      // se valida si es un número
+      if (number.match(/^\d+$/) != null) {
+        return number.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      }
+      if (number.match(/^\d+\.\d+$/) != null) {
+        var array = number.split(".");
+        return String(array[0]).replace(/\B(?=(\d{3})+(?!\d))/g, ".")+"," + String(array[1]);
+      }
+    }
+    
+    // retornamo por defecto vacio
+    return "";
+  },
+  /**
+  * Función encargada de dar formato de miles al valor ingresado en un campo de texto
+  * @param {event handler | Jquery object}
+  */
+  formatValue: function(value, decimals) {
+   
+    // eliminamos las copas existentes
+    var stringValue = ("" + value).replace(/,/g,"");
+    
+    // generamos un array apartir de un etxto sepearandolo por un ponto(.)
+    var arrayValue = stringValue.split(".");
+    
+    // se valida si solo existe un valor en el array
+    if(arrayValue.length == 1){
+      
+      // validamos si existe el parametro de validar cantidad de decimales
+      if(decimals && arrayValue[0] != "0"){
+        
+        // obtenemos el valor decimal
+        var decimalStr = "";
+  
+        // agregamos los decimales restantes
+        for(var i = 0; i < decimals; i++){
+        
+          // agregamos el cero a la derecha
+          decimalStr += "0";
+        }        
+        
+        // retornamos el valor y los decimales
+        return arrayValue[0].replace(/,/g,"").replace(/\B(?=(\d{3})+(?!\d))/g,",") + "." + decimalStr;
+        
+      } else {
+      
+        // retornamos el valor
+        return arrayValue[0].replace(/,/g,"").replace(/\B(?=(\d{3})+(?!\d))/g,",");
+      }
+      
+    } else if(arrayValue.length == 2){
+      
+      // obtenemos el valor decimal
+      var decimalStr = String(arrayValue[1]);
+
+      // se valida si existe decimales para validar y si la cantidad de decimales es menor que la definida
+      if(decimals && decimalStr.length < decimals){
+        
+        // agregamos los decimales restantes
+        for(var i = decimalStr.length; i < decimals; i++){
+          
+          // agregamos el cero a la derecha
+          decimalStr += "0";
+        }
+        
+      }
+      
+      // retornamos el valor y los decimales
+      return arrayValue[0].replace(/,/g,"").replace(/\B(?=(\d{3})+(?!\d))/g,",") + "." + decimalStr;
+      
+    } else {
+      
+      // retornamos el valor por defecto
+      return stringValue;
+      
+    }
+  },
+  /**
+   * Función que permite validar que solo se agregue datos numerico y con decimal
+  **/
+  validateNumberFormat: function(event){
+    
+    // obtenemos el caracter tecleado
+    var character = String.fromCharCode(event.which);
+ 
+    // validamos si el caracter actual no es un punto
+    if(character == "."){
+      
+      // validamos si ya existe un punto y se desea agregar otro
+      if((String(this.value).indexOf(".") != -1 && character == ".")){
+        
+        // no se permite agregar el caracter en la caja
+        event.preventDefault();
+        
+      }
+      
+    } else {
+      
+      // se define el nuevo valor
+      var nowValue = this.value + String.fromCharCode(event.which);
+  
+      //vaidamos que la expersión regular No se compla
+      if(event.which != 8  && new RegExp(this.pattern).test(nowValue) == false){
+        
+        // no se permite agregar el caracter en la caja
+        event.preventDefault();  
+      }
+      
+    }  
+  },
+  /**
+   * Función que permite validar si el texto ingresado es una url
+  **/
+  isUrl: function(stringUrl) {
+   
+   // se valida si no existe el string
+   if(!stringUrl) return false;
+   
+   // retornamos si es una url valida
+   return /^(https?):\/\/((?:[a-z0-9.-]|%[0-9A-F]{2}){3,})(?::(\d+))?((?:\/(?:[a-z0-9-._~!$&'()*+,;=:@]|%[0-9A-F]{2})*)*)(?:\?((?:[a-z0-9-._~!$&'()*+,;=:\/?@]|%[0-9A-F]{2})*))?(?:#((?:[a-z0-9-._~!$&'()*+,;=:\/?@]|%[0-9A-F]{2})*))?$/i.test(stringUrl);
+   
+  },
+  /**
+   * Función que permite agregar caracter de escape a un string al momento de pasarlo como RegExp
+  **/
+  escapeStringRegexp: function(text){
+    
+    //retornamos el texto con los caracteres de escape
+	return text.replace(/[|\/\\{}()[\]^$+*?.-]/g, '\\$&');
+    
+  },
+  /** 
+    Función que aproxima un valor decimal a cierto número de decimales. 
+    @param {Number} number Número que se desea truncar. 
+    @param {Number} [decimals=0] Número de decimales a truncar. 
+    @return {Number} Retorna el número truncado. 
+  */
+  roundDecimal: function (number, decimals) {
+
+    // convertimos en un numero el valor si el valor es diferente a un tipo numero
+    if(typeof number !== "number"){
+      
+      // convertimos el valor en numero
+      number = Number(String(number).replace(/\$|\,/g, "")) || 0;
+    } else if(number === Infinity){
+      
+      // se supera la cantidad de decimales se establece cero
+      number = 0;
+    }
+    
+    if (decimals == undefined) {
+      decimals = 0;
+    }
+    if (decimals >= 0) {
+     /* var multipleValue = Math.pow(10, decimals);
+      return Math.floor(number * multipleValue) / multipleValue;*/
+      //return +(Math.round(number + "e+" + decimals)  + "e-" + decimals);
+      var newDecmal = +(Math.round(number + "e+" + decimals)  + "e-" + decimals);
+      
+      // validamos si no es número
+      if(isNaN(newDecmal)){
+      
+        // retornamos el valor de cero
+        return 0;
+      
+      } else {
+      
+        // retornamos el valor redondeado
+        return newDecmal;
+      
+      }
+    }
+    
+  },
+  /**
+   * Función que permite validar que solo se agregue datos numerico y con decimal
+  **/
+  validateNumberFormatTd: function(event){
+    
+    // obtenemos el caracter tecleado
+    var character = String.fromCharCode(event.which);
+    
+    // obtenemos la celda
+    var $cell = $(this);
+ 
+    // validamos si el caracter actual no es un punto
+    if(character == "."){
+      
+      // validamos si ya existe un punto y se desea agregar otro
+      if((String($cell.text()).indexOf(".") != -1 && character == ".")){
+        
+        // no se permite agregar el caracter en la caja
+        event.preventDefault();
+        
+      }
+      
+    } else {
+      
+      // se define el nuevo valor
+      var nowValue = $cell.text() + String.fromCharCode(event.which);
+  
+      //vaidamos que la expersión regular No se compla
+      if(event.which != 8  && new RegExp($cell.attr("data-pattern")).test(nowValue) == false){
+        
+        // no se permite agregar el caracter en la caja
+        event.preventDefault();  
+      }
+      
+    }  
+  },
+  /**
+   * Permite dejar un array sin valores repetidos
+  **/
+  uniqueArray: function(array) {
+    
+    // objeto para realizar la comparación mas rapido
+    var seen = {};
+    
+    // se recorre y se dejan los valores unicos
+    return array.filter(function(item) {
+      
+      // Se realiza la comparación y se filtran los valores
+      return seen.hasOwnProperty(item) ? false : (seen[item] = true);
+    });
+  },
+  
+  /**
+   * Permite convertir una fecha del formato "dd/MM/yyyy HH:mm" a new Date
+  **/
+  newDate: function(stringDate){
+    
+    // validamos si no existe el valor
+    if(!stringDate) return null;
+    
+    // separamos la fecha de la hora
+    var arrayDate = String(stringDate).trim().split(" ");
+    
+    // validamos si la cantidad es diferente a 2
+    if(arrayDate.length != 2) return null;
+    
+    // obtenemos los datos de la fecha segmentado
+    var segmentDate = arrayDate[0].split("/");
+    
+    // validamos si la cantidad es diferente a 3
+    if(segmentDate.length != 3) return null;
+    
+    // retornamos la fecha
+    return new Date(segmentDate[1] + "/" + segmentDate[0] + "/" + segmentDate[2] + " " + arrayDate[1]);
+  }
+  
+};
+
+</script>

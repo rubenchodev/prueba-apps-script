@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <!-- Libreria de jquery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <!--Import Google Icon Font-->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!--Import la tipografía Roboto-->
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    <!--Importar los estilos propios-->
+    <?!= includeHtmlFile("Css_Stylesheet", false, false) ?>
+    <!--Importar los estilos para normalizar-->
+    <?!= includeHtmlFile("Css_Normalize", false, false) ?>
+    <!-- Libreria de general de Sinova -->
+    <?!= includeHtmlFile("Js_LibSnvaApi", false, false) ?>
+    <!-- Libreria para el paginador -->
+    <?!= includeHtmlFile("Js_PaginationMaterial", false, false) ?>
+    
+    <!-- Cargamos los archivos de javascript-->
+    <?!= includeHtmlFile("Js_Mbox", false, false); ?>
+    
+    <!-- Estilos y funciones para el formulario de feedback-->
+    <?!= includeHtmlFile("Js_Feedback", false, false); ?>
+    <?!= includeHtmlFile("Css_Feedback", false, false); ?>
+    
+    <!-- Cargamos los archivos de javascript para crear una imagen a partir de un HTML-->
+    <?!= includeHtmlFile("Js_Html2Canvas", false, false); ?>    
+    
+    <!-- Libreria para mostrar los popover https://www.jqueryscript.net/tooltip/minimal-clean-popover.html -->
+    <?!= includeHtmlFile("Js_PluginPopover", false, false); ?>
+    
+    <!-- select2 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css" rel="stylesheet" />
+    
+    <!-- select2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js"></script>
+    
+  </head>
+  <body>
+    
+    <!-- Interfaz del loading -->
+    <div id="loading">
+      <div class="spinner">
+        <div class="preloader-wrapper big active">
+          <div class="spinner-layer spinner-blue-only">
+            <div class="circle-clipper left">
+              <div class="circle"></div>
+            </div>
+            <div class="gap-patch">
+              <div class="circle"></div>
+            </div>
+            <div class="circle-clipper right">
+              <div class="circle"></div>
+            </div>
+          </div>
+        </div>
+        <div id="text-loading" class="text-loading">Espere un momento por favor...</div>
+      </div>
+    </div>
+    
+    <!-- Contenido base -->
+    <div class="ctn-main">
+      <div class="navbar-fixed">
+        <nav class="nav-orange">
+          <div class="nav-wrapper">
+            <a href="javascript:void(0)" class="brand-logo not-events">HidroCotizador</a>
+            <a id="btnShowMenu" href="javascript:void(0)" data-target="ctn-menu-fixed" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+              <!-- Validamos si el usuario no solo tiene un rol -->
+              <? if(onlyOneRole == false) {?>
+                
+                <li><a href="<?!=link?>" target="_top" class="showLoadingIndeterminate"><i class="material-icons left">keyboard_return</i>Regresar</a></li>
+              <?}?>
+              <li class="active"><a href="#ctnComercializadores" class="options-menu lnk-blue"><i class="material-icons left">library_add</i>Comercializadores</a></li>
+              <li><a href="#ctnUpdatePrices" class="options-menu lnk-blue"><i class="material-icons left">update</i>Actualizar precios</a></li>
+              <li><a href="#ctnPricesAnalyzer" class="options-menu lnk-blue"><i class="material-icons left">update</i>Analizador de precios</a></li>
+              <li>
+                <div class="chip ctn-logo">
+                  <span id="lblUserShortName">Usuario</span>
+                  <img id="imgUser" src="http://ssl.gstatic.com/accounts/ui/avatar_2x.png" alt="Contact Person">
+                </div>
+              </li>
+            </ul>
+          </div>
+        </nav>
+      </div>
+      
+      <!-- Menu que se muestra cuando esta en pantallas pequeñas -->
+      <ul id="ctn-menu-fixed" class="sidenav">
+        <li>
+          <div class="user-view">
+            <div class="background background-blue"></div>
+            <a href="javascript:void(0)"><img class="circle" src="http://ssl.gstatic.com/accounts/ui/avatar_2x.png"></a>
+            <a href="javascript:void(0)"><span class="white-text name">Usuario</span></a>
+            <a href="javascript:void(0)"><span class="white-text email"></span></a>
+          </div>
+        </li>
+        <!-- Validamos si el usuario no solo tiene un rol -->
+        <? if(onlyOneRole == false) {?>
+        
+        <li><a href="<?!=link?>" target="_top" class="showLoadingIndeterminate"><i class="material-icons left">keyboard_return</i>Regresar</a></li>
+        <?}?>
+        <li class="active"><a href="#ctnComercializadores" class="options-menu"><i class="material-icons left">library_add</i>Comercializadores</a></li>
+        <li><a href="#ctnUpdatePrices" class="options-menu"><i class="material-icons left">update</i>Actualizar precios</a></li>
+        <li><a href="#ctnPricesAnalyzer" class="options-menu"><i class="material-icons left">update</i>Analizador de precios</a></li>
+      </ul>
+      
+      <!-- Contenido base -->
+      <div class="ctn-container">
+        
+        <!-- Contenedor de fabricantes -->
+        <div id="ctnComercializadores">
+          <h1>Competidores</h1>
+          <p>A continuación se muestra el listado de todos los competidores actuales</p>
+          <div class="panel-primary">
+            <div class="panel-primary-header">Competidores</div>
+            <div class="panel-primary-body">
+              
+              <div class="row ctn-search-table" >
+                <div class="col s12 m6" style="margin-top: 24px;">                  
+                  <a id="btnAddCompetidor" class="#26a69a teal lighten-1 waves-effect waves-light btn"><i class="material-icons left">add</i>Competidor</a>
+                </div>
+                <div class="col s12 m6">
+                  <div class="input-field">
+                    <i class="material-icons prefix">search</i>
+                    <input id="txtSearchTableCompetidores" type="text" class="validate">
+                    <label for="txtSearchTableCompetidores">Buscar</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <table id="tblCompetidores" class="responsive-table">
+                  <thead>
+                    <tr>
+                      <th>Competidor</th>
+                      <th>Presencia</th>
+                      <th>Domicilio</th>                      
+                      <th>Contacto</th>
+                      <th>Última actualización</th>
+                      <th>Estado</th>
+                      <th class="text-center" style="width:40px;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="info-message">
+                    <td colspan="8">No hay competidores para mostrar.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="row">
+                 <div class="col s12 ctn-pagination">
+                   <span class="left spnTotalPagination"></span>
+                   <ul class="pagination pager" id="ulPaginationCompetidores"></ul>
+                 </div>
+               </div>
+               
+            </div>
+          </div>
+        </div>
+        
+        
+        <!-- Contenedor de Actualización de precios -->
+        <div id="ctnUpdatePrices" class="hidden">
+          
+          <h1>Actualización de precios por Comercializador</h1>
+          <p>A continuación se muestra el listado de las especies para actualizar los precios de la competencia.</p>
+          <div class="panel-primary">
+            <div class="panel-primary-header">Lista de especies</div>
+            <div class="panel-primary-body">
+            
+              <div class="row ctn-competitor-selected">
+                 <div class="col s12 m6" style="margin-top: 24px;">
+                    <div class="input-field">
+                       <i class="material-icons prefix">account_circle</i>
+                       <input id="txtSelectCompetitor" type="text" autocomplete="off" readonly>
+                       <label for="txtSelectCompetitor">Selecciona un Competidor para comenzar</label>
+                    </div>
+                 </div>              
+              </div>
+            
+              <div class="row ctn-search-table" >
+                <div class="col s12 m6" style="margin-top: 24px;">
+                
+                  <a class='dropdown-trigger btn' href='#' id="btnAddConceptUpdate" data-target='dropdownAddConcept'>Agregar especie
+                    <i class="material-icons right">arrow_drop_down</i>
+                  </a>
+                  <a class='btn' href='#' id="btnClearTablePrices" style="background: transparent;color: #000;">Borrar especie
+                    <i class="material-icons left">delete</i>
+                  </a>
+                  
+                  <a id="btnUpdateCurrencyTypeHexp" href="javascript:void(0)" class="btn btn-update-hexp" title="Actualización tipo de cambio.">
+                  
+                   <!-- Contenedor Para las banderas-->
+                    <div class="ctn-flag-hexp">
+                      <svg class="flag-hexp" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+                        <circle style="fill:#F0F0F0;" cx="256" cy="256" r="256"> 
+                          <title>Dolares</title>
+                        </circle>
+                        <g>
+                          <path style="fill:#D80027;" d="M244.87,256H512c0-23.106-3.08-45.49-8.819-66.783H244.87V256z"></path>
+                          <path style="fill:#D80027;" d="M244.87,122.435h229.556c-15.671-25.572-35.708-48.175-59.07-66.783H244.87V122.435z"></path>
+                          <path style="fill:#D80027;" d="M256,512c60.249,0,115.626-20.824,159.356-55.652H96.644C140.374,491.176,195.751,512,256,512z"></path>
+                          <path style="fill:#D80027;" d="M37.574,389.565h436.852c12.581-20.529,22.338-42.969,28.755-66.783H8.819C15.236,346.596,24.993,369.036,37.574,389.565z"></path>
+                        </g>
+                        <path style="fill:#0052B4;" d="M118.584,39.978h23.329l-21.7,15.765l8.289,25.509l-21.699-15.765L85.104,81.252l7.16-22.037C73.158,75.13,56.412,93.776,42.612,114.552h7.475l-13.813,10.035c-2.152,3.59-4.216,7.237-6.194,10.938l6.596,20.301l-12.306-8.941c-3.059,6.481-5.857,13.108-8.372,19.873l7.267,22.368h26.822l-21.7,15.765l8.289,25.509l-21.699-15.765l-12.998,9.444C0.678,234.537,0,245.189,0,256h256c0-141.384,0-158.052,0-256C205.428,0,158.285,14.67,118.584,39.978z M128.502,230.4l-21.699-15.765L85.104,230.4l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822l-21.7,15.765L128.502,230.4zM120.213,130.317l8.289,25.509l-21.699-15.765l-21.699,15.765l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L120.213,130.317z M220.328,230.4l-21.699-15.765L176.93,230.4l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822l-21.7,15.765L220.328,230.4z M212.039,130.317l8.289,25.509l-21.699-15.765l-21.699,15.765l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L212.039,130.317z M212.039,55.743l8.289,25.509l-21.699-15.765L176.93,81.252l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L212.039,55.743z">
+                        </path>
+                      </svg>
+                      
+                      <svg class="flag-hexp" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+                        <circle style="fill:#0052B4;" cx="256" cy="256" r="256"><title>Euros</title></circle> 
+                        <g>
+                          <polygon style="fill:#FFDA44;" points="256.001,100.174 264.29,125.683 291.11,125.683 269.411,141.448 277.7,166.957  256.001,151.191 234.301,166.957 242.59,141.448 220.891,125.683 247.712,125.683 	"/>
+                          <polygon style="fill:#FFDA44;" points="145.814,145.814 169.714,157.99 188.679,139.026 184.482,165.516 208.381,177.693 181.89,181.889 177.694,208.381 165.517,184.482 139.027,188.679 157.992,169.714 	"/>
+                          <polygon style="fill:#FFDA44;" points="100.175,256 125.684,247.711 125.684,220.89 141.448,242.59 166.958,234.301 151.191,256 166.958,277.699 141.448,269.411 125.684,291.11 125.684,264.289 	"/>
+                          <polygon style="fill:#FFDA44;" points="145.814,366.186 157.991,342.286 139.027,323.321 165.518,327.519 177.693,303.62 181.89,330.111 208.38,334.307 184.484,346.484 188.679,372.974 169.714,354.009 	"/>
+                          <polygon style="fill:#FFDA44;" points="256.001,411.826 247.711,386.317 220.891,386.317 242.591,370.552 234.301,345.045 256.001,360.809 277.7,345.045 269.411,370.552 291.11,386.317 264.289,386.317 	"/>
+                          <polygon style="fill:#FFDA44;" points="366.187,366.186 342.288,354.01 323.322,372.975 327.519,346.483 303.622,334.307 330.112,330.111 334.308,303.62 346.484,327.519 372.974,323.321 354.009,342.288 	"/>
+                          <polygon style="fill:#FFDA44;" points="411.826,256 386.317,264.289 386.317,291.11 370.552,269.41 345.045,277.699 360.81,256 345.045,234.301 370.553,242.59 386.317,220.89 386.317,247.712 	"/>
+                          <polygon style="fill:#FFDA44;" points="366.187,145.814 354.01,169.714 372.975,188.679 346.483,184.481 334.308,208.38 330.112,181.889 303.622,177.692 327.519,165.516 323.322,139.027 342.289,157.991 	"/>
+                        </g>
+                      </svg>
+                     
+                    </div>
+                  </a>
+               
+                  <!-- Opciones para agregar los comceptos -->
+                  <ul id="dropdownAddConcept" class="dropdown-content" style="margin-top: 2% !important; margin-left: 5% !important;">
+                    <li><a id="addConceptUpdate">Por búsqueda</a></li>
+                    <li class="divider"></li>
+                    <li><a id="addConceptUpdateForFamily">Por familia</a></li>
+                  </ul> 
+                 
+                  
+                </div>
+                
+                <div class="col s12 m6">
+                  <div class="input-field">
+                    <i class="material-icons prefix">search</i>
+                    <input id="txtSearchTableUpdatePrices" type="text" class="validate">
+                    <label for="txtSearchTableUpdatePrices">Buscar</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <table id="tblUpdatePrices" class="responsive-table striped">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Nombre de la especie</th>
+                      <th>Unidad Agrocity</th>
+                      <th>Unidad Competidor</th>
+                      <th>Cantidad</th>                      
+                      <th>P.U.</th>
+                      <th>Moneda</th>
+                      <th>I.V.A.</th>
+                      <th>Importe</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="info-message">
+                     <td colspan="9">No hay especies para mostrar.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="row">
+                 <div class="col s12 ctn-pagination">
+                   <span class="left spnTotalPagination"></span>
+                   <ul class="pagination pager" id="ulPaginationUpdatePrices"></ul>
+                 </div>
+              </div>
+              
+              <div class="row">
+                 <div class="col s12 right-align">
+                   <a class="waves-effect waves-light btn-small" id="guardarCambiosPreciosCompetidor">Guardar cambios</a>
+                 </div>
+              </div>
+
+            </div>
+          </div>
+          
+        </div><!-- Cierre contenedor de actualizar precios -->
+        
+        <!-- Contenedor de Analizador de precios -->
+        <div id="ctnPricesAnalyzer" class="hidden">
+          
+          <h1>Analizador de precios</h1>
+          <p>...</p>
+          <div class="panel-primary">
+            <div class="panel-primary-header">Búsqueda de especies</div>
+            <div class="panel-primary-body">
+              <form id="frmSearchConceptOC" autocomplete="off">
+                <div class="row">
+                  <div class="col s12 m6 xl6">
+                    <label for="contDepartmentSearchOC">Departamento:</label>
+                    <div class="chips chips-autocomplete" id="contDepartmentSearchOC">
+                      <input style="width:100% !important">
+                    </div>
+                  </div>
+                  <div class="col s12 m6 xl6">
+                    <label for="contFamilySearchOC">Familia:</label>
+                    <div class="chips chips-autocomplete" id="contFamilySearchOC">
+                      <input style="width:100% !important">
+                    </div>
+                  </div>
+                </div>
+                  <div class="row">
+                    <div class="col s12 m6 xl6">
+                      <label for="contKeywordSearchOC">Palabra clave:</label>
+                      <div class="chips chips-autocomplete" id="contKeywordSearchOC">
+                        <input style="width:100% !important">
+                      </div>
+                    </div>
+                    <div class="col s12 m6 xl6">
+                      <label for="contCompetitorOC">Competidor:</label>
+                      <div class="chips chips-autocomplete" id="contCompetitorOC">
+                        <input style="width:100% !important">
+                      </div>
+                    </div>
+                  </div>
+                <div class="row">
+                  <div class="col s12 m12 xl12">                    
+                    <label for="contSpecieSearchOC">Especie:</label>
+                      <div class="chips chips-autocomplete" id="contSpecieSearchOC">
+                        <input style="width:100% !important">
+                      </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col s12 text-right">
+                    <!--button id="btnUpdatePriceAnalysisOC" title="Actualizar lista de precios" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons">refresh</i></button-->
+                    <button id="btnSearchPriceCompetitors" type="submit" class="btn waves-effect waves-light btn-secundary">Buscar</button>
+                  </div>
+                </div>
+              </form>
+              <div class="row" style="width: 100%;overflow: auto;">
+                 <table id="tblPriceCompetitors" class="responsive-table mdl-bordered">
+                  <thead>
+                    <tr></tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
+              </div>
+              <div class="row">
+                <div class="col s12 ctn-pagination" style="text-align: right;">
+                  <span class="left spnTotalPagination"></span>
+                  <ul class="pagination pager" id="ulPaginationPriceAnalysisOC"></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><!-- Cierre contenedor de Analizador precios -->
+       
+      </div> 
+    </div>
+    <!-- Modal: Para ver detalles de los fabricantes -->
+    <div id="mdlDetailsCompetitor" class="modal modal-fixed-footer mdl-competitor">
+      <div class="modal-content">
+      
+        <div>
+          <h5>Detalles</h5>
+          
+          <div class="row">
+        
+            <div class="col s4 mdl-details">
+              <label>Competidor</label>
+              <span id="spnCompetitorName"></span>
+            </div>
+            
+            <div class="col s4 mdl-details">
+              <label>Razón Social</label>
+              <span id="spnSocialReason"></span>
+            </div>
+          
+            <div class="col s4 mdl-details">
+              <label>RFC</label>
+              <span id="spnRfc"></span>
+            </div>
+            
+          </div>
+          
+          <div class="row">
+        
+            <div class="col s4 mdl-details">
+              <label>Presencia</label>
+              <span id="spnPresence"></span>
+            </div>
+            
+            <div class="col s8 mdl-details">
+              <label>Domicilio Fiscal</label>
+              <span id="spnAddress"></span>
+            </div>
+            
+          </div>          
+          
+          <div class="row">
+            
+             <div class="col s3 mdl-details">
+               <label>Contacto</label>
+               <span id="spnContacto"></span>
+            </div>
+            
+            <div class="col s3 mdl-details">
+              <label>Teléfono de oficina</label>
+              <span id="spnTelOficina"></span>
+            </div>            
+            
+            <div class="col s3 mdl-details">
+              <label>Teléfono móvil</label>
+              <span id="spnTelMovil"></span>
+            </div>
+            
+            <div class="col s3 mdl-details">
+              <label>Sitio Web</label>
+              <span id="spnWeb"></span>
+            </div>
+            
+          </div>              
+                    
+        </div><!-- Fin contenedor del panel de búsqueda-->
+      
+      </div>
+      
+      <div class="modal-footer">
+        <a  href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-primary">Aceptar</a>
+      </div>
+    
+    </div> <!-- Final del modal para mostrar los datos de los comeptidores -->
+    
+    
+    <!-- Modal: para especificar la equivalencia de unidades del competidor vs agrocity -->
+    <div id="mdlEquivalenciasCompetidor" class="modal modal-fixed-footer mdl-competitor">
+      <form id="frmEquivalenciasCompetitor" autocomplete="off" >
+        <div class="modal-content">
+      
+            <h5>Equivalencias de Unidades de Medidad con el Competidor</h5>
+           
+            <div class="panel-primary">
+              <div class="panel-primary-header">
+                Especifica las equivalencias a continuación
+              </div>
+              <div class="panel-primary-body">
+                <div class="row">
+                
+                  <!--div class="col s6 m6 x6 input-field">
+                    <select id="competitorUM"></select>
+                    <label>Unidad de Medida del Competidor<span class="md-asterisk">*</span></label>
+                  </div-->
+                  
+                  <div class="col s6 m6 x6 input-field">
+                    <input id="agrocityUnidadCotizar" type="text" required>
+                    <label>Cantidad a Cotizar<span class="md-asterisk">*</span></label>
+                  </div>
+                
+                </div>
+                <div class="row">
+                  
+                  <div class="col s6 m3 x3 input-field">
+                    <input id="competitorUnidad" type="text" value="1" required>
+                    <label>Cantidad del competidor<span class="md-asterisk">*</span></label>
+                  </div>
+                  <div class="col s6 m3 x3 input-field">
+                    <select id="competitorUM"></select>
+                    <label>Unidad del Competidor<span class="md-asterisk">*</span></label>
+                    <input id="competitorUnidadText" type="hidden" readonly>
+                  </div>
+                  <!--div class="col s6 m2 x2 input-field">
+                    <input id="competitorUnidadText" type="text" readonly>
+                  </div-->
+                  
+                  <div class="col s6 m4 x4 input-field">
+                    <i class="material-icons prefix">compare_arrows</i>
+                    <input id="agrocityUnidad" type="text">
+                    <label>Cantidad AgroCity<span class="md-asterisk">*</span></label>
+                  </div>
+                  
+                  <div class="col s6 m2 x2 input-field">
+                    <input id="agrocityUnidadText" type="text" readonly>
+                    <label>Unidad AgroCity</label>
+                  </div> 
+                
+                </div>
+                <div class="row">
+                     <div class="card-panel hoverable">
+                        <strong id="competitorUMText"></strong> del competidor es equivalente a <strong id="agrocityUMText"></strong> de Agrocity.
+                        <br />
+                        <hr/>
+                        <br />
+                        Se están cotizando <strong id="cantidadCompetidoraCotizar"></strong> del competidor.
+                     </div>
+                </div>                 
+              </div>
+            </div>
+        </div> <!--FIn modal-content-->
+        
+        <div class="modal-footer">
+         <button class="waves-effect waves-light btn btn-cancel-confirm" type="button" id="btnCancelEquivalencia" >Cancelar</button>
+         <a class="btn waves-effect waves-light" id="btnGuardarEquivalencias" style ="background-color: var(--main-color-blue) !important;">Guardar</a>
+        </div>
+      </form>
+    
+    </div> <!-- Final del modal para mostrar los datos de los comeptidores -->
+    
+    <!-- Modal: Para creación o modificación de competidor -->
+    <div id="mdlCreateCompetitor" class="modal modal-fixed-footer mdl-competitor">
+      <form id="frmCreateCompetidor" autocomplete="off" > 
+        <input id="txtIdCompetitor" type="hidden">
+        <div class="modal-content">
+      
+            <h5>Registro de Competidor</h5>
+           
+            <div class="panel-primary">
+              <div class="panel-primary-header">
+                Ingresa los datos a continuación
+              </div>
+              <div class="panel-primary-body">
+                <div class="row">
+                  
+                  <div class="col s12 m12 x12 input-field">
+                    <i class="material-icons prefix">business</i>
+                    <input id="txtNameCompetitor" type="text" required>
+                    <label for="txtNameCompetitor">Nombre del competidor<span class="md-asterisk">*</span></label>
+                  </div> 
+                  
+                </div>
+                <div class="row">
+                
+                  <div class="col s12 m6 xl6 input-field">
+                    <i class="material-icons prefix">domain</i>
+                    <input id="txtCompetitorSocialReason" type="text" required>
+                    <label for="txtCompetitorSocialReason">Razón Social<span class="md-asterisk">*</span></label>
+                  </div>
+                  
+                  <div class="col s12 m6 xl6 input-field">
+                    <i class="material-icons prefix">fingerprint</i>
+                    <input id="txtCompetitorRFC" type="text">
+                    <label for="txtCompetitorRFC">RFC</label>
+                  </div>
+                
+                </div>
+                <div class="row">
+                  
+                  <div class="col s4 m4 x12 input-field">
+                    <label>
+                    <input type="checkbox" value="TAMAULIPAS" name="txtCompetitorPresencia"/>
+                    <span>Tamaulipas</span>
+                    </label>                                     
+                  </div>
+                  <div class="col s4 m4 x12 input-field">
+                    <label>
+                    <input type="checkbox" value="MICHOACÁN" name="txtCompetitorPresencia"/>
+                    <span>Michoacán</span>
+                    </label>                                     
+                  </div>
+                  <div class="col s4 m4 x12 input-field">
+                    <label>
+                    <input type="checkbox" value="NAYARIT" name="txtCompetitorPresencia"/>
+                    <span>Nayarit</span>
+                    </label>                                    
+                  </div>   
+                  
+                </div>
+                <div class="row">
+                
+                  <div class="col s12 m12 x12 input-field">
+                    <i class="material-icons prefix">home</i>
+                    <input id="txtCompetitorAddress" type="text">
+                    <label for="txtCompetitorAddress">Domicilio Fiscal</label>
+                  </div>
+
+                </div>
+                <div class="row">
+                  
+                  <div class="col s12 m4 x4 input-field">
+                    <i class="material-icons prefix">person</i>
+                    <input id="txtCompetitorContacto" type="text" required>
+                    <label for="txtCompetitorContacto">Contacto<span class="md-asterisk">*</span></label>
+                  </div>
+                  
+                  <div class="col s12 m4 x4 input-field">
+                    <i class="material-icons prefix">phone</i>
+                    <input id="txtCompetitorPhone" type="text">
+                    <label for="txtCompetitorPhone">Teléfono de oficina</label>
+                  </div>
+                  
+                  <div class="col s12 m4 x4 input-field">
+                    <i class="material-icons prefix">phone_iphone</i>
+                    <input id="txtCompetitorMobile" type="text">
+                    <label for="txtCompetitorMobile">Teléfono Móvil</label>
+                  </div>
+                 
+                 </div>
+                <div class="row">
+                  
+                  <div class="col s12 m12 x12 input-field">
+                    <i class="material-icons prefix">web</i>
+                    <input id="txtCompetitorWeb" type="text">
+                    <label for="txtCompetitorWeb">Sitio Web</label>
+                  </div>
+                  
+                </div>
+              </div>
+            </div>
+        </div> <!--FIn modal-content-->
+        
+        <div class="modal-footer">
+         <button class="waves-effect waves-light btn btn-cancel-confirm" type="button" id="btnCancelCreation" >Cancelar</button>
+         <button class="btn waves-effect waves-light" type="submit" style ="background-color: var(--main-color-blue) !important;">Registrar Datos</button>
+        </div>
+      </form>
+    </div> <!-- Final del modal de creación de fabricantes o paqueteria-->
+   
+    <!-- Modal: Búsqueda de especies -->
+    <div id="mdlSearchConceptsUpdate" class="modal modal-fixed-footer modal-fixed-header">
+      
+        <div class="modal-header">
+          <div class="row">
+            <div class="col s12 m12 xl12 content__header-modal" id="ctnTitleSearchConcepts">
+            	<h4>Búsqueda de especies</h4>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-content">
+          <div id="mdlPanelSearch">
+            <form id="frmSearchConcept" autocomplete="off">
+              <div class="row" style="margin-bottom: 0px;">
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" id="btnDepartmentSearchUpdate">account_circle</i>
+                  <input id="txtDepartmentSearchUpdate" type="text" style="text-transform: uppercase;">
+                  <label for="txtDepartmentSearchUpdate">Departamento</label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" id="btnFamilySearchUpdate">account_circle</i>
+                  <input id="txtFamilySearchUpdate" type="text" style="text-transform: uppercase;">
+                  <label for="txtFamilySearchUpdate">Familia</label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" id="btnKeywordSearchUpdate">account_circle</i>
+                  <input id="txtKeywordSearchUpdate" type="text" style="text-transform: uppercase;">
+                  <label for="txtKeywordSearchUpdate">Palabra clave</label>
+                </div>
+              </div>
+              
+              <div class="row" style="margin-bottom: 0px;">
+                <div class="col s12 input-field">
+                  <input id="txtSpecieSearchUpdate" type="text" style="text-transform: uppercase;">
+                  <label for="txtSpecieSearchUpdate">Especie</label>
+                </div>
+              </div>
+              
+              <div class="row" style="display:none;">
+                <div class="col s12 m12 xl12 input-field" id="pnlGenderSearchUpdate">
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col s12 text-right">
+                  <button id="btnUpdateConceptList" title="Actualizar lista de especies" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons">refresh</i></button>
+                  <!--<button id="btnOpenAddConcept" type="button" class="waves-effect waves-light btn btn-primary">Crear especie</button>-->
+                  <button id="btnSearchConcept" type="submit" class="btn waves-effect waves-light btn-secundary">Buscar</button>
+                </div>
+              </div>
+            </form>
+            
+            <div class="row">
+              <table id="tblConceptList" class="responsive-table">
+                <thead style="background: #e8e8e8;">
+                  <tr>
+                    <th>Departamento</th>
+                    <th>Especie</th>
+                    <th>Familia</th>
+                    <th>Palabra clave</th>
+                    <th>Precio</th>
+                    <th class="center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="info-message">
+                    <td colspan="6">No hay especies para mostrar.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="row">
+              <div class="col s12 ctn-pagination" style="text-align: right;">
+                <span class="left spnTotalPagination"></span>
+                <ul class="pagination" id="ulConceptPagination"></ul>
+              </div>
+            </div>
+          
+          </div><!-- Fin contenedor del panel de búsqueda-->
+          
+        </div>
+      
+      <div class="modal-footer">
+        <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+      </div>
+     
+    </div> <!-- Final modal de búsqueda de especies -->
+     
+      
+    <!-- Modal: Búsqueda de especies -->
+    <div id="mdlSearchConceptsUpdateForFamily" class="modal modal-fixed-footer">
+      <div class="modal-content">
+      
+        <div id="mdlPanelSearch">
+          <h5>Búsqueda de especies por familia</h5>
+          <form id="frmSearchConceptForFamily" autocomplete="off">
+            <div class="row">
+              <div class="col s12 m12 xl12">
+                <label for="contFamilySearchForUpdate">Familia:</label>
+                <div class="chips chips-autocomplete" id="contFamilySearchForUpdate">
+               	 <input style="width:100% !important">
+                </div>
+              </div>
+              
+            </div>
+            
+            <div class="row">
+              <div class="col s12 text-right">
+                <button id="btnUpdateConceptListForFamily" title="Actualizar lista de especies" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons size-24">refresh</i></button>
+                <button id="btnSearchConceptForfamily" type="submit" class="btn waves-effect waves-light btn-secundary">Agregar</button>
+              </div>
+            </div>
+          </form>
+        
+        </div><!-- Fin contenedor del panel de búsqueda-->d
+      </div>
+      <div class="modal-footer">
+        <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+      </div>
+     
+     </div> <!-- Final modal de búsqueda de especies -->
+     
+     <!-- Modal: Selección de competidor gráfica -->
+    <div id="mdlSearchCompetitor" class="modal modal-fixed-footer modal-fixed-header" style="width:75%;">
+      <div class="modal-header">
+        <div class="row" style="margin-bottom: 0px; ">
+          <div class="col s6">
+            <h5>Selecciona un Competidor</h5>
+          </div>
+          <div class="input-field col s6">
+            <i class="material-icons prefix">search</i>
+            <input id="mdlSearchCompetitorBuscador" type="text" class="validate">
+            <label for="mdlSearchCompetitorBuscador">Buscar...</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-content">      
+        <div id="mdlPanelSearchCompetitor">          
+          <div class="row" id="contentPanelCompetitor">         
+          </div>
+        </div><!-- Fin contenedor del panel de búsqueda-->
+      </div>
+      <div class="modal-footer">
+        <a href="javascript:closeCompetitorPanel()" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+      </div>
+     
+     </div> <!-- Final modal de búsqueda de especies -->
+    
+     <!-- Modal: Búsqueda de especies para actualizar precios por proyecto-->
+      <div id="mdlAddConceptsForProject" class="modal modal-fixed-footer" style="overflow: visible;max-height: 100%;">
+        <form id="frmSearchConceptsForProject" autocomplete="off">
+          <div class="modal-content">
+          
+            <div>
+              <h5>Búsqueda de especies por proyecto</h5>
+              <br><p>A continuación puede seleccionar uno o varios proyectos, para luego consultar las especies solicitadas en su momento.</p><br>
+              <div class="row">
+                
+                <div class="col s12 m12 xl12 text-right">
+                  <button id="btnUpdateProjects" title="Actualizar lista de proyectos" type="button" class="btn waves-effect" style="background: transparent;color: #000;">
+                    <i class="material-icons left size-24">refresh</i> Lista de proyectos
+                  </button>
+                </div>
+                
+                <div class="col s12 m10 xl10">
+                  <div class="chips chips-autocomplete" id="contUpdateProjects">
+                     <input style="width:100% !important">
+                  </div>
+                </div>
+                <div class="col s12 m2 xl2" style="margin-top: 25px;">
+                  <button id="btnSearchConceptByProject" title="Buscar" type="button" class="btn waves-effect">
+                    Buscar
+                  </button>
+                </div>
+                
+              </div>
+              
+              <div class="row hidden">
+                <div class="col s12">
+                  
+                  <table id="tblSelectedProjects" class="responsive-table striped">
+                    <thead>
+                      <tr>
+                        <th>Nombre del proyecto</th>
+                        <th>Versión</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="info-message">
+                       <td colspan="2">No hay proyectos para mostrar.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  
+                </div>
+              </div>
+              
+            </div><!-- Fin contenedor del panel de búsqueda-->
+            
+          </div>
+          <div class="modal-footer">
+            <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button id="btnAddConceptsByProject" type="submit" class="btn waves-effect waves-light btn-secundary">Agregar</button>
+          </div>
+        </form>
+            
+      </div> <!-- Final del modal de especies para actualizar precios -->
+    
+      <!-- Modal: Actualziación de precios de especies de fabricante por parte de Hidro-->
+      <div id="mdlUpdatePriceSpecie" class="modal modal-fixed-footer modal-fixed-header" style="overflow: visible;max-height: 100%;">
+        <div class="modal-header" style="border: 2px solid #FFFFFF;">
+          <div class="row">
+            <div class="col s12 m12 xl12 content__header-modal" id="ctnTitleSearchConcepts">
+              <h4>Actualización de precio de especie por fabricante</h4>
+            </div>
+          </div>
+        </div>
+        
+        <form id="frmUpdatePriceSpecieF9" autocomplete="off">
+          <div class="modal-content">
+          
+            <div>
+              <br><p>A continuación puede actualizar el precio de la especie.</p><br>
+              <div class="row">
+                
+                <div class="col s12 m6 xl6">
+                
+                  <div class="input-field">
+                    <select id="sltUpdatePriceManufacturerF9"  required>
+                   	 <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltUpdatePriceManufacturerF9">Fabricante</label>
+                  </div>
+                </div>
+                
+                <div class="col s12 m12 xl12 manufacturer__modal-details">
+                  <fieldset>
+                    <legend>Información básica del producto</legend>
+                    
+                    <div class="manufacturer__data-item">
+                      <b>Nombre concepto (Hidro)</b>
+                      <span class="md-asterisk" id="spnManufacturerNameHidroF9">-</span>
+                    </div>
+                    
+                    <div class="div__manufacturer-data">
+                    
+                      <div class="manufacturer__data-item">
+                         <b>Número del fabricante</b>
+                         <span class="md-asterisk" id="spnManufacturerNumberF9">-</span>
+                      </div>
+                      
+                      <div class="manufacturer__data-item">
+                         <b>Fabricante</b>
+                         <span class="md-asterisk" id="spnManufacturerNameF9">-</span>
+                      </div>
+                      
+                      <div class="manufacturer__data-item">
+                         <b>Última actualización</b>
+                         <span class="md-asterisk" id="spnManufacturerDateF9">-</span>
+                      </div>
+                      
+                      <div class="manufacturer__data-item">
+                        <div class="col s12 m6 xl4 input-field">
+                          <input id="txtExchangeUsdF9" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required="true" >
+                          <label for="txtExchangeUsdF9">Tipo cambio Dolar<span class="md-asterisk">*</span></label>
+                        </div>
+                        
+                        <div class="col s12 m6 xl4 input-field">
+                          <input  id="txtExchangeEurF9" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required="true" >
+                          <label for="txtExchangeEurF9">Tipo cambio Euro<span class="md-asterisk">*</span></label>
+                        </div>
+                      </div>
+                      
+                    </div>
+                  </fieldset>
+                </div>
+                
+                <!-- tabla con la información basica del concepto -->
+                <div class="col s12 manufacturer__modal-details">
+                    <br>
+                    <table class="table__bordered table__f9-list">
+                      <thead>
+                        <tr class="primary__color">
+                          <th>Nombre del producto</th>
+                          <th style="width: 40px;">Unidad</th>
+                          <th style="width: 158px;">Moneda</th>
+                          <th style="width: 74px;">Cantidad</th>
+                          <th style="width: 40px;">Precio de distribución</th>
+                          <th style="width: 40px;">Importe</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>
+                            <div class="input-field">
+                              <input id="txtUpdateNameSpecieManufacturerF9" type="text"  required="true"  >
+                            </div>
+                          </td>
+                          <td>
+                            <div class="input-field">
+                              <select id="sltUnitUpdatePriceManufacturerF9" required="true" >
+                                <option value="">--Seleccione--</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="input-field">
+                              <select id="sltCurrencyUpdatePriceManufacturerF9" required="true" >
+                                <option value="">-- Seleccione una opción --</option>
+                                <option value="MX">Moneda Mexicana</option>
+                                <option value="USD">Dolar</option>
+                                <option value="EUR">Euro</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="input-field">
+                              <input id="txtQuantityManufacturerF9" type="text" required="true" >
+                            </div>
+                          </td>
+                          <td>
+                            <div class="input-field">
+                              <input id="txtPriceSpecieManufacturerF9" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required>
+                            </div>
+                          </td>
+                          <td id="spnTotalF9"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    
+                  </div>
+                  
+                  <div class="col s12 manufacturer__modal-details">
+                    <table class="table__bordered table__f9-summary">
+                      <thead>
+                        <tr class="primary__color">
+                          <th colspan="2">Resumen</th>
+                        </tr>
+                        <tr class="secondary__color">
+                          <th>Descripción</th>
+                          <th>Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Subtotal</td>
+                          <td id="tdF9Subtotal">0</td>
+                        </tr>
+                        <tr>
+                          <td>Descuento (%)</td>
+                          <td>
+                            <div class="input-field">
+                              <input id="txtDiscountAppliedF9" type="text" min="0" max="100" required="true">
+                            </div>
+                          </td>
+                        </tr>
+                          <tr>
+                            <td>Iva (%)</td>
+                            <td>
+                              <select id="sltProductIvaF9" class="custom-select" required="true">
+                                <option value="">-- Seleccione una opción --</option>
+                                <option value="0">0</option>
+                                <option value="8">8</option>
+                                <option value="16">16</option>
+                              </select>
+                            </td>
+                          </tr>
+                          <tr>
+                            <th>Total MX</th>
+                            <th id="tdF9Total">0</th>
+                          </tr>
+                      </tbody>
+                    </table>
+                </div>
+                
+              </div>
+              
+            </div><!-- Fin contenedor del panel de búsqueda-->
+            
+          </div>
+          <div class="modal-footer">
+            <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button type="submit" class="btn waves-effect waves-light btn-secundary">Actualizar</button>
+          </div>
+        </form>
+            
+      </div> <!-- Final del modal de actualziación de precioes por parte de Hidro -->      
+      
+       <!-- Modal: Actualización tipo de cambio -->
+      <div id="mdlCurrencyType" class="modal" style="overflow: visible;max-height: 100%;">
+        <form id="frmCurrencyType" autocomplete="off">
+          <div class="modal-content">
+          
+            <div>
+              <h5>Actualización tipo de cambio</h5>
+              
+              <div class="pnl-info">
+                <div>Fecha ultima actualización: <strong id="stgMdlUpdateDate"></strong></div>
+                <!--div>Quién actualizo: <strong id="stgMdlResponsible"></strong></div-->
+                <div  id="pnlInfo"></div>
+              </div>
+              
+              <br><p>La actualización se realizará sobre todos los productos del fabricante.</p><br>
+              <div class="row" id="ctnCurrencyTypeField">
+                
+                <div class="col s12 m12 xl12 input-field">
+                  <input id="txtUpdateCurrencyTypeUSD" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required >
+                  <label for="txtUpdateCurrencyTypeUSD">Tipo de cambio <span class="md-asterisk">*</span></label>
+                </div>
+                
+                <div class="col s12 m12 xl12 input-field">
+                  <input id="txtUpdateCurrencyTypeEUR" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required >
+                  <label for="txtUpdateCurrencyTypeEUR">Tipo de cambio (Euros)<span class="md-asterisk">*</span></label>
+                </div>
+                
+                
+              </div>
+            </div>
+            
+          </div>
+          <div class="modal-footer">
+            <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button id="btnUpdateCurrencyType" type="submit" class="btn waves-effect waves-light btn-secundary">Actualizar</button>
+          </div>
+        </form>
+            
+      </div> <!-- Final del modal de especies para actualizar precios -->
+    
+      <!-- Modal: Actualización tipo de cambio -->
+      <div id="mdlChangeCurrencyHexp" class="modal modal-fixed-footer" style="overflow: visible;max-height: 100%;">
+        <form id="frmCurrencyTypeHexpDE" autocomplete="off">
+          <div class="modal-content">
+          
+            <div>
+              <h5>Actualización tipo de cambio</h5>
+              
+              <div class="pnl-info">
+                <div>Fecha última actualización: <strong id="stgMdlUpdateDateHexp"></strong></div>
+                <div>Quién actualizo: <strong id="stgMdlResponsibleHexp"></strong></div>
+                <div  id="pnlInfoHexp">
+                  <div>Tipo de cambio actual (dolar): <strong id="strUSD"></strong></div>
+                  <div>Tipo de cambio actual (euros): <strong id="strEUR"></strong></div>
+                </div>
+              </div>
+              <p>
+                <a href="https://www.banxico.org.mx/tipcamb/main.do?page=tip&idioma=sp" target="_blank">https://www.banxico.org.mx/tipcamb/main.do?page=tip&idioma=sp</a>
+              </p>
+              <br><p>La actualización se realizará sobre todos las especies que esten o se agregen a la tabla.</p><br>
+              <div class="row hide" >   
+                
+                <div class="col s12 m12 xl12 input-field">
+                  <i class="material-icons prefix">
+                    <svg class="field-flag" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+                      <circle style="fill:#F0F0F0;" cx="256" cy="256" r="256">
+                        <title>Dolares</title>
+                      </circle>
+                      <g>
+                        <path style="fill:#D80027;" d="M244.87,256H512c0-23.106-3.08-45.49-8.819-66.783H244.87V256z"></path>
+                        <path style="fill:#D80027;" d="M244.87,122.435h229.556c-15.671-25.572-35.708-48.175-59.07-66.783H244.87V122.435z"></path>
+                        <path style="fill:#D80027;" d="M256,512c60.249,0,115.626-20.824,159.356-55.652H96.644C140.374,491.176,195.751,512,256,512z"></path>
+                        <path style="fill:#D80027;" d="M37.574,389.565h436.852c12.581-20.529,22.338-42.969,28.755-66.783H8.819C15.236,346.596,24.993,369.036,37.574,389.565z"></path>
+                      </g>
+                      <path style="fill:#0052B4;" d="M118.584,39.978h23.329l-21.7,15.765l8.289,25.509l-21.699-15.765L85.104,81.252l7.16-22.037C73.158,75.13,56.412,93.776,42.612,114.552h7.475l-13.813,10.035c-2.152,3.59-4.216,7.237-6.194,10.938l6.596,20.301l-12.306-8.941c-3.059,6.481-5.857,13.108-8.372,19.873l7.267,22.368h26.822l-21.7,15.765l8.289,25.509l-21.699-15.765l-12.998,9.444C0.678,234.537,0,245.189,0,256h256c0-141.384,0-158.052,0-256C205.428,0,158.285,14.67,118.584,39.978z M128.502,230.4l-21.699-15.765L85.104,230.4l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822l-21.7,15.765L128.502,230.4zM120.213,130.317l8.289,25.509l-21.699-15.765l-21.699,15.765l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L120.213,130.317z M220.328,230.4l-21.699-15.765L176.93,230.4l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822l-21.7,15.765L220.328,230.4z M212.039,130.317l8.289,25.509l-21.699-15.765l-21.699,15.765l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L212.039,130.317z M212.039,55.743l8.289,25.509l-21.699-15.765L176.93,81.252l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L212.039,55.743z">
+                      </path>
+                    </svg>
+                  </i>
+                  <input id="txtUpdateCurrencyTypeUSDHexp" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required >
+                  <label for="txtUpdateCurrencyTypeUSDHexp">Tipo de cambio (Dolares)<span class="md-asterisk">*</span></label>
+                </div>
+                
+                <div class="col s12 m12 xl12 input-field">
+                
+                   <i class="material-icons prefix">
+                     <svg class="field-flag" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+                       <circle style="fill:#0052B4;" cx="256" cy="256" r="256">
+                         <title>Euros</title>
+                       </circle>
+                       <g>
+                         <polygon style="fill:#FFDA44;" points="256.001,100.174 264.29,125.683 291.11,125.683 269.411,141.448 277.7,166.957 256.001,151.191 234.301,166.957 242.59,141.448 220.891,125.683 247.712,125.683 "/>
+                         <polygon style="fill:#FFDA44;" points="145.814,145.814 169.714,157.99 188.679,139.026 184.482,165.516 208.381,177.693 181.89,181.889 177.694,208.381 165.517,184.482 139.027,188.679 157.992,169.714 "/>
+                         <polygon style="fill:#FFDA44;" points="100.175,256 125.684,247.711 125.684,220.89 141.448,242.59 166.958,234.301 151.191,256 166.958,277.699 141.448,269.411 125.684,291.11 125.684,264.289"/>
+                         <polygon style="fill:#FFDA44;" points="145.814,366.186 157.991,342.286 139.027,323.321 165.518,327.519 177.693,303.62 181.89,330.111 208.38,334.307 184.484,346.484 188.679,372.974 169.714,354.009 "/>
+                         <polygon style="fill:#FFDA44;" points="256.001,411.826 247.711,386.317 220.891,386.317 242.591,370.552 234.301,345.045 256.001,360.809 277.7,345.045 269.411,370.552 291.11,386.317 264.289,386.317 "/>
+                         <polygon style="fill:#FFDA44;" points="366.187,366.186 342.288,354.01 323.322,372.975 327.519,346.483 303.622,334.307 330.112,330.111 334.308,303.62 346.484,327.519 372.974,323.321 354.009,342.288"/>
+                         <polygon style="fill:#FFDA44;" points="411.826,256 386.317,264.289 386.317,291.11 370.552,269.41 345.045,277.699 360.81,256 345.045,234.301 370.553,242.59 386.317,220.89 386.317,247.712 	"/>
+                         <polygon style="fill:#FFDA44;" points="366.187,145.814 354.01,169.714 372.975,188.679 346.483,184.481 334.308,208.38 330.112,181.889 303.622,177.692 327.519,165.516 323.322,139.027 342.289,157.991"/>
+                       </g>
+                     </svg>
+                  </i>
+                  <input id="txtUpdateCurrencyTypeEURHexp" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required >
+                  <label for="txtUpdateCurrencyTypeEURHexp">Tipo de cambio (Euros)<span class="md-asterisk">*</span></label>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+          <div class="modal-footer" id="btnUpdateCurrencyTypeHexpDE">
+            <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <!--button id="btnUpdateCurrencyTypeHexpDE" type="submit" class="btn waves-effect waves-light btn-secundary">Actualizar</button!-->
+          </div>
+        </form>
+            
+      </div> <!-- Final del modal de especies para actualizar precios -->
+    
+    <!-- Libreria de propia del producto -->
+    <?!= includeHtmlFile("Js_MainEnvironment", false, true, {userRole: userRole}) ?>
+    
+  </body>
+</html>

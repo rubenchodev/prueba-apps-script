@@ -1,0 +1,968 @@
+<style>
+.alert .card-content span {
+  font-weight: bold;
+  font-size: 1.1em;
+  margin-right: 4px;
+}
+.alert .card-content .material-icons {
+  font-size: 1.5em;
+  position: relative;
+  top: 5px;
+  margin-right: 0.5em;
+}
+/* =========================================================
+   SISTEMA DE RIEGO
+========================================================= */
+
+.qcmd__category-header-between{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.qcmd__category-header-between > div{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.qcmd__category-header-between > div i{
+  font-size:18px;
+}
+
+.qcmd__category-header-between button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  width:auto;
+  min-height:34px;
+  padding:0 14px;
+  border:none;
+  border-radius:10px;
+  background:#1976D2;
+  color:#FFFFFF;
+  cursor:pointer;
+  font-size:13px;
+  font-weight:600;
+  transition:all .18s ease;
+}
+
+.qcmd__category-header-between button:hover{
+  background:#1565C0;
+  transform:translateY(-1px);
+}
+
+/* =========================================================
+   SISTEMA
+========================================================= */
+
+.qcmdEmitterSystem{
+  padding:14px;
+}
+
+.qcmdEmitterSystem__header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.qcmdEmitterSystem__header span:first-child{
+  font-size:13px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.4px;
+  color:#1565C0;
+}
+
+.qcmdEmitterSystem__badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:26px;
+  padding:0 10px;
+  border-radius:999px;
+  background:#00B8A9;
+  color:#FFFFFF;
+  font-size:11px;
+  font-weight:700;
+}
+
+.qcmdEmitterSystem__grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:12px;
+}
+
+.qcmdEmitterSystem__card{
+  position:relative;
+  padding:16px;
+  border:1px solid #DCE8F5;
+  border-radius:14px;
+  background:#FFFFFF;
+  cursor:pointer;
+  transition:all .18s ease;
+}
+
+.qcmdEmitterSystem__card:hover{
+  border-color:#00B8A9;
+  transform:translateY(-2px);
+  box-shadow:0 10px 20px rgba(15,23,42,.08);
+}
+
+.qcmdEmitterSystem__card--active{
+  border:2px solid #00B8A9;
+  box-shadow:0 0 0 3px rgba(0,184,169,.10);
+}
+
+.qcmdEmitterSystem__card-dot{
+  position:absolute;
+  top:12px;
+  right:12px;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#CFD8DC;
+}
+
+.qcmdEmitterSystem__card--active .qcmdEmitterSystem__card-dot{
+  background:#7AC943;
+  box-shadow:0 0 0 3px rgba(122,201,67,.2);
+}
+
+.qcmdEmitterSystem__card-title{
+  margin-bottom:6px;
+  font-size:15px;
+  font-weight:700;
+  color:#123B63;
+}
+
+.qcmdEmitterSystem__card-description{
+  font-size:13px;
+  line-height:1.45;
+  color:#607D8B;
+}
+
+/* =========================================================
+   SUBÁREAS
+========================================================= */
+
+.qcmdEmitterSubareas{
+  margin-top:14px;
+  border:1px solid #E3F2FD;
+  border-radius:14px;
+  background:#FFFFFF;
+  overflow:hidden;
+}
+
+.qcmdEmitterSubareas__header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:14px 16px;
+  background:#F8FBFF;
+  border-bottom:1px solid #E3F2FD;
+}
+
+.qcmdEmitterSubareas__title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  font-weight:700;
+  color:#1565C0;
+  text-transform:uppercase;
+}
+
+.qcmdEmitterSubareas__title i{
+  font-size:18px;
+}
+
+.qcmdEmitterSubareas__add{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:36px;
+  padding:0 14px;
+  border:none;
+  border-radius:10px;
+  background:#1976D2;
+  color:#FFFFFF;
+  cursor:pointer;
+  font-size:13px;
+  font-weight:600;
+  transition:all .18s ease;
+}
+
+.qcmdEmitterSubareas__add:hover{
+  background:#1565C0;
+}
+
+.qcmdEmitterSubareas__add i{
+  font-size:18px;
+}
+
+/* =========================================================
+   LISTADO
+========================================================= */
+
+.qcmdEmitterSubareas__list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:12px;
+  max-height:420px;
+  overflow:auto;
+}
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+.qcmdEmitterSubareas__empty{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:28px 16px;
+  border:1px dashed #CFD8DC;
+  border-radius:14px;
+  background:#FAFCFF;
+  text-align:center;
+}
+
+.qcmdEmitterSubareas__empty i{
+  font-size:42px;
+  color:#B0BEC5;
+}
+
+.qcmdEmitterSubareas__empty span{
+  font-size:13px;
+  font-weight:600;
+  color:#78909C;
+}
+
+/* =========================================================
+   CARD COMPACTA
+========================================================= */
+
+.qcmdEmitterCard{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:14px;
+  border:1px solid #E5EDF5;
+  border-radius:14px;
+  background:#FFFFFF;
+  transition:all .18s ease;
+}
+
+.qcmdEmitterCard:hover{
+  border-color:#BBDEFB;
+  box-shadow:0 6px 18px rgba(15,23,42,.06);
+}
+
+/* =========================================================
+   HEADER CARD
+========================================================= */
+
+.qcmdEmitterCard__header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.qcmdEmitterCard__title{
+  font-size:15px;
+  font-weight:700;
+  color:#263238;
+  line-height:1.2;
+}
+
+.qcmdEmitterCard__subtitle{
+  margin-top:2px;
+  font-size:12px;
+  font-weight:600;
+  color:#607D8B;
+}
+
+/* =========================================================
+   ACCIONES
+========================================================= */
+
+.qcmdEmitterCard__actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.qcmdEmitterCard__actions .qcmd__icon-btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:30px;
+  height:30px;
+  border:none;
+  border-radius:9px;
+  background:#F5F7FA;
+  color:#607D8B;
+  cursor:pointer;
+  transition:all .15s ease;
+}
+
+.qcmdEmitterCard__actions .qcmd__icon-btn:hover{
+  transform:translateY(-1px);
+}
+
+.qcmdEmitterBtnEdit:hover{
+  background:#E3F2FD !important;
+  color:#1565C0 !important;
+}
+
+.qcmdEmitterBtnDelete:hover{
+  background:#FFEBEE !important;
+  color:#D32F2F !important;
+}
+
+.qcmdEmitterCard__actions .qcmd__icon-btn i{
+  font-size:18px;
+}
+
+/* =========================================================
+   GRID INFORMACIÓN
+========================================================= */
+
+.qcmdEmitterCard__grid{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:8px;
+}
+
+.qcmdEmitterCard__grid > div{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  padding:10px;
+  border-radius:10px;
+  background:#F8FAFC;
+}
+
+.qcmdEmitterCard__grid span{
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.4px;
+  color:#90A4AE;
+}
+
+.qcmdEmitterCard__grid b{
+  font-size:13px;
+  font-weight:700;
+  color:#263238;
+  word-break:break-word;
+}
+
+/* =========================================================
+   TAGS
+========================================================= */
+
+.qcmdEmitterCard__footer{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.qcmdEmitterTag{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:24px;
+  padding:0 10px;
+  border-radius:999px;
+  background:#E3F2FD;
+  color:#1565C0;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.2px;
+  white-space:nowrap;
+}
+
+/* =========================================================
+   FOOTER RESUMEN
+========================================================= */
+
+.qcmdEmitterSubareas__footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:14px 16px;
+  border-top:1px solid #ECEFF1;
+  background:#FAFCFF;
+  font-size:13px;
+  color:#607D8B;
+}
+
+.qcmdEmitterSubareas__footer b{
+  font-size:14px;
+  color:#263238;
+}
+
+/* =========================================================
+   MODAL
+========================================================= */
+
+.qcmdEmitter__modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.45);
+  opacity:0;
+  visibility:hidden;
+  transition:.18s ease;
+  z-index:9998;
+}
+
+.qcmdEmitter__modal-overlay--open{
+  opacity:1;
+  visibility:visible;
+}
+
+.qcmdEmitter__modal{
+  position:fixed;
+  top:50%;
+  left:50%;
+  width:min(760px, calc(100vw - 32px));
+  max-height:calc(100vh - 40px);
+  display:flex;
+  flex-direction:column;
+  border-radius:18px;
+  background:#FFFFFF;
+  overflow:hidden;
+  transform:translate(-50%, -50%) scale(.96);
+  opacity:0;
+  visibility:hidden;
+  transition:.18s ease;
+  z-index:9999;
+  box-shadow:0 24px 60px rgba(15,23,42,.24);
+}
+
+.qcmdEmitter__modal--open{
+  opacity:1;
+  visibility:visible;
+  transform:translate(-50%, -50%) scale(1);
+}
+
+.qcmdEmitter__modal-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:18px 20px;
+  border-bottom:1px solid #ECEFF1;
+}
+
+.qcmdEmitter__modal-title{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:16px;
+  font-weight:700;
+  color:#123B63;
+}
+
+.qcmdEmitter__modal-title i{
+  color:#1565C0;
+}
+
+.qcmdEmitter__modal-close{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  border:none;
+  border-radius:50%;
+  background:#F5F7FA;
+  cursor:pointer;
+  transition:all .18s ease;
+}
+
+.qcmdEmitter__modal-close:hover{
+  background:#ECEFF1;
+}
+
+.qcmdEmitter__modal-body{
+  flex:1;
+  overflow:auto;
+  padding:20px;
+}
+
+/* =========================================================
+   GRID FORMULARIO
+========================================================= */
+
+.qcmdEmitter__form-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:16px;
+}
+
+.qcmdEmitter__field{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+
+.qcmdEmitter__field--full{
+  grid-column:1 / -1;
+}
+
+/* =========================================================
+   LABELS
+========================================================= */
+
+.qcmdEmitter__label{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  margin-bottom:6px;
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.4px;
+  color:#607D8B;
+}
+
+.qcmdEmitter__label::after{
+  content:"*";
+  color:#D32F2F;
+  font-size:12px;
+}
+
+/* =========================================================
+   INPUTS
+========================================================= */
+
+.qcmdEmitter__input,
+.qcmdEmitter__select{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  height:42px !important;
+  padding:0 12px !important;
+  border:1px solid #CFD8DC !important;
+  border-radius:10px !important;
+  background:#FAFCFF !important;
+  box-sizing:border-box !important;
+  font-size:13px !important;
+  color:#263238 !important;
+  transition:all .18s ease !important;
+}
+
+.qcmdEmitter__input:hover,
+.qcmdEmitter__select:hover{
+  border-color:#90CAF9 !important;
+}
+
+.qcmdEmitter__input:focus,
+.qcmdEmitter__select:focus{
+  border-color:#00B8A9 !important;
+  box-shadow:0 0 0 3px rgba(0,184,169,.12) !important;
+  background:#FFFFFF !important;
+}
+
+/* =========================================================
+   ERROR INPUT
+========================================================= */
+
+.qcmdEmitter__field--error .qcmdEmitter__input,
+.qcmdEmitter__field--error .qcmdEmitter__select{
+  border-color:#E53935 !important;
+  background:#FFF8F8 !important;
+}
+
+.qcmdEmitter__field--error .qcmdEmitter__label{
+  color:#D32F2F;
+}
+
+/* =========================================================
+   FOOTER MODAL
+========================================================= */
+
+.qcmdEmitter__modal-footer{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  padding:16px 20px;
+  border-top:1px solid #ECEFF1;
+  background:#FFFFFF;
+}
+
+.qcmdEmitter__btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-width:120px;
+  height:40px;
+  padding:0 18px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:13px;
+  font-weight:700;
+  transition:all .18s ease;
+}
+
+.qcmdEmitter__btn i{
+  font-size:18px;
+}
+
+.qcmdEmitter__btn--cancel{
+  background:#F5F7FA;
+  color:#546E7A;
+}
+
+.qcmdEmitter__btn--cancel:hover{
+  background:#ECEFF1;
+}
+
+.qcmdEmitter__btn--primary{
+  background:#00A896;
+  color:#FFFFFF;
+}
+
+.qcmdEmitter__btn--primary:hover{
+  background:#00897B;
+}
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+.qcmdEmitterSubareas__list::-webkit-scrollbar,
+.qcmdEmitter__modal-body::-webkit-scrollbar{
+  width:8px;
+}
+
+.qcmdEmitterSubareas__list::-webkit-scrollbar-thumb,
+.qcmdEmitter__modal-body::-webkit-scrollbar-thumb{
+  background:#CFD8DC;
+  border-radius:999px;
+}
+
+/* ── Stack de selects de facetas ── */
+.qcmdEmitter__facet-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.qcmdEmitter__facet-stack .qcmdEmitter__select {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 140px;
+}
+
+/* ── Badge de producto pendiente ── */
+.qcmdEmitter__prod-resolved {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 4px;
+  transition: all 0.2s ease;
+}
+
+.qcmdEmitter__prod-pending {
+  background: #f5f5f5;
+  border: 1.5px dashed #ccc;
+  color: #999;
+  font-style: italic;
+}
+
+.qcmdEmitter__prod-pending::before {
+  content: "○";
+  font-size: 16px;
+  color: #ccc;
+  flex-shrink: 0;
+}
+
+/* ── Badge de producto resuelto ── */
+.qcmdEmitter__prod-ok {
+  background: #e8f5e9;
+  border: 1.5px solid #a5d6a7;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.qcmdEmitter__prod-ok::before {
+  content: "✓";
+  font-size: 16px;
+  font-weight: 700;
+  color: #2e7d32;
+  flex-shrink: 0;
+}
+
+/* ── Badge WR ── */
+.qcmdEmitter__wr-badge {
+  display: inline-block;
+  background: #fff3e0;
+  border: 1px solid #ffb74d;
+  color: #e65100;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* ── KPI row ── */
+.qcmd__kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.qcmd__kpi-card {
+  border: 1px solid #E3F2FD;
+  border-top: 3px solid #B0BEC5;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fff;
+}
+.qcmd__kpi-card--teal  { border-top-color: #00897B; }
+.qcmd__kpi-card--blue  { border-top-color: #1976D2; }
+.qcmd__kpi-card--green { border-top-color: #43A047; }
+.qcmd__kpi-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #78909C;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 4px;
+}
+.qcmd__kpi-value {
+  font-size: 15px;
+  font-weight: 600;
+  font-style: italic;
+  color: #263238;
+  line-height: 1;
+}
+.qcmd__kpi-unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: #90A4AE;
+  margin-left: 3px;
+}
+
+/* ── Tabla de materiales ── */
+.qcmd__mat-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.qcmd__mat-table th {
+  font-size: 10px;
+  font-weight: 700;
+  color: #78909C;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 10px 12px;
+  border-bottom: 2px solid #E3F2FD;
+  background: #F8FBFF;
+  text-align: left;
+}
+.qcmd__mat-table td {
+  font-size: 12px;
+  color: #37474F;
+  padding: 10px 12px;
+  border-bottom: 1px solid #ECEFF1;
+  vertical-align: middle;
+}
+.qcmd__mat-table tbody tr:last-child td { border-bottom: none; }
+.qcmd__mat-table tbody tr:hover { background: #F8FBFF; }
+.qcmd__mat-desc { font-weight: 500; color: #263238; }
+.qcmd__mat-qty  { font-weight: 700; font-size: 13px; color: #1A237E; }
+.qcmd__mat-unit { font-size: 11px; color: #90A4AE; margin-left: 2px; }
+.qcmd__mat-lots { font-size: 11px; color: #607D8B; }
+
+/* ── Acciones del header ── */
+.qcmd__category-header { position: relative; }
+.qcmd__mat-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+.qcmd__mat-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1565C0;
+  background: rgba(255,255,255,.6);
+  border: 1px solid rgba(21,101,192,.25);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: background .2s;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.qcmd__mat-action-btn .material-icons { font-size: 13px; }
+.qcmd__mat-action-btn:hover { background: rgba(255,255,255,.95); }
+
+/* ── Toggle desglose ── */
+.qcmd__category-header--toggle {
+  cursor: pointer;
+  user-select: none;
+}
+.qcmd__category-header--toggle:hover { background: #DCE9F9; }
+
+/* ── Tarjeta de sub-área en desglose ── */
+.qcmd__lot-card {
+  border: 1px solid #E3F2FD;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.qcmd__lot-card:last-child { margin-bottom: 0; }
+.qcmd__lot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #F0F7FF;
+  border-bottom: 1px solid #E3F2FD;
+}
+.qcmd__lot-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1565C0;
+}
+.qcmd__lot-meta {
+  font-size: 11px;
+  color: #90A4AE;
+}
+.qcmd__lot-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-bottom: 1px solid #E3F2FD;
+}
+.qcmd__lot-metric {
+  padding: 10px 14px;
+  border-right: 1px solid #ECEFF1;
+}
+.qcmd__lot-metric:last-child { border-right: none; }
+.qcmd__lot-metric-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #90A4AE;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  margin-bottom: 3px;
+}
+.qcmd__lot-metric-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #263238;
+}
+.qcmd__lot-materials {
+  padding: 10px 14px;
+}
+.qcmd__lot-material-row {
+  font-size: 12px;
+  color: #37474F;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.qcmd__lot-material-row::before {
+  content: "•";
+  color: #1976D2;
+  font-weight: 700;
+}
+.qcmd__lot-material-qty {
+  font-weight: 700;
+  color: #1A237E;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 840px){
+
+  .qcmdEmitterSystem__grid{
+    grid-template-columns:1fr;
+  }
+
+  .qcmdEmitterCard__grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px){
+
+  .qcmdEmitter__modal{
+    width:calc(100vw - 20px);
+    max-height:calc(100vh - 20px);
+    border-radius:14px;
+  }
+
+  .qcmdEmitter__modal-body{
+    padding:16px;
+  }
+
+  .qcmdEmitter__form-grid{
+    grid-template-columns:1fr;
+    gap:14px;
+  }
+
+  .qcmdEmitterCard__header{
+    align-items:flex-start;
+  }
+
+  .qcmdEmitterCard__grid{
+    grid-template-columns:1fr;
+  }
+
+  .qcmdEmitterSubareas__header{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .qcmdEmitterSubareas__add{
+    width:100%;
+  }
+
+  .qcmdEmitterSubareas__footer{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .qcmdEmitter__modal-footer{
+    flex-direction:column-reverse;
+  }
+
+  .qcmdEmitter__btn{
+    width:100%;
+  }
+}
+</style>

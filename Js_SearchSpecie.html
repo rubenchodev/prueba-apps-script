@@ -1,0 +1,1082 @@
+<script>
+/*
+* Función encargada de comparar dos objetos y todas sus indices
+*/
+function compareObj(a, b) {
+    var aKeys = Object.keys(a).sort();
+    var bKeys = Object.keys(b).sort();
+    if (aKeys.length !== bKeys.length) {
+        return false;
+    }
+    if (aKeys.join('') !== bKeys.join('')) {
+        return false;
+    }
+    for (var i = 0; i < aKeys.length; i++) {
+        if (a[aKeys[i]]  != b[bKeys[i]]) {
+          if(typeof a[aKeys[i]] === "object" && typeof b[bKeys[i]] === "object" ){
+            compareObj(a[aKeys[i]], b[bKeys[i]]);
+          }else{
+            return false;
+          }
+        }
+    }
+    return true;
+}
+
+/**
+* Función que permite ir actualizando la información de LocalStorage cada vez que voy diligenciando los datos en el formulario de creación de una cotización
+**/
+function updateTemporalData(){
+  
+    // referenciamos el formulario como objeto Jquery
+    var $form = $("#frmCreateQuotation");
+    
+    // se obtiene que tipo de acción que se debe realizar
+    var action = $form.data("action");
+    
+    // obtenemos los datos del formulario
+    var formData = getOnlyDataToForm(action, false);
+    
+    // validamos si la acción es crear y existe la propiedad
+    if(action == "creation" && Lockr.get("snva_temporal_data")){
+    
+      // agregamos los datos del formulario en localStorage
+      Lockr.set("snva_temporal_data", formData);
+    
+    // validamos si la acción es de modificar  
+    }else if(action == "modification"){
+      
+      // obtenemos los datos iniciales del formulario
+      var initFormData = $form.data("initFormData");
+
+      // validamos si hay diferencias en los objetos
+      if(formData && initFormData && !compareObj(formData, initFormData )){
+        
+        // establecemos el estado de guardado
+        $form.data("isAutoSave", true);
+      }else{
+        
+        // establecemos el estado de guardado
+        $form.data("isAutoSave", false);
+      }
+    }
+    
+  }
+ 
+
+// Ejecucion automatico del guardado de la solucitud
+var triggerAutoSaveRequest = "";
+var stateSave = true;
+
+
+/*
+* permite guardar la solicitud 
+*/
+function automateSaveRequest(objectData){
+  
+  // Referenciamos el formulario 
+  var $form = $("#frmCreateQuotation");
+  
+  // Guardanmos los datos actuales 
+  $form.data("initFormData", objectData.currentData);
+  
+  if($form.data("isAutoSave") && stateSave){
+  
+    // Realizamos el guardado de la solicitud
+    saveDataRequest(); 
+  }
+  
+  // Creamos el instervalos
+  triggerAutoSaveRequest = setInterval(saveDataRequest, 5000);
+    
+}
+/*
+* función encargada de realizar el autoguardado
+*/
+function saveDataRequest() {
+  
+  // referenciamos el formulario como objeto Jquery
+  var $form = $("#frmCreateQuotation");
+  
+  // validamos si de sebe guardar
+  if(!$form.data("isAutoSave")){
+    
+    // No realizamos cambios en el proyecto
+    return false; 
+  }
+  // se obtiene que tipo de acción que se debe realizar
+  var action = $form.data("action");
+  
+  // referenciamos el id del documento de la cot.
+  var documentId = null,
+      rowIndex = -1,
+      lastRow = -1,
+      sheetsData = {
+        "sheetName": "Proyecto"
+      },
+      consecutive = null;
+  
+  // validamos si es una actualización
+  if(action == "modification"){
+  
+    // obtenemos el id del documento
+    documentId = $form.data("documentId");
+    
+    // obtenemos la fila donde se encuentra la cotización en la hoja base de solicitudes
+    rowIndex = Number($form.data("rowIndex"));
+    
+    // obtenemos la fila hasta la que se van a eliminar filas cuando se modificque
+    lastRow = Number($form.data("lastRow"));
+    
+    // obtenemos el consecutivo de la solicitud
+    consecutive = $form.data("consecutive");
+    
+    // obtenemos la información de la hoja que se debe modificar
+    var $versionSelected = $("#sltVersion option:selected");
+    
+    // se valida si NO existe un campo de la versión que desea actualizar
+    if($versionSelected.length == 0){
+      
+      // No realizamos cambios en el proyecto
+      return false; 
+    }
+    
+    // obtenemos los datos de la hoja donde se desea guardar los datos
+    sheetsData = $versionSelected.data("sheetsData");
+    
+    // se valida si la propiedad de sheetName eiste
+    if(sheetsData && !sheetsData.sheetName){
+      
+      // se define un objeto por defecto
+      sheetsData = {
+        "sheetName": "Proyecto"
+      };
+      
+    } else {
+      
+      // removemos la propiedad "structure"
+      delete(sheetsData.structure);
+    }
+      
+  }else{
+    
+    // Eliminamos la funcion que se ejecuta en el intervalo
+    clearInterval(triggerAutoSaveRequest);
+    
+    // No realizamos cambios en el proyecto
+    return false; 
+  }
+  
+  // obtenemos los datos de los respectivos campos
+  var formData = getOnlyDataToForm(action, true);
+  
+  // validamos si trae la propiedad "message"
+  if(formData && formData.message){
+    
+    // No realizamos cambios en el proyecto
+    return false;
+    
+  } else {
+    // obtenemos la respuesta de la validación de la generación del presupuesto
+    var responseValidationData = isVerifyDataEstimate(formData.orderProjects);
+    
+    // validamos que los datos de Generación de presupuesto este diligenciados correctamenete
+    if(responseValidationData.state){
+        
+        //Mostramos el mensaje de error
+        M.toast({
+          html: ("Guardando datos del proyecto..."),
+          displayLength: 120000,
+          classes: "orange"
+        });
+        
+        // Obtenemos el años selleccionado
+        var yearSelected = $("#sltProjectYears").val();
+        
+        // establecemos el estado de guardado
+        $form.data("isAutoSave", false);
+        
+        // Eliminamos la funcion que se ejecuta en el intervalo
+        clearInterval(triggerAutoSaveRequest);
+        
+        if(stateSave){
+          // Cambiamos el estado para que no se pueda gardar
+          stateSave = false;
+          
+          // realizamos la petición para la generación de la cotización
+          google.script.run.withSuccessHandler((response)=>{
+            
+            // Guardamos los datos de la solicitud
+            answerAutomateSave(response, formData);
+            
+          }).withFailureHandler(SnvaJsApi.onFailure).createQuotation(formData, consecutive, sheetsData, documentId, rowIndex, lastRow, userRole, yearSelected);
+          
+        }
+    } else {
+    
+      return false;
+    
+    }
+  }
+}
+
+
+/*
+* Finalizamos el proceso de guardado
+*/
+function answerAutomateSave(response, formData){
+  
+  // Validamos si es de creacion 
+  if(response && response.action != "creation"){
+    
+    // borramos la propiedad del localStorage
+    Lockr.rm("snva_temporal_data");
+    
+    // Ocultamos todos los toas
+    M.Toast.dismissAll();
+    
+    // actualizamos el listado de solicitudes
+    insertRecordsFromTable(response.requestData); 
+    
+    //Mostramos el mensaje de error
+    M.toast({
+      html: ("Guardado exitosamente."),
+      displayLength: 4000,
+      classes: "green"
+    });
+    
+    // referenciamos el formualrio 
+    var $form = $("#frmCreateQuotation");
+  
+    // Guardanmos los datos actuales 
+    $form.data("initFormData", formData);
+    
+    //  Creamos el intervalo con el llamado a la funcion 
+    triggerAutoSaveRequest = setInterval(saveDataRequest, 5000);
+    
+    // Cambiamos el estado para guarde
+     stateSave = true;
+  }
+}
+
+
+
+/*
+* Permite regresar al panel de la especie similar 
+*/
+function backSearhOtherSpecie(){
+  
+  // OCultamos el panel para busqueda de especies 
+  $("#ctnOtherSpecie").hide();
+  
+  // Mostramos el panel de las especies similares
+  $("#ctnSimilarSpecie").show();
+  
+  // Establecemos el titulo
+  $("#titleMdlSimilarConcepts").text("Especies similares");
+}
+
+/*
+* Permite insetar otra especie sin depender de la similar en una fila especifica
+*/
+function addOtherSpecie(){
+
+  // OCultamos el panel de las especies similares
+  $("#ctnSimilarSpecie").hide();
+  
+  // Mostramos el panel para busqueda de especies 
+  $("#ctnOtherSpecie").show();
+  
+  // Establecemos el titulo
+  $("#titleMdlSimilarConcepts").text("Búsqueda de especies");
+  
+} 
+
+/*
+* permite seleccionar o deseleccionar todos los elementos de la tabla 
+*/
+function changeViewGenderSimilar(e){
+  
+  // Prevenimos el evento por defecto 
+  e.preventDefault();
+  
+  // ocultamos el panel de generos
+  $("#pnlGenderSearchOther").parent().hide();
+  
+  // Obtenemos la referencia de los datos generales
+  //var conceptFiltersData = e.data.conceptFiltersData;
+  
+  // obtenemos los datos de busqueda que estan almacenados en el modal
+  var conceptFiltersData = $("#mdlSearchConcepts").data("arrayData") || [];
+  
+  // obtenemos el valor del departamento, familia y palabra clave
+  var formData = {
+    departament: $("#txtDepartmentSearchOther").val(),
+    family: $("#txtFamilySearchOther").val(),
+    keyWord: $("#txtKeywordSearchOther").val()
+  };
+  
+  let arrayGender = [], arrayAux = [];
+  
+  // obtenemos el id del campo actual
+  var fieldId = $(this).attr("id"), currentValue = $(this).val();
+  
+  // obtenemos los valores a ingresar
+  var newList = {};
+  
+  // validamos si el campo actual es deperatamento
+  if(fieldId == "txtDepartmentSearchOther"){
+    
+    // Consultamos la información de los valores actualizados
+    newList = definedValuesList(conceptFiltersData, formData, "departament", currentValue);
+    
+  } else if(fieldId == "txtFamilySearchOther"){ // validamos si el campo actual es familia
+    
+    // Consultamos la información de los valores actualizados
+    newList = definedValuesList(conceptFiltersData, formData, "family", currentValue);
+    
+  } else if(fieldId == "txtKeywordSearchOther"){ // validamos si el campo actual es palabra clave
+    
+    // Consultamos la información de los valores actualizados
+    newList = definedValuesList(conceptFiltersData, formData, "keyWord", currentValue);
+    
+  }
+  
+  // se valida si existe datos de departamentos
+  if(newList.departament){
+    $("#txtDepartmentSearchOther").autocomplete({ data: newList.departament, limit: 6 });
+  }
+  if(newList.family){
+    $("#txtFamilySearchOther").autocomplete({ data: newList.family, limit: 6 });
+  }
+  if(newList.keyWord){
+    $("#txtKeywordSearchOther").autocomplete({ data: newList.keyWord, limit: 6 });
+  }
+  
+  // referenciamos el panel
+  var $pnlGenderSearch = $("#pnlGenderSearchOther").data("genderData",[]);
+  
+  // limpiamos el panel
+  $pnlGenderSearch.html("");
+  
+  // asignamos los estilos al panel
+  $pnlGenderSearch.attr({class: "col s12 m12 xl12 lst-items-tag left-tag"});
+  
+  // organizamos la lista de etiquetas
+  newList.gender = newList.gender.sort();
+  
+  // recorremos el listado de generos
+  for(var i = 0 ; i < newList.gender.length; i++){
+  
+    // agregamos las respectivas etiquetas y le asignamos el respectivo evento
+    $pnlGenderSearch.append(
+      $("<div>").attr({class: "item-tag", id: "itemGender"+i}).click({"gender": newList.gender[i]}, updateGenderData).append(newList.gender[i])
+    );
+  }
+  
+  // si existe generos mostramos el panel
+  if(newList.gender.length > 0){
+    
+    // ocultamos el panel de generos
+  	$("#pnlGenderSearchOther").parent().show();
+  }
+  
+}
+
+/*
+* Función que permite realizar la busqueda de especies para insertar especies en cambio de la ssimilares 
+*/
+function runSearchConceptsOther(e){
+  
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos el nombre de la especie
+  var specieValue = String($("#txtSpecieSearchOther").val()).trim(), currValueSpecie = "";
+  
+  // obtenemos el index desde donde empieza el ptimer comodin
+  var startIndex = specieValue.indexOf("${");
+  
+  // Se valida si existe comodines
+  if(startIndex != -1){
+  
+    // eliminamos texto de comodines
+    currValueSpecie = specieValue.substring(0, startIndex).replace(/\*$/g, "").trim();
+  } else {
+    currValueSpecie = specieValue.replace(/\*$/g, "").trim();
+  }
+  
+  // Reemplazamos el ultimo astetisco si existe
+  specieValue = specieValue.replace(/\*$/g, "").trim();
+  
+  // definimos el objeto actual de grupos o comodines
+  var currOptions = getCommodinsObject(specieValue);
+  
+  // variable para obtener los valores de búsqueda
+  var objectValues = {
+    departament: String($("#txtDepartmentSearchOther").val()),
+    specie: currValueSpecie,
+    family: String($("#txtFamilySearchOther").val()),
+    keyWord: String($("#txtKeywordSearchOther").val()),
+    gender: $("#pnlGenderSearchOther").data("genderData") || []
+  };
+  
+  // Definimso las propiedade y columna de cada una de ellas
+  var properties = getPropertiesComodin();
+  
+  // configuramos el objeto de valores a un texto que despues se puede crear como expresión regular
+  objectValues.specie = (objectValues.specie ? (SnvaJsApi.removeLatinSymbols(objectValues.specie).replace(/[|\/\\{}()[\]^$+*?.-]/g, '\\$&')) : "");
+  
+  // se referncia el modal
+  var $modal = $("#mdlSearchConcepts");
+  
+  // obtenemos los datos de busqueda que estan almacenados en el modal
+  var arrayData = $modal.data("arrayData") || [];
+  
+  // variable para almacenar los registros filtrados
+  var filterArray = [],
+      recordState = true;
+      
+  // recorremos cada uno de los registros
+  for(var i = 0; i < arrayData.length; i++){
+    
+    // definimos por defecto verdadero
+    recordState = true;
+   
+    // validamos si ya existe algun grupo
+    if(isComodinValue(arrayData[i], currOptions, properties) == false){
+      
+      // cambiamos a falso
+      recordState = false;
+      
+    // validamos si existe valor de deparatamento y no pertenece al registro actual
+    } else if(objectValues.departament && objectValues.departament != String(arrayData[i][0])){
+      
+      // cambiamos a falso
+      recordState = false;
+      
+    }  else if(objectValues.specie && new RegExp(objectValues.specie, "gi").test(SnvaJsApi.removeLatinSymbols(String(arrayData[i][1]))) == false){  // validamos si existe valor de especie y no pertenece al registro actual
+       
+      // cambiamos a falso
+      recordState = false;
+      
+    } else if(objectValues.family && objectValues.family != String(arrayData[i][2])){ // validamos si existe valor de familia y no pertenece al registro actual
+      
+      // cambiamos a falso
+      recordState = false;
+      
+    } else if(objectValues.keyWord && objectValues.keyword != String(arrayData[i][3])){ // validamos si existe valor de palabra clave y no pertenece al registro actual
+      
+      // cambiamos a falso
+      recordState = false;
+    } else if(objectValues.gender && objectValues.gender.length > 0 && (objectValues.gender).indexOf(String(arrayData[i][8])) == -1){ // validamos si existe valor de genero y no pertenece al registro actual
+      
+      // cambiamos a falso
+      recordState = false;
+    }
+    
+    // validamos si el estado es verdadero
+    if(recordState){
+      
+      // agregamos el registro en los datos filtrados
+      filterArray.push(arrayData[i]);
+      
+    }
+  }   
+  
+  // se procede a ordenar por departamento, famili, palabra clave y luego diametro
+  filterArray = sortResultByDiameter(filterArray);
+  
+  // insertamos los datos a la tabla
+  insertSpecieFromTableOther(filterArray);
+}
+   
+   
+/*
+* Función que permite insertar una especie a una determinada tabla
+*/
+function insertSpecieFromTableOther(filterArray) {
+
+  // referenciamos la tabla de lista de especies
+  var $table = $("#tblConceptListOther");
+  
+  // obtenemos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+  
+  // restablecemos el contenido
+  $tBody.html('<tr class="info-message" style="display: none;"><td colspan="5">No hay especies para mostrar.</td></tr>');
+  
+  // variable para almacenar la referencia de la fila creada
+  var $row = null, 
+      $button = null,
+      $buttonMirror = null;
+  
+  // recorremos cada uno de los datos
+  for(var i = 0; i < filterArray.length; i++){
+  
+    // Validamos si el panel es para agregar una especia a un grupo para que no se agregen los grupo en el panel de edición del grupo 
+    if( String(filterArray[i][4]).trim().toUpperCase() != "GRUPO"){
+    
+      // creamos una nueva fila
+      $row = $("<tr>").attr({class: "isValid"});
+      
+      // agregamos la fila al cuerpo de la tabla
+      $tBody.append($row);
+      
+      // creamos la fila de: Departamento
+      $row.append(
+        $("<td>").text(filterArray[i][0])
+      );
+            
+      // creamos la fila de: Especie
+      $row.append(
+        $("<td>").text(filterArray[i][1])
+      );
+      
+      // creamos la fila de: Familia
+      $row.append(
+        $("<td>").text(filterArray[i][2])
+      );
+      
+      // creamos la fila de: Palabra clave
+      $row.append(
+        $("<td>").text(filterArray[i][3])
+      );
+      
+      // creamos la el boton con el evento de agregar la refacción
+      $row.append(
+        $("<td>").attr({class: "text-center"}).append(
+          $("<a>").attr({title: "Agregar especie", class: "btn btn-icon-concept"}).append(
+            $("<i>").attr("class", "material-icons").text("add")
+          ).click({conceptData: filterArray[i]}, addSpecieTable)        
+        )
+      );
+    }
+  }
+
+  // iniciaizamos el paginador
+  SnvaJsApi.initPaginationByTable($table, "ulConceptPaginationOther", 10);
+  
+}
+
+/*
+* Permite agregar la especie en una tabla en especifico 
+*/
+function addSpecieTable(e){
+  
+  // Prevenimos el evento por defecto 
+  e.preventDefault();
+  
+  // Obtenmos los datos de la especie 
+  var conceptData = e.data.conceptData;
+  
+  // Obtenemos los datos dle modal para insertarlos en la hoja
+  var curretConcept = $("#mdlSimilarConcepts").data("currentConcept");
+  
+  // Validamos de que existan los datos dle concepto
+  if(conceptData && curretConcept.currentData[1] != conceptData[1]){
+  
+    // mostramos el loading
+    SnvaJsApi.manageLoading("block", "Intercambiando la especie...");
+      
+    // validamos que la especie no exista
+    if(validateIfExisteConcept(conceptData, curretConcept.tableOrigin.find("tbody"))){
+      
+      // agregamos la fila correspondiente
+      updateConceptByReplace(curretConcept.tableOrigin.closest("li").attr('id'), curretConcept.tableOrigin, conceptData, conceptData[14] || 0, curretConcept.$row);
+      
+      // creamos la instancia del modal de especies similares
+      var instanceMdlSimilarConcept = M.Modal.getInstance($("#mdlSimilarConcepts"));
+      
+      //Mostramos el mensaje de error
+      M.toast({
+        html: "Cambio de especie realizado con éxito.",
+        displayLength: 4000,
+        classes: "green"
+      });
+      
+      // validamos si existe la instancia
+      if(instanceMdlSimilarConcept){
+      
+        // cerramos el modal
+        instanceMdlSimilarConcept.close();
+      }
+    } else {
+      
+      //Mostramos el mensaje de error
+      M.toast({
+        html: ("La especie ya se encuentra registrada."),
+        displayLength: 3000,
+        classes: "orange"
+      });
+    }   
+    
+    // ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+    
+  }else{
+   
+    //Mostramos el mensaje de error
+    M.toast({
+      html: "Lo sentimos la especie seleccionada ya se encuentra en el listado de especies para formar el grupo.",
+      displayLength: 6000,
+      classes: "orange"
+    });
+    
+  }
+}
+
+
+
+/*
+* Permite mover o copiar una especie entre lineas
+*/
+function conceptListPopoverMoveOrCopy($table, popoverId, conceptName, mainPanelId){
+  
+   // definimos la variable para obtener la estructura de conceptos
+   var contenthtml = "", conceptData = "";
+   
+   // agregamos la cabecera
+   contenthtml += "<div id='" + popoverId + "ctnConceptList' class='ctnPopoverConcepts'>";
+   
+   // Referenciamos el panel
+   var $panelLine = $("#" + mainPanelId);
+   
+   // Removemos los datos que se tengas
+   $panelLine.removeData("objectReferenceLine");
+   
+   // Referecniamos el contenedor principal
+   var $masterPanelLines = $panelLine.closest(".collapsible");
+    
+   // obtenemos cada una de las lineas d eeste producto
+   var $lines = $masterPanelLines.find(".collapsible-header");
+   
+   // para poder seleccionar la linea dle producto
+   var radioButton = '<td style="padding: 0px 0px !important;"> <label><input class="with-gap" type="radio" name="radConceptMoveOrCopy"><span></span></label></td>';
+   
+   // Nombre de la linea donde esta el concepto
+   var currentLineName = $panelLine.find(".collapsible-header span:not(.lineTotal)").text();
+   
+   // Agregamos el cierre del cuerpo y la tabla
+   contenthtml += "<table id='" + popoverId + "_table' ><thead class='tableHeadConceptMoveOrCopy'><tr><td></td><td>Nombre de la linea</td></tr></thead> <tbody>";
+   
+    // Validamos de que sean varia lineas
+   if($lines && $lines.length > 0){
+      
+      // Nombre de la linea 
+      var lineName = "";
+      
+      // Objeto con las referencias de la linea
+      var objectReferenceLine = {};
+      
+      // Recorremos cada uno de las lineas 
+      $lines.each(function(){
+      
+        // Obtenemos el nombre de la linea 
+        lineName = $(this).find("span:not(.lineTotal)").text();
+        
+        // Validamos de que se tenga la linea del producto
+        if(lineName){
+        
+           // Validamos si no es el concepto que se va a mover
+           if(currentLineName != lineName){
+           
+             // Agregmaos el html para la tabla de la linea 
+             contenthtml += "<tr>" + radioButton + "<td>" + lineName + "</td></tr>";
+             
+             // Validamos de que la propiedad dentro del objeto no se encuentre 
+             if(!objectReferenceLine[lineName]){
+               
+               // Agregamos el elemento al array
+               objectReferenceLine[lineName] = $(this).parent();
+             }
+             
+           }else{
+            
+            // Agregamos la linea con un color y quitamos el radiobutton
+            contenthtml += "<tr style='background: #c0e4f5'><td></td><td>" + lineName + "</td></tr>";
+           }
+        }
+      });
+      
+      // Agregmaos el objeto con las referencias 
+      $panelLine.data("objectReferenceLine", objectReferenceLine);
+   }
+   
+   // Establecemos los botones
+   contenthtml += "</tbody></table></div><br><div class='ctn__footer-msj'>En este apartado puede mover o copiar una especie entre líneas de la misma orden.</div><div data-reference-popover-moveorcopy='" + popoverId + "' class='right-align'><button type='button' class='waves-effect waves-light btn #01579b light-blue darken-4' id='btnMoveLine'>Mover</button>&nbsp;<button type='button' class='mbox-button mbox-custom-button-1 waves-effect waves-light btn btn-ok-confirm' id='btnCopyLine'>Copiar</button></div>";
+   
+   // se retorna el HTML
+   return contenthtml;
+
+}
+
+// Adicionamos el evento para copiar un concepto a otra lines 
+$(document).on('click', '#btnCopyLine', function(event) {
+  
+  // referenciamos el popover de los conceptos
+  var $popover = $(this).parent();
+  
+  // obtenemos los id de referencia para mostrar la info cuando se oculte el panel
+  var reference = String($popover.attr("data-reference-popover-moveorcopy"));
+  
+  // Validamos y realizamos el movimiento de la fila 
+  manageMoveOrCopyConcept(reference, "copy", "copiada");
+ 
+});
+
+// Adicionamos el evento para Mover un concepto a otra lines  
+$(document).on('click', '#btnMoveLine', function(event) {
+  
+  // referenciamos el popover de los conceptos
+  var $popover = $(this).parent();
+  
+  // obtenemos los id de referencia para mostrar la info cuando se oculte el panel
+  var reference = String($popover.attr("data-reference-popover-moveorcopy"));
+  
+  // Validamos y realizamos el movimiento de la fila 
+  manageMoveOrCopyConcept(reference, "move", "movida");
+ 
+});
+
+
+/*
+* Permite mover o copiar un concepto a otra linea
+*/
+function manageMoveOrCopyConcept(reference, actionEn, actionEs ){
+  
+  // Referenciamos la etiqueta a donde esta los datos 
+  var $referenceTagA =  $("#"+ reference);
+  
+  //Referenciamos la tabla de los conceptos a mover
+  var $table = $referenceTagA.data().$table;
+  
+  // Obtenemos el Id del contenedor 
+  var mainPanelId = $referenceTagA.data().mainPanelId;
+  
+  // Referenciamos la tabla del popover
+  var $tablePopover = $("#" + reference + "_table");
+  
+  // obtenemos las opciones seleccionadas
+  var radSelected = $tablePopover.find("tbody tr input[type='radio'][name='radConceptMoveOrCopy']:checked");
+  
+  // se valida si existe algun opción selecciondo
+  if(radSelected.length > 0){
+    
+    // Nombre de la linea a donde se desea mover     
+    var lineName = radSelected.closest("tr").find("td:eq(1)").text();
+    
+    // Obtenemos la fila para mover 
+    var $row = $referenceTagA.closest("tr");
+    
+    // Obtenemos los datos del concepto
+    var currentRowConceptData = $row.data("conceptData");
+    
+    // Obtenemos el objeto con las lineas y sus referencias 
+    var objectReferenceLine = $("#" + mainPanelId).data("objectReferenceLine");
+    
+    //Validamos de que exista la referencias de las lineas
+    if(objectReferenceLine && objectReferenceLine[lineName]){
+      
+      // Referenciamos la linea a donde se desea mover o copiar el concept
+      var $line = objectReferenceLine[lineName];
+      
+      // Validamos de que se tenga la referencias 
+      if($line){
+        
+        // Referenciamos la tabla donde estan los concpetos 
+        var $table = $line.find(".collapsible-body .ctn-concept table");
+        
+        // Obtenemos el id de la linea donde se desea mover el concepto
+        var mainNewPanelId = $line.attr("id");
+        
+        // Obtenemos la cantidad del producto en la fila
+        var valueQuantity = $row.find("td:eq(3) input").val() || "";
+        
+        // Insertamos el concepto
+        insertConceptTable(mainPanelId, $table, currentRowConceptData, actionEn, actionEs, $row, mainNewPanelId, valueQuantity);
+      }
+    }
+    
+  } else {
+    
+    // mostramos un mensaje
+    SnvaJsApi.showAlert("Debe seleccionar la linea a donde se desea mover o copiar el concepto.");
+    
+  }
+}
+
+/*
+* Permite insertar el concepto en una tabla especifica
+*/
+function insertConceptTable(mainPanelId, $table, conceptData, actionEn, actionEs, $rowLine, mainNewPanelId, valueQuantity){
+
+  // Deseleccionalos el checkcbox  de todos
+  $table.find("thead th input[type='checkbox']").prop('checked', false);
+  
+  // obtenemos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+  
+  // validamos que la especie no exista
+  if(validateIfExisteConcept(conceptData, $tBody)){
+    
+    // variable para almacenar la referencia de la fila creada
+    var $row = $("<tr>").attr({class: "isValid"}).data("conceptData", conceptData);
+    
+    // agregamos la fila al cuerpo de la tabla
+    $tBody.append($row);
+    
+     // validamos si el tipo de unidad es diferente a "GRUPO"
+    if(String(conceptData[4]).toLowerCase() != "grupo"){   
+    
+      // creamos la fila para crear un campo de check
+      $row.append(
+        $("<td>").attr("class", "checkbox").append(
+          $("<label>").append(
+            $("<input>").attr({type: "checkbox", class: "filled-in"}).change({"table": $table}, changeCheckboxTable)
+                                                                      
+          ).append(
+            $("<span>")
+          )
+        )
+      );
+      
+    } else {
+      
+      // creamos una columna vacia  S
+      $row.append(
+        $("<td>").attr({class: "center"}).append(
+          $("<a>").attr({title: "Editar grupo", href: "javascript:void(0)", class: "btn btn-icon-concept btn-edit-group btn-group"}).append(
+            $("<i>").attr({class: "material-icons"}).text("edit")
+          ).click({conceptData: conceptData, panelId: mainPanelId, isMainPanel: true, type: "edit"}, editGroup)
+        )
+      );
+      
+    }
+    
+    // creamos la fila de: Nombre
+    $row.append(
+      $("<td>").text(conceptData[1])
+    );
+    
+    // creamos la fila de: Unidad
+    $row.append(
+      $("<td>").text(conceptData[4])
+    );
+    
+    // obtenemos el nombre de la familia
+    var currGender = SnvaJsApi.escapeRegExp(conceptData[8]);
+   
+    // creamos la variable para el campo input de cantidad
+    var inputQuantity = "";
+    
+    // se valida si la familia es ""
+    if(currGender && currGender.match(/TUBO/gi) != null){
+      
+      // creamos el campo para la cantidad
+      inputQuantity = $("<input>").attr({value: valueQuantity, type: "text", pattern: "^[0-9=]+(?:\.[0-9]{1,2}){0,1}$", style: "max-width: 80px;", "data-gender": currGender}).focusin(showFormuleInField).focusout(processFormuleInField).on("keyup change", {price: String(conceptData[5]).replace(/\,|\$/g, "")}, calculateTotal).on("paste keypress", SnvaJsApi.validateNumberFormat);
+      
+      // creamos la fila de: cantidad
+      $row.append(
+        $("<td>").append(
+          inputQuantity
+        )
+      );
+    } else {
+      // creamos el campo para la cantidad
+      inputQuantity = $("<input>").attr({value: valueQuantity, type: "text", pattern: "^[0-9]+(?:\.[0-9]{1,3}){0,1}$", style: "max-width: 80px;"}).focusin(showFormuleInField).focusout(processFormuleInField).on("keyup change", {price: String(conceptData[5]).replace(/\,|\$/g, "")}, calculateTotal).on("paste keypress", SnvaJsApi.validateNumberFormat);
+      
+      // creamos la fila de: cantidad
+      $row.append(
+        $("<td>").append(
+          inputQuantity
+        )
+      );
+    }
+     
+    // creamos la fila de: Costo unitario
+    $row.append(
+      $("<td>").text(SnvaJsApi.formatValue(String(conceptData[5]).replace(/\$/g, "")))
+    );
+    
+    // creamos la fila de: Total
+    $row.append(
+      $("<td>").text("0")
+    );
+    
+    // Generamos el Id de l Popover
+    var popoverId ="POP_" + SnvaJsApi.generateUUID();
+    
+    // Columna para insertar 
+    var $td = $("<td>").attr({class: "text-center"});
+    
+    // validamos si el tipo de unidad es diferente a "GRUPO"
+    if(String(conceptData[4]).toLowerCase() != "grupo"){  
+    
+       $td.append(
+        $("<a>").attr({title: "Cambiar especie", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+          //$("<i>").attr("class", "material-icons").text("find_replace").click({"$row": $row, "currentData": conceptData, table: $table}, previewConceptSimilars)
+          $("<i>").attr("class", "material-icons").text("find_replace").click({"panelId": "replaceConcept", "$row": $row, "currentData": conceptData, table: $table}, openModalSearchConcept)
+        )
+      );
+    }else{
+    
+       $td.append(
+        $("<a>").attr({title: "Eliminar grupo", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+          $("<i>").attr("class", "material-icons").text("delete").click({$table: $table, paginationId: mainNewPanelId + "_pagination"}, deleteConcept)
+        )
+      );
+    
+    }
+    
+    // Creamos el boton para el popover de mover concepto solo en la linea
+    $td.append(
+      $("<a>").attr({"id": popoverId, title: "Mover",class: "btn-icon btn-floating orange waves-effect"}).append(
+     	 $("<i>").attr("class", "material-icons").text("unfold_more")   
+      ).data({$table: $table, mainPanelId: mainNewPanelId}) 
+    );
+    
+    // Creamoa el boton para el popover de mover o copiar el concpeto entre lineas
+    $td.append(
+      $("<a>").attr({"id": (popoverId + "_MoveOrCopy"), title: "Mover o coppiar",class: "btn-icon btn-floating #26c6da cyan lighten-1 waves-effect"}).append(
+      	$("<i>").attr("class", "material-icons").text("content_copy")
+      ).data({$table: $table, mainPanelId: mainNewPanelId})
+    );
+    
+    // insertamos las opciones en la columna del registro 
+    $row.append($td);
+    
+    // simula el evento
+    inputQuantity.change();
+    
+    // Establecemos el popover
+    $("#" + popoverId).popover({
+      title : 'Conceptos',
+      trigger :'click',
+      placement :'left',
+      content : function(){
+     
+          // Retornamos el listado actualizado 
+          return conceptListPopover($table, popoverId, conceptData[1]); 
+        }
+    });
+    
+    // Establecemos el popover
+    $("#" + popoverId + "_MoveOrCopy").popover({
+      title : 'Lineas',
+      trigger :'click',
+      placement :'left',
+      content : function(){
+        // Retornamos el listado actualizado 
+        return conceptListPopoverMoveOrCopy($table, popoverId + "_MoveOrCopy", conceptData[1], mainNewPanelId); 
+      }
+    });
+    
+      // se garantiza que no exista ningun panel abiertp
+    document.querySelectorAll('.popover__open').forEach(function(element) {
+      element.click();
+    });
+    
+    // Validamos si estamos moviendo el concepto para eliminarlo 
+    if(actionEn == "move"){
+    
+      // eliminamos la fila donde esta el concepto 
+      $rowLine.removeData().remove();
+    }
+    
+    //actualizamos el paginador de la linea donde establa el concepto
+    updateTablePagination(mainNewPanelId, $table);
+    
+    // actualizamos le paginador donde eestaba anteriormente el conepto 
+    updateTablePagination(mainPanelId, $("#" + mainPanelId + "_table"));
+    
+    // Actualizamos los valores de la ordenes, lines y productos
+    updateDataValueOrders();
+    
+    //Mostramos el mensaje de error
+    M.toast({
+      html: ("La especie: " + conceptData[1] + " ha sido " + actionEs + " con éxito."),
+      displayLength: 1500
+    });
+    
+    
+  } else {
+    
+    //Mostramos el mensaje de error
+    M.toast({
+      html: ("La especie ya se encuentra registrada."),
+      displayLength: 1500,
+      classes: "orange"
+    });
+  }
+}
+
+
+
+(function (root) {
+    "use strict";
+
+    function equal(a, b, options) {
+        var aValue, bValue,                                 // Define variables
+            aType = typeof a,                               // Get value types
+            bType = typeof b;
+        options = options || {};                            // Optional parameter
+        if (a === b) {                                      // Strict comparison
+            return equal.VALUE_AND_TYPE;                    // Equal value and type
+        }
+        /* jshint -W116 */
+        if (options.nonStrict && a == b) {                  // Non strict comparison (optional)
+            return equal.VALUE;                             // Equal value (different type)
+        }
+        /* jshint +W116 */
+        if (aType === 'undefined' ||                        // undefined and null are always different than other values
+            bType === 'undefined' ||
+            a === null ||
+            b === null)
+        {
+            return equal.NOT_EQUAL;
+        }
+        if (aType === 'number' &&                           // Special case: Not is a Number (NaN !== NaN)
+            bType === 'number' &&
+            isNaN(a) &&
+            isNaN(b))
+        {
+            return equal.VALUE_AND_TYPE;
+        }
+        if (typeof a.valueOf === 'function' &&              // valueOf() is a function in both values
+            typeof b.valueOf === 'function')
+        {
+            aValue = a.valueOf();                           // Get valueOf()
+            bValue = b.valueOf();
+            if (aValue !== a || bValue !== b) {             // The valueOf's return is different that the base value
+                if (aValue === bValue) {                    // The valueOf's return is the same for both values
+                    if (a.constructor === b.constructor) {  // It's the same constructor and as result is the same type
+                        return equal.VALUE_AND_TYPE;
+                    } else {
+                        return equal.VALUE;                 // Equal value (different type)
+                    }
+                }
+            }
+        }
+        return equal.NOT_EQUAL;                             // Not equal
+    }
+    equal.NOT_EQUAL           = 0;
+    equal.VALUE               = 1;
+    equal.VALUE_AND_TYPE      = 2;
+
+
+    // Export for node and browser
+    if (typeof exports !== 'undefined') {
+        if (typeof module !== 'undefined' && module.exports) {
+            module.exports = equal;
+        }
+        exports.equal = equal;
+    } else {
+        root.equal = equal;
+    }
+
+})(this);
+
+
+</script>
+

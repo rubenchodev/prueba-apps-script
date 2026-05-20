@@ -1,0 +1,641 @@
+<!-- Inicio del contenedor de catálogo de especies -->
+<div id="ctn-catalog" class="hidden">
+  <div class="row">
+    <button id="btnBackToProject" class="btn waves-effect waves-light #546e7a blue-grey darken-1 btn-back-projects" type="submit" name="action">
+    Regresar<i class="material-icons left">arrow_back_ios</i>
+    </button>
+  </div>
+  <h5>Catálogo de conceptos</h5>
+  <p>A continuación encontrarás el catálogo de conceptos agrupados por orden y línea.</p>
+  <br>
+  <div class="panel-primary">
+    <div class="panel-primary-header">Catálogo de conceptos</div>
+    <div class="panel-primary-body">
+       
+      <div class="row ctn-options-catalog">
+        <a href="javascript:void(0)" class="btn waves-effect waves-light #0d47a1 blue darken-4 btn-small" id="btnCreateCards">Crear tarjetas</a>
+        <a href="javascript:void(0)" class="btn waves-effect waves-light #5d4037 brown darken-2 btn-small" id="btnCreateCatalog">Crear catálogo</a>
+        <a href="javascript:void(0)" class="waves-effect waves-light btn-small btn-collapsible" id="btnExpandCatalog"><i class="material-icons left">fullscreen</i>Expandir todo</a>
+        <a href="javascript:void(0)" class="waves-effect waves-light btn-small btn-collapsible" id="btnCollapsibleCatalog"><i class="material-icons left">fullscreen_exit</i>Colapsar todo</a>
+      </div>
+      <ul class="collapsible" id="ctnConceptsList">
+      </ul>
+    </div>
+  </div>
+</div>
+<!-- Fin del contenedor de catálogo de conceptos -->
+
+<!-- Agregamos el contenedor del panel de catálogo -->
+<?!= includeHtmlFile("Html_Modal_Catalog", false, false) ?>
+
+<!-- Modal Structure -->
+<div id="mdlPreviewCard" class="modal modal-fixed-footer">
+  <div class="modal-header">
+      <h4>Previsualización de tarjeta</h4>
+    </div>
+  <div class="modal-content">
+    <table class="table-1-card" id="tblPreviewInfo">
+      <thead>
+        <tr class="tr-title">
+          <th colspan="7">ANÁLISIS DE PRECIO UNITARIO</th>
+        </tr>
+        <tr class="tr-header">
+          <th>Id</th>
+          <th>Clave</th>
+          <th>Especie del catálogo</th>
+          <th>Unidad</th>
+          <th>Cantidad</th>
+          <th>P.Unitario</th>
+          <th>Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+    <br>
+    <table class="table-2-card" id="tblPreviewMaterials">
+      <thead>
+        <tr class="tr-header">
+          <th style="width: 20px;"></th>
+          <th>Clave</th>
+          <th>Descripción</th>
+          <th>Unidad</th>
+          <th>Cantidad</th>
+          <th>P.Unitario</th>
+          <th>Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="tbody-title">
+          <td>+</td>
+          <td colspan="6">MATERIALES</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td></td>
+          <td></td>
+          <td colspan="4">Total de materiales</td>
+          <td>0.0000</td>
+        </tr>
+      </tfoot>
+    </table>
+    <br>
+    <table class="table-2-card" id="tblPreviewWorkforce">
+      <thead>
+        <tr class="tr-header">
+          <th style="width: 20px;"></th>
+          <th>Clave</th>
+          <th>Descripción</th>
+          <th>Unidad</th>
+          <th>Cantidad</th>
+          <th>P.Unitario</th>
+          <th>Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="tbody-title">
+          <td>+</td>
+          <td colspan="6">MANO DE OBRA</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td></td>
+          <td></td>
+          <td colspan="4">Total de mano de obra</td>
+          <td>0.0000</td>
+        </tr>
+      </tfoot>
+    </table>
+    <br>
+    <table class="table-2-card" id="tblPreviewTools">
+      <thead>
+        <tr class="tr-header">
+          <th style="width: 20px;"></th>
+          <th>Clave</th>
+          <th>Descripción</th>
+          <th>Unidad</th>
+          <th>Cantidad</th>
+          <th>P.Unitario</th>
+          <th>Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="tbody-title">
+          <td>+</td>
+          <td colspan="6">HERRAMIENTA</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td></td>
+          <td></td>
+          <td colspan="4">Total de herramientas</td>
+          <td>0.0000</td>
+        </tr>
+      </tfoot>
+    </table>
+    <br>
+    <table class="table-2-card" id="tblPreviewTeams">
+      <thead>
+        <tr class="tr-header">
+          <th style="width: 20px;"></th>
+          <th>Clave</th>
+          <th>Descripción</th>
+          <th>Unidad</th>
+          <th>Cantidad</th>
+          <th>P.Unitario</th>
+          <th>Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="tbody-title">
+          <td>+</td>
+          <td colspan="6">EQUIPO COSTO HORARIO</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td></td>
+          <td></td>
+          <td colspan="4">Total de equipo costo horario</td>
+          <td>0.0000</td>
+        </tr>
+      </tfoot>
+    </table>
+    <br>
+    <table class="table-2-card" id="tblPreviewAuxiliars">
+      <thead>
+        <tr class="tr-header">
+          <th style="width: 20px;"></th>
+          <th>Clave</th>
+          <th>Descripción</th>
+          <th>Unidad</th>
+          <th>Cantidad</th>
+          <th>P.Unitario</th>
+          <th>Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="tbody-title">
+          <td>+</td>
+          <td colspan="6">AUXILIARES</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td></td>
+          <td></td>
+          <td colspan="4">Total de auxiliares</td>
+          <td>0.0000</td>
+        </tr>
+      </tfoot>
+    </table>
+    <br>
+    <table class="table-2-card" id="tblPreviewLading">
+      <thead>
+        <tr class="tr-header">
+          <th style="width: 20px;"></th>
+          <th>Clave</th>
+          <th>Descripción</th>
+          <th>Unidad</th>
+          <th>Cantidad</th>
+          <th>P.Unitario</th>
+          <th>Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="tbody-title">
+          <td>+</td>
+          <td colspan="6">FLETES</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td></td>
+          <td></td>
+          <td colspan="4">Total de fletes</td>
+          <td>0.0000</td>
+        </tr>
+      </tfoot>
+    </table>
+    <br>
+    <table class="table-summany-card">
+      <tbody>
+        <tr>
+          <td colspan="2">&nbsp;&nbsp;</td>
+          <td colspan="4">Costo Directo</td>
+          <td>0.000</td>
+        </tr>
+        <tr>
+          <td colspan="2">&nbsp;&nbsp;</td>
+          <td class="td-padding-l20">Indirectos</td>
+          <td>%</td>
+          <td class="td-right">0.000</td>
+          <td class="td-right">0.000</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">&nbsp;&nbsp;</td>
+          <td class="td-padding-l30">Indirectos de Oficina</td>
+          <td>%</td>
+          <td class="td-right">0.000</td>
+          <td class="td-right">0.000</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">&nbsp;&nbsp;</td>
+          <td class="td-padding-l30">Indirectos de Campo</td>
+          <td>%</td>
+          <td class="td-right">0.000</td>
+          <td class="td-right">0.000</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">&nbsp;&nbsp;</td>
+          <td class="td-padding-l20">Financiamiento</td>
+          <td>%</td>
+          <td class="td-right">0.000</td>
+          <td class="td-right">0.000</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">&nbsp;&nbsp;</td>
+          <td class="td-padding-l20">Utilidad</td>
+          <td>%</td>
+          <td class="td-right">0.000</td>
+          <td class="td-right">0.000</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">&nbsp;&nbsp;</td>
+          <td class="td-padding-l20">Cargos Adicionales</td>
+          <td>%</td>
+          <td class="td-right">0.000</td>
+          <td class="td-right">0.000</td>
+          <td></td>
+        </tr>
+        <tr class="tr-impost">
+          <td colspan="2">&nbsp;&nbsp;</td>
+          <td class="td-padding-l20">Impuesto al Valor Agregado</td>
+          <td>%</td>
+          <td class="td-right">16</td>
+          <td class="td-right">0.000</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">&nbsp;&nbsp;</td>
+          <td colspan="4">Total de Sobrecostos</td>
+          <td>0.000</td>
+        </tr>
+      </tbody>
+    </table>
+    <br>
+    <table class="table-end-card">
+      <thead>
+        <tr class="tr-title">
+          <th colspan="6">PRECIO UNITARIO ANALIZADO</th>
+          <th>sss</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="7">ss</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="modal-footer">
+    <a href="javascript:void(0)" class="modal-close waves-effect waves-green btn-flat">Cerrar</a>
+  </div>
+</div>
+
+
+<!-- Modal: De participación para mmateriales y equipos -->
+<div id="mdlParticipation" class="modal modal-fixed-footer">
+  <div class="modal-content">
+  
+    <div>
+      <h5>Participación</h5>
+        <div class="row">
+          <p>A continuación debes elegir los datos de participación para realizar los respectivos cálculos.</p>
+        </div>
+        <div class="row text-center">
+          <span id="spnHelpParticipation">"225 Tramos es equivalente a:"</span>
+          <br>
+        </div>
+        
+        <div class="row">
+          
+          <div class="col s12 m12 xl12 input-field">
+            <p class="subtitle">Unidades de conversión</p>
+          </div>
+          
+          <div class="col s12 m6 xl6 input-field">
+            <select id="sltUnitMeasureModel-Catalog" required>
+            </select>
+            <label for="sltUnitMeasureModel-Catalog">Unidad de medida del modelo [UML]: </label>
+          </div>
+          
+          <div class="col s12 m6 xl6 input-field">
+            <input id="txtEquivalentAmount-Catalog" type="number" min="0" placeholder="ej: 1" required>
+            <label for="txtEquivalentAmount-Catalog">Cantidad equivalente [CML]:</label>
+          </div>
+          
+        </div>
+        
+        <div class="row">
+          
+          <div class="col s12 m12 xl12 input-field">
+            <p class="subtitle">Frente de avance</p>
+          </div>
+          
+          <div class="col s12 m6 xl6 input-field">
+            <input id="txtUmlProgress-Catalog" type="number" min="0" placeholder="ej: 2.5" required>
+            <label for="txtUmlProgress-Catalog">Progreso UML [PUL]:</label>
+          </div>
+        
+          <div class="col s12 m6 xl6 input-field">
+            <input id="txtInvestmentTime-Catalog" type="number" min="0" placeholder="ej: 8" required>
+            <label for="txtInvestmentTime-Catalog">Tiempo de inversión [ti](horas):</label>
+          </div>
+          
+        </div>
+        
+        <div class="row">
+          
+          <div class="col s12 m6 offset-m6 input-field">
+            <select id="sltUnitUME-Catalog" required>
+            </select>
+            <label for="sltUnitUME-Catalog">Unidad de Medida de la Estimación [UME]: </label>
+          </div>
+          
+        </div>
+     
+        <div class="row" id="ctnParticipationCalculations">
+          
+          <div class="col s12 m4 xl4 input-field text-center">
+            <label class="lblHelpParticipation">=CC/CML<br>Cantidad UML [CUML]</label><br>
+            <b><span id="spnQuantityUML"></span></b>
+          </div>
+          
+          <div class="col s12 m4 xl4 input-field text-center">
+            <label class="lblHelpParticipation">=(CUML x ti)/PUL<br>Inversión total Equivalente [ITE]</label><br>
+            <b><span id="spnInvertionITE"></span></b>
+          </div>
+          
+          <div class="col s12 m4 xl4 input-field text-center">
+            <label class="lblHelpParticipation">=ITE/KUML<br>Cantidad de Estimación [CME]</label><br>
+            <b><span id="spnQuantityCME"></span></b>
+          </div>
+          
+          <div class="col s12 m12 xl12 input-field text-center" style="margin-top: -15px;">
+            <label class="lblHelpParticipation">RESULTADOS<br>Rendimiento (RUC)</label><br>
+            <b><span id="spnResult"></span></b>
+          </div>
+          
+        </div>
+      </div><!-- Fin contenedor de participación-->
+  
+  </div>
+  
+  <div class="modal-footer">
+    <a class="modal-close waves-effect waves-light btn btn-cancel-confirm" href="javascript:void(0)">Cerrar</a>
+    <a id="btnSaveParticipation" class="waves-effect waves-light btn btn-primary" href="javascript:void(0)">Guardar</a>
+  </div>
+
+</div> <!-- Final del modal de crear cotización a partir de otra -->
+
+
+
+<!-- Modal: De participación para mano de obra -->
+<div id="mdlParticipationWorkforce" class="modal modal-fixed-footer">
+  <div class="modal-content">
+  
+    <div>
+      <h5>Participación: <span id="spnHelpParticipationWorkforce"></span></h5>
+        <div class="row">
+          <p>A continuación debes elegir los datos de participación para realizar los respectivos cálculos.</p>
+          <br>
+          
+        </div>
+        <div class="row">
+        
+          <div class="col s12 m6 xl6 input-field">
+            <input id="txtUnitNumber-Catalog" type="number" min="0" placeholder="ej: 1" required>
+            <label for="txtUnitNumber-Catalog">#Individuos - unidades: [Adimensional]</label>
+          </div>
+          
+          <div class="col s12 m6 xl6 input-field">
+            <input id="txtParticipationPerLine-Catalog" type="number" min="0" placeholder="ej: 0.03" required>
+            <label for="txtParticipationPerLine-Catalog">Participación por linea: [% en decimal]</label>
+          </div>
+      
+        </div>
+        
+        <div class="row" id="ctnParticipationCalculations">
+          
+          <div class="col s12 m6 xl6 input-field text-center">
+            <label class="lblHelpParticipation">Participación Global [% en decimal]</label><br>
+            <b><span id="spnGlobalParticipation"></span></b>
+          </div>
+          
+          <div class="col s12 m6 xl6 input-field text-center">
+            <label class="lblHelpParticipation">Participación Ponderada [% en decimal]</label><br>
+            <b><span id="spnWeightedParticipation"></span></b>
+          </div>
+          
+        </div>
+        
+        
+        
+      </div><!-- Fin contenedor de participación-->
+  
+  </div>
+  
+  <div class="modal-footer">
+    <a href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+    <a href="javascript:void(0)" id="btnSaveParticipationWorkforce" class="waves-effect waves-light btn btn-primary">Guardar</a>
+  </div>
+
+</div> <!-- Final del modal de crear cotización a partir de otra -->
+
+<!-- Dropdown Structure -->
+<div class="dropdown-content-custom" id="ctnDropdownGroups">
+  <ul>
+    
+  </ul>
+  <div class="input-group">
+    <input type="text" id="txtNewGroupLading" placeholder="+ Nuevo grupo">
+      <span class="suffix-input-group">
+      <a href="javascript:void(0)" class="btn waves-effect waves-light" id="btnNewGroupLading">+</a>
+    </span>
+  </div>
+</div>
+
+<!-- Modal: Para agregar los fletes -->
+<div id="mdlAddLading" class="modal modal-fixed-footer">
+  <div class="modal-content">
+  
+    <div>
+      <h5>Adicionar  de fletes </h5>
+        <div class="row">
+          <p>A continuación se permite agregar los fletes.</p>
+          <br>
+          
+        </div>
+        <div class="row text-right">
+       <!--   <button class="btn waves-effect waves-light blue dropdown-trigger" type="button" style="margin-right: 5px;" data-target="ctnDropdownGroups" id="btnShareLading">
+            <i class="material-icons left" style="margin-right: 5px;">share</i>
+            Compartir recurso
+          </button>
+          
+            Dropdown Structure 
+          <ul id="ctnDropdownGroups" class="dropdown-content">
+            <li><a href="#!">one</a></li>
+            <li><a href="#!">two</a></li>
+          </ul>
+          -->
+          <button class="btn waves-effect waves-light green" type="button" id="btnAddLading">
+            <i class="material-icons left" style="margin-right: 5px;">add</i>
+            Adicionar flete
+          </button>
+        </div>
+        <div class="row">
+        
+          <table id="tblLading" class="responsive-table">
+            <thead>
+              <tr>
+                <th class="text-center">Grupo</th>
+                <th>Tipo de Flete</th>
+                <th>Medio</th>
+                <th>Descripción</th>
+                <th>Vehículo</th>
+                <th class="text-center">Eliminar</th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+        </div>
+        
+        
+        
+      </div><!-- Fin contenedor de participación-->
+  
+  </div>
+  
+  <div class="modal-footer">
+    <a href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+    <a href="javascript:void(0)" id="btnSaveLading" class="waves-effect waves-light btn btn-primary">Guardar</a>
+  </div>
+
+</div> <!-- Final del modal de crear cotización a partir de otra -->
+
+<!-- Modal: Para ver las repeticiones  -->
+<div id="mdlRepetitions" class="modal modal-fixed-footer">
+  <form id="frmRepetitions">
+    <div class="modal-content">
+    
+      <div>
+        <h5>Repeticiones</h5>
+          <div class="row">
+            <p>A continuación se permite establecer las repeticiones para cada uno de los medios.</p>
+            <br>
+          </div>
+          
+          <div class="panel-primary">
+            <div class="panel-primary-header">
+              Datos generales 
+            </div>
+            <div class="panel-primary-body">
+              <div class="row">
+                <div class="col s12 m6 xl6 input-field">
+                  <input id="txtUnitMeasureModel" type="text" value="Km" required>
+                  <label for="txtUnitMeasureModel">Unidad de medida del modelo [UML]: </label>
+                </div>
+                <div class="col s12 m6 xl6 input-field">
+                  <input id="txtLength" type="number" min="0" required>
+                  <label for="txtLength">Longitud total de ida & Vuelta</label>
+                </div>
+                
+              </div>
+            </div>
+          </div>
+          
+           <div class="panel-primary">
+             <div class="panel-primary-header">
+               Lista de vehículos 
+             </div>
+             <div class="panel-primary-body">
+               
+               <table id="tblLadingData" class="responsive-table">
+                 <thead>
+                   <tr>
+                   <th>Tipo de flete</th>
+                   <th>Medio</th>
+                   <th>Descripción</th>
+                   <th>Vehículo</th>
+                   <th>Progreso UML  <br> [PUL]</th>
+                   <th>Inversión [Li] <br> (Litros)</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                 </tbody>
+               </table>
+             </div> 
+           </div>
+           
+           <div class="panel-primary">
+             <div class="panel-primary-header">
+             Cálculos
+             </div>
+             <div class="panel-primary-body">
+               
+               <table id="tblRepetitionsCalculations" class="responsive-table">
+                 <thead>
+                   <tr>
+                   <th>Cantidad UML <br> [CUML]</th>
+                   <th>Inversión total Equivalente <br>  [ITE]</th>
+                   <th>Unidad de Medida de <br>  la Estimación [UME]</th>
+                   <th>Combustible</th>
+                   <th>KUML</th>
+                   <th>K. Unitario (K.U)</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                 </tbody>
+               </table>
+             </div>
+           </div>
+           
+           <div class="row" id="ctnRepetitionsCalculations">
+           
+             <div class="col s12 m4 xl4 input-field text-center">
+               <label class="lblHelpRepetitions">Medio</label><br>
+               <b><span id="spnMiddle"></span></b>
+             </div>
+             
+             <div class="col s12 m4 xl4 input-field text-center">
+               <label class="lblHelpRepetitions"># Repeticiones</label><br>
+               <b> <input id="txtRepetitions" type="number" min="1" value="1" required></b>
+             </div>
+             
+             <div class="col s12 m4 xl4 input-field text-center">
+               <label class="lblHelpRepetitions">K Unitario.</label><br>
+               <b><span id="spnKUnit"></span></b>
+             </div>
+           
+           </div>
+           
+        </div><!-- Fin contenedor de Repeticiones-->
+    </div>
+    
+    <div class="modal-footer">
+      <a href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+      <button type="submit" class="waves-effect waves-light btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</div> <!-- Final del modal de crear cotización a partir de otra -->
+

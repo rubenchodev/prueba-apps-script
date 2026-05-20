@@ -1,0 +1,1335 @@
+<script>
+
+// se llama la función de inicializar el módulo de conceptos 
+initModuleConcept();
+
+/*
+* Funccion que permite inicializar los eventos generales del módulo de especies 
+*/
+function initModuleConcept(){
+  
+  // inicializamos el modal de busqueda de grupos
+  $("#mdlUpdateMultipleImages").modal({
+    dismissible: false,
+    startingTop: '2%',
+    endingTop: '2%',
+  });
+  
+  // agregamos el evento al boton de adjuntar imágenes
+  $("#btnSelectedAttachment input").change({panelId: "ctnAttachment", onlyPanelClass: "ctnLabelsImage"}, addImageInPanel);
+  
+  // agregamos el evento al boton de adjuntar imágenes para actualización multiple
+  $("#btnSelectedUpdateImages input").change({panelId: "ctnUpdateImageSpecies", onlyPanelClass: "ctnLabelsUpdateImage"}, addImageInPanel);
+  
+  // agregamos el evento al boton de cancelar
+  $("#btnCancelCreateSpecies").click(cancelManageSpecies);
+  
+  // Evento para agregar imagen(es)  a uno a varios conceptos
+  $("#btnAddImage").click(addImageToConcept);
+  
+  // Evento para crear una nueva especie
+  $("#btnAddSpecies").click(newSpecies);
+  
+  // Evento para el formulario de creación o edicion de una especie 
+  $("#frmCreateSpecies").submit(createNewSpecie);
+  
+  // Evento para gennerar el nombre 
+  $("#frmCreateSpecies select, #txtMake").on("change", generateNameSpecie);
+  
+  // Evento para que solo inserte numero 
+  $("#txtPriceSpecie, #txtSpareCostSpecie").on("paste keypress", SnvaJsApi.validateNumberFormat).on("keyup change",function(){ 
+    
+    // Referenciamos el elemento
+    var $element =  $(this);
+    
+    // Damos formato al nuevo tipo de cambio
+    $element.val(SnvaJsApi.formatValue($element.val()));
+    
+  });
+  
+  //establecemos el evento del boton de actualizar el listado de especies
+  $("#btnUpdateSpecies").click(function(){
+  
+    // Mostramos el loading
+    SnvaJsApi.manageLoading("block", "Actualizando el listado de especies, espera un momento por favor...");
+    
+    // obtenemos el token y mostramos el selector
+    google.script.run.withSuccessHandler(function(conceptArray){
+    
+      // actualizamos la información y actualizamos la información de busqueda
+      $("#frmSearchSpecies").data({"arrayData": conceptArray}).trigger("submit");
+      
+      // Ocultamos el loading
+      SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+    
+    }).withFailureHandler(SnvaJsApi.onFailure).getConceptList();
+  });
+    
+  // obtenemos los datos de fabricantes
+  google.script.run.withSuccessHandler(insertDataSelectConcepts).withFailureHandler(SnvaJsApi.onFailure).getDataSelects();
+  
+  // Asignamos el evento al boton de actualizar las imágenes multiples
+  $("#btnUpdateMultipleImages").click(updateMultipleImages);
+  
+}
+
+/*
+* función que permite capturar la información de formulario de creación o edición de una especie
+*/
+function updateMultipleImages(e){
+  
+  // Varibla para ingresar los datos de las imagenes
+  var imageArrayData = [];
+  
+  // Recorremos el contenedor de la imagenes
+  $("#ctnUpdateImageSpecies div.ctnLabelsUpdateImage div.ctn-image").each(function(){
+  
+    // Obtenemos la imagenes seleecionadas para la especie
+    imageArrayData.push($(this).data("imageData"));
+  });
+  
+  // se valida se existen imágenes
+  if(imageArrayData.length > 0){
+  
+    // mostramos mensaje de confirmación antes de proceder a crear una nueva especie
+    SnvaJsApi.confirm("¿Seguro desea actualizar las imágenes a las especies seleccionadas?", function(){
+      
+      // mostramos el loading
+      SnvaJsApi.manageLoading("block",  "Actualizando imágenes para las especies seleccionadas...");
+      
+      // variable para guardar las filas donde se deben actualizar los datos
+      var rowIndexList = [];
+      
+      // Obtenemos el listado de especies que se desean actualizar
+      $("#ulSpeciesList li").each(function(){
+        
+        // agregamos lista de filas donde se deben actualizar los datos
+        rowIndexList.push($(this).data("rowIndex"));
+        
+      });
+      
+      // obtenemos los datos de fabricantes
+      google.script.run.withSuccessHandler(function(){
+        
+        // Mostramos el panel del listado de especies
+        listSpecies();
+        
+        // ocultamos el panel de ver imágenes y borramos etiquetas actuales del modal de actualización de imágenes
+        $("#ctnUpdateImageSpecies").addClass("hidden").find("div.ctnLabelsUpdateImage").html("");
+        
+        // creamos la instancia del modal de especies similares
+        var instanceMdl = M.Modal.getInstance($("#mdlUpdateMultipleImages"));
+        
+        // validamos si existe la instancia
+        if(instanceMdl){
+        
+          // Cerramos el modal
+          instanceMdl.close();
+        }
+         
+        // Ocultamos el loading
+        SnvaJsApi.manageLoading("none", "Espera un momento...");
+        
+        // Mostramos el mensaje de confirmación 
+        SnvaJsApi.showAlert("Las imágenes han sido actualizadas exitosamente.");
+        
+      }).withFailureHandler(SnvaJsApi.onFailure).updateMultipleImages(rowIndexList, imageArrayData);
+      
+    });
+    
+  } else {
+    
+    // mostramos un mensaje
+    SnvaJsApi.showAlert("Se debe seleccionar mínimo una imagen para ser actualizada");
+  }
+}
+
+
+/*
+* Función que permite listar las especies y establecer la pagina en la que esta
+*
+*/
+function listSpecies(){
+ 
+  // indes de la pagina, establecemos que esta en ninguna
+  var index = -1;
+  
+  // Recorremos el paginador, para obtner la pagina donde se encuentra actualemente
+  $("#ulPaginationSpecies").find("li.waves-effect").each(function(){
+     
+     // Validmaos si tiene la clase active
+     if($(this).hasClass("active")){
+       
+       // Obtemos el index
+       index = $(this).index(); 
+     }
+  });
+
+  // Mostramos el loading
+  SnvaJsApi.manageLoading("block", "Actualizando el listado de especies, espera un momento por favor...");
+  
+  // obtenemos el token y mostramos el selector
+  google.script.run.withSuccessHandler(function(conceptArray){
+  
+    // actualizamos la información y actualizamos la información de busqueda
+    $("#frmSearchSpecies").data({"arrayData": conceptArray, "index": index}).trigger("submit");
+    
+    // Ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+    
+  }).withFailureHandler(SnvaJsApi.onFailure).getConceptList();
+
+}
+
+
+/*
+* función que permite capturar la información de formulario de creación o edición de una especie
+*/
+function createNewSpecie(e){
+  
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // Obtenemos los datos del formulario 
+  var rowIndex = $(this).data("rowIndex");
+    
+  // Establecmeos el mensaje por defecto de crear especie
+  var messageObj = {
+    confim: "¿Seguro que desea crear una nueva nueva especie?",
+    loading: "Registrando la nueva especie...",
+    result: "Especie creada exitosamente."  
+  };
+  
+  // Validamos si estamos editando una especie
+  if(rowIndex){
+  
+    // Cambiamos el mensaje
+    messageObj.confim = "¿Seguro que desea modificar está especie?.";
+    messageObj.loading = "Modificando información de la especie...";
+    messageObj.result = "Especie modificada exitosamente.";
+  }
+  
+  // mostramos mensaje de confirmación antes de proceder a crear una nueva especie
+  SnvaJsApi.confirm(messageObj.confim, function(){
+    
+    // mostramos el loading
+    SnvaJsApi.manageLoading("block",  messageObj.loading);
+    
+    // Obtenemos el diamtro nominal de entrada
+    var nominalDiameterInput = $("#sltNominalDiameterInput option:selected").data("nominalDiameterInputData");
+    
+    // Obtenemos el diamtro nominal de salida
+    var nominalDiameterInput = $("#sltNominalDiameterOutput option:selected").data("nominalDiameterOutputData");
+    
+    // Obtenemos los datos de la longitud de la pieza
+    var pieceLength = $("#sltPieceLength option:selected").data("pieceLengthData");
+    
+    // Obtenemos los datos de la altura
+    var heightData = $("#sltHeight  option:selected").data("heightData");
+    
+    // Obtenemos los datos de ancho 
+    var width = $("#sltWidth option:selected").data("widthData");
+    
+    // Obtenemos los datos de caudal
+    var flow = $("#sltFlow option:selected").data("flowData"); 
+   
+    // Obtenemos los datos del formulario 
+    var startSpecieFormData = [
+      $("#sltDepartment").val(),  // Departamento
+      $("#txtName").val(), // Nombre
+      $("#sltFamily").val(), //Familia
+      $("#sltKeyword").val(), // Palabra clave 
+      $("#sltUnitSpecie").val(), // Unidad
+      $("#txtPriceSpecie").val().replace(/\,/g, ""), // Precio sugerido
+      $("#sltCurrencySpecie").val(), // Moneda
+      $("#txtSpareCostSpecie").val().replace(/\,/g, ""), // Costos de refacción
+      $("#sltGender").val(), // Genero
+      $("#sltMaterial option:selected").val(), // material
+      $("#sltVariety").val(), //Variadad
+      $("#sltDocumentRD").val(), // Cedula RD/espesor
+      "Espesor",
+      (nominalDiameterInput[0] || ""),// Diametro nominal (Entrada) MM
+      (nominalDiameterInput[1] || ""),// Diametro nominal (Entrada) PULG
+      (nominalDiameterInput[0] || ""),// Diametro nominal (Salida) MM
+      (nominalDiameterInput[1] || ""),// Diametro nominal (Salida) PULG
+      (pieceLength[0] || ""),// Longitud de la pieza P
+      (pieceLength[1] || ""),// Longitud de la pieza PIES
+      $("#sltConnectionTypeInput option:selected").val(),  // Tipo de conexxión (Entrada)
+      $("#sltConnectionTypeOutput option:selected").val(),  // Tipo de conexion de (Salida)
+      (heightData[0] || ""), // Altura
+      (heightData[1] || ""), // Altura Unidad
+      $("#sltAdjustmentType").val(), // Tipo de ajuste
+      $("#txtMake").val(), // Marca
+      $("#sltSizeOrCapacity").val(), // Tamaño o capacidad
+      (width[1] || ""),// Ancho m
+      (width[2] || ""), // Ancho ft
+      $("#sltCaliber").val(), // Calibre 
+      $("#sltModel").val(), // Modelo
+      (flow[1] || ""),// Caudal gph
+      (flow[2] || ""),// Caudal lph
+      $("#sltSeparation").val() // Separación
+    ];
+    
+    // obtenemos los datos finales
+    var endSpecieFormData = [
+      $("#txtCode").val(), // Codigo
+      $("#txtDescription").val(),// Descripción
+      "" // Campos para los ids de las imágenes
+    ];
+    
+    // Varibla para ingresar los datos de las imagenes
+    var imageArrayData = [];
+    
+    // Recorremos el contenedor de la imagenes
+    $("#ctnAttachment div.ctnLabelsImage div.ctn-image").each(function(){
+      
+      // Obtenemos la imagenes seleecionadas para la especie
+      imageArrayData.push($(this).data("imageData"));
+    });
+    
+    // obtenemos los datos de fabricantes
+    google.script.run.withSuccessHandler(function(){
+    
+      // Simuladmos un clic para Actualizar el listado de especies
+      $("#btnUpdateSpecies").click();
+       
+      // Volvemos al panel de busteda y restablecemos el formulario
+      resetModuleSpecie(true);
+      
+      // Ocultamos el loading
+      SnvaJsApi.manageLoading("none", "Espera un momento...");
+      
+      // Mostramos el mensaje de confirmación 
+      SnvaJsApi.showAlert(messageObj.result);
+      
+    }).withFailureHandler(SnvaJsApi.onFailure).createNewSpecie(startSpecieFormData, endSpecieFormData, imageArrayData, rowIndex);
+   
+  });
+}
+
+
+/*
+* Fnción que permite insertar los datos a los selects al formulario de creación 
+*/
+function insertDataSelectConcepts(validationsListObj){
+  //console.log("RUB", validationsListObj);
+  // Validamos de que se tengan datos
+  if(validationsListObj){
+    
+    // Referenciamos el campo de departamento
+    var $department = $("#sltDepartment");
+    
+    // Referenciamos el campo de familia
+    var $family = $("#sltFamily");
+
+    // Obtenemos el objeto de  los datos de familias
+    var $mdlSelectFamily_ = $("#sltEditFamilyMdl").html("");
+    var familyName_;
+
+    // recorremos cada una de las familias
+    for(var i = 0; i < validationsListObj.family.length; i++){
+      
+      // Obtenemos el nombre de la familia
+      familyName_ = validationsListObj.family[i][1];
+      if(familyName_){
+
+        // Agregamos la familia
+        $mdlSelectFamily_.append(
+          $("<option>").attr("value", familyName_).text(familyName_)
+        );
+      }
+    }
+
+    // Iniciamos los elemento selecionados
+    $mdlSelectFamily_.multi({ 
+      non_selected_header: 'Lista de familias',
+      selected_header: 'Familias ofertadas',
+      search_placeholder: "Buscar familias..."
+    });
+    
+    //Referenciamos el campo de genero 
+    var $gender = $("#sltGender");
+    
+    // Referenciamos al campo de material
+    var $material = $("#sltMaterial");
+    
+    // agregamos los items de departamentos
+    SnvaJsApi.insertOptionToSelect($department, validationsListObj.department, 1, 1, "departmentData", true);
+    
+    // agregamos los items de familia
+    SnvaJsApi.insertOptionToSelect($family, validationsListObj.family, 1, 1, "familyData", true);
+    
+    // agregamos los items de generos
+    SnvaJsApi.insertOptionToSelect($gender, validationsListObj.gender, 0, 0, "genderData", true);
+    
+    // agregamos los items de tipo de conexión (Entrada)
+    SnvaJsApi.insertOptionToSelect($("#sltConnectionTypeInput"), validationsListObj.connectionType, 1, 1, "connectionTypeInputData", true);
+    
+    // agregamos los items de tipo de conexión (Salida)
+    SnvaJsApi.insertOptionToSelect($("#sltConnectionTypeOutput"), validationsListObj.connectionType, 1, 1, "connectionTypeOutputData", true);
+    
+    // agregamos los items de materiales
+    SnvaJsApi.insertOptionToSelect($material, validationsListObj.material, 1, 1, "materialData", true);
+    
+    // Agregamos los items de la longitud de la pieza 
+    SnvaJsApi.insertOptionToSelect($("#sltPieceLength"), validationsListObj.pieceLength, 0, 0, "pieceLengthData", true);
+    
+    // Agregamos los items de altura 
+    SnvaJsApi.insertOptionToSelect($("#sltHeight"), validationsListObj.height, 0, 1, "heightData", true);
+    
+    // Agregamos los items de tipo de ajuste
+    SnvaJsApi.insertOptionToSelect($("#sltAdjustmentType"), validationsListObj.adjustmentType, 1, 1, "adjustmentTypeData", true);
+    
+    // Agregamos los items de tamaño o capacidad
+    SnvaJsApi.insertOptionToSelect($("#sltSizeOrCapacity"), validationsListObj.sizeOrCapacity, 1, 1, "sizeOrCapacityData", true);
+    
+    // Agregamos los items de Ancho
+    SnvaJsApi.insertOptionToSelect($("#sltWidth"), validationsListObj.width, 1, 1, "widthData", true);
+    
+    // Agregamos los items de Calibre
+    SnvaJsApi.insertOptionToSelect($("#sltCaliber"), validationsListObj.caliber, 1, 1, "caliberData", true);
+    
+    // Agregamos los items de modelo
+    SnvaJsApi.insertOptionToSelect($("#sltModel"), validationsListObj.model, 2, 2, "modelData", true);
+    
+    // Agregamos los items de caudal
+    SnvaJsApi.insertOptionToSelect($("#sltFlow"), validationsListObj.flow, 1, 1, "flowData", true);
+    
+    // Agregamos los items de separación
+    SnvaJsApi.insertOptionToSelect($("#sltSeparation"), validationsListObj.separation, 1, 1, "separationData", true);
+    
+    // Agregamos los items de unidad
+    SnvaJsApi.insertOptionToSelect($("#sltUnitSpecie"), validationsListObj.unit, 0, 0, "unitData", true);
+    
+    // Agregamos los items de moneda
+    SnvaJsApi.insertOptionToSelect($("#sltCurrencySpecie"), validationsListObj.currencySpecie, 0, 0, "currencySpecieData", true);
+    
+    // Evento cuando cambiamos de departamento
+    $department.on("change", changeDepartment);
+    
+    // Evento para cuando se selecciona una familia
+    $family.on("change", {"keywordData": validationsListObj.keyword}, changeFamily);
+    
+    // Evento para cuando se cambia de genero 
+    $gender.on("change", { "nominalDiameterData": validationsListObj.nominalDiameter }, changeGender);
+    
+    // Evento para cuando se cambia de material 
+    $material.on("change", { "varietyData": validationsListObj.variety }, changeMaterial);
+    
+    
+    // Evento para listar las cedulas cuando cambia de variedad
+    $("#sltVariety").on("change", {"documentRD": validationsListObj.documentRD}, changeVariety);
+  }
+  
+  // inicializamos los selects
+  $("#frmCreateSpecies select").formSelect();
+}
+
+
+/*3
+* Funcion que permitet listar las cedulas dependiendo de la variedad
+*/
+function changeVariety(e){
+  
+  // Referenciamos el campo de cedula
+  var $documentRD = $("#sltDocumentRD");
+  
+  // Estado para desabilitar el select y sus opciones
+  var state = true;
+  
+  // Obtenemos la opcion seleccionada
+  var dataSelected = $("#sltVariety").val();
+  
+  // Validamos de que se tenga algo seleccioado diferente a seleecione
+  if(dataSelected){
+    
+    // Array para la union de dos conjuntos de datos 
+    var arrayTemp = [];
+   
+    // Obtenemos los datos de cedulas
+    var documentRdData = e.data.documentRD;
+    
+    // Validamo si la variedad require de los datos de Inglesa y metrica
+    if(dataSelected.indexOf("S/I") != -1 && dataSelected.indexOf("S/M") != -1){
+    
+      // Habilitamos el campo de seleecion
+      $documentRD.attr({disabled: false });
+      
+      // COncatenamos los opciones de inglesa y metricas
+      arrayTemp = arrayTemp.concat(documentRdData.INGLESA);
+      arrayTemp = arrayTemp.concat(documentRdData["MÉTRICA"]);
+      
+      // Insertamos las cedulas de inglesas y metricas en el campo de cedulas
+      SnvaJsApi.insertOptionToSelect($("#sltDocumentRD"), arrayTemp, 1, 1, "documentRdData", true, true);
+      
+      // Cambiamos el estado para no quitar los datos
+      state = false;
+      
+    }else if(dataSelected.indexOf("S/I") != -1){
+      
+      // Habilitamos el campo de seleecion
+      $documentRD.attr({ disabled: false });
+    
+      // Insertamos las cedulas de inglesas y metricas en el campo de cedulas
+      SnvaJsApi.insertOptionToSelect($documentRD, documentRdData.INGLESA, 1, 1, "documentRdData", true, true);
+      
+      // Cambiamos el estado para no quitar los datos
+      state = false;
+      
+    }else if(dataSelected.indexOf("S/M") != -1){
+    
+      // Habilitamos el campo de seleecion
+      $documentRD.attr({ disabled: false });
+      
+      // Insertamos las cedulas de inglesas y metricas en el campo de cedulas
+      SnvaJsApi.insertOptionToSelect($documentRD, documentRdData["MÉTRICA"], 1, 1, "documentRdData", true, true);
+      
+      // Cambiamos el estado para no quitar los datos
+      state = false;
+        
+    }else{
+      
+      // Validamos si existen las opciones para ese tipo de variedad
+      if(documentRdData[dataSelected] && documentRdData[dataSelected].length > 0){
+      
+        // Habilitamos el campo de seleecion
+        $documentRD.attr({ disabled: false });
+        
+        // Insertamos las cedulas de inglesas y metricas en el campo de cedulas
+        SnvaJsApi.insertOptionToSelect($documentRD, documentRdData[dataSelected], 1, 1, "documentRdData", true, true);
+        
+        // Cambiamos el estado para no quitar los datos
+        state = false;
+        
+      }else{
+      
+        // mostramos el respectivo mensaje
+        SnvaJsApi.showAlert("Esta variedad no tiene asociada cédulas.");
+      }
+    }
+  }
+  
+  if(state){
+     
+    // reseteamos el select y desactivamos el campo 
+    $documentRD.html('<option value="">--Seleccione--</option>').attr({disabled:true}).formSelect();
+  }
+  
+}
+
+
+/*
+* Función que permite listar los tipos de varidad dependiendo del material seleccionado
+*/
+function changeMaterial(e){
+  
+  // Referenciamos el campo de variedad
+  var $variety = $("#sltVariety");
+  
+  // Stado para desabilitar el select y sus opciones
+  var state = true;
+  
+  // Validamos de que se tenga algo seleccioado diferente a seleecione
+  if($("#sltMaterial").val()){
+    
+    // Obtenemos los datos de variedad
+    var varietyData = e.data.varietyData;
+    
+    // Obtenemos la opcion seleccionada
+    var dataSelected = $("#sltMaterial option:selected").data("materialData");
+    
+    // Obtenemos los datos para insertar
+    var arrayData = varietyData[dataSelected[1]];
+    
+    //Validamos de se tengan datos
+    if(arrayData){
+      
+      // Habilitamos el campo de seleecion
+      $variety.attr({ disabled: false });
+      
+      // agregamos los items de variedad
+      SnvaJsApi.insertOptionToSelect($variety, arrayData, 1, 1, "varietyData", true, true);
+      
+      // cambiamos el estado a que se insertaron elementos y no se debe deshabilitar
+      state = false;
+    }
+     
+  }
+  
+  // Validamos si se debe deshabilitar el campo y sus opciones
+  if(state){
+    
+    // reseteamos el select y desactivamos el campo 
+    $variety.html('<option value="">--Seleccione--</option>').attr({disabled:true}).formSelect();
+     
+  }
+  
+  // Simulamos el evento onchange para listar las cedulas correspondientes
+  $variety.change();
+  
+}
+
+/*
+* Función que permite listar los diametros dependiento de  genero seleccionado
+*/
+function changeGender(e){
+   
+   // Referenciamos el campo de Diametro nominal de entrada
+   var $nominalDiameterInput = $("#sltNominalDiameterInput");
+   
+   // Referenciamos el campo de Diametro nominal de salida
+   var $nominalDiameterOutput = $("#sltNominalDiameterOutput");
+   
+   // Estado para deshabilitar los campos 
+   var state = true;
+   
+   // Validamos de que se tenga una opción diferente a selecione
+   if($("#sltGender").val()){
+     
+     // Obtenemos los datos de los diametros
+     var nominalDiameterData = e.data.nominalDiameterData;
+     
+     // Obtenemos la opcion seleccionada
+     var dataSelected = $("#sltGender option:selected").data("genderData");
+     
+     // Obtenemos los datos para insertar
+     var arrayData = nominalDiameterData[dataSelected[0]];
+     
+     //Validamos de se tengan datos
+     if(arrayData){
+       
+       // Habilitamos el campo de seleecion
+       $nominalDiameterInput.attr({ disabled: false });
+       
+       // Habilitamos el campo de seleecion
+       $nominalDiameterOutput.attr({ disabled: false });
+       
+       // agregamos los items de diametro nominal de entrada
+       SnvaJsApi.insertOptionToSelect($nominalDiameterInput, arrayData, 0, 0, "nominalDiameterInputData", true, true);
+       
+       // agregamos los items de diametro nominal de salida
+       SnvaJsApi.insertOptionToSelect($nominalDiameterOutput, arrayData, 0, 0, "nominalDiameterOutputData", true, true);
+       
+       // cambiamos el estado a que se insertaron elementos y no se debe deshabilitar
+       state = false;
+     }
+   }
+   
+   // Validamos si se debe deshabilitar el campo y sus opciones
+   if(state){
+   
+     // reseteamos el select y desactivamos el campo 
+     $nominalDiameterInput.html('<option value="">--Seleccione--</option>').attr({disabled:true}).formSelect();
+     
+     // reseteamos el select y desactivamos el campo 
+     $nominalDiameterOutput.html('<option value="">--Seleccione--</option>').attr({disabled:true}).formSelect();
+   
+   }
+   
+}
+
+/*
+* Función para listar las palabraas claves respecto a la familia seleecionada
+*/
+function changeFamily(e){
+  
+  //Referenciamos el campo de family
+  var $keyword = $("#sltKeyword");
+  
+  // Estado para deshabilitar los campos 
+  var state = true;
+  
+  // Validamos de que se tenga una opción diferente a selecione
+  if($("#sltFamily").val()){
+    
+    // Obtenemos la opcion seleccionada
+    var dataSelected = $("#sltFamily option:selected").data("familyData");
+    
+    // obtenemos los datos 
+    var keywordData = e.data.keywordData;
+    
+    // Obtenemos los datos para insertar
+    var arrayData = keywordData[dataSelected[1]];
+    
+    //Validamos de se tengan datos
+    if(arrayData){
+      
+      // Habilitamos el campo de seleecion
+      $keyword.attr({ disabled: false });
+      
+      // agregamos los items de palabra clave
+      SnvaJsApi.insertOptionToSelect($keyword, arrayData, 0, 0, "keywordData", true, true);
+      
+       // Validamos si se debe deshabilitar el campo y sus opciones
+      state = false;
+    }
+    
+  }
+  
+  // Validamos si se debe deshabilitar el campo y sus opciones
+  if(state){
+  
+      // reseteamos el select y desactivamos el campo 
+     $keyword.html('<option value="">--Seleccione --</option>').attr({disabled:true}).formSelect();
+  }
+}
+
+/*
+* función que permite establecer la estructura del nombre 
+*/
+function changeDepartment(){
+  
+  // Validamos de que se tenga una opción diferente a selecione
+  if($("#sltDepartment").val()){
+    
+    // Obtenemos los datos seleccionados
+    var data = $("#sltDepartment option:selected").data("departmentData");
+    
+    // establemcemos el nombre de la propuesta 
+    $("#structureName").text(data[2] ? data[2] : "--Sin definir propuesta--");
+    
+  }else{
+  
+    // establemcemos el nombre de la propuesta 
+    $("#structureName").text("--Sin definir propuesta--");
+  }
+  
+}
+
+
+/*
+* Función que permite habilitar el modal para adicionar las imagenes a una especie 
+*/
+function addImageToConcept(){
+   
+   // Verificamos y obtenemos los datos de las especies seleccionadas 
+   var conceptList = verifySelectedConcept();
+   
+   // Validamos de que puede habilitar el modal para agregar las imagens
+   if(conceptList && conceptList.length > 0){
+     
+     // referenciamos el conetnedor
+     var $content = $("#ulSpeciesList");
+     
+     // borramos el contenido anterior
+     $content.html("");
+     
+     // recorremos cada uno de las especies
+     for(var i = 0; i < conceptList.length; i++){
+       
+       // se crea cada una de las opciones 
+       $content.append(
+         $("<li>").data("rowIndex", conceptList[i][38]).text(conceptList[i][1])
+       );
+       
+     }
+     
+     // ocultamos el panel de ver imágenes y borramos etiquetas actuales del modal de actualización de imágenes
+     $("#ctnUpdateImageSpecies").addClass("hidden").find("div.ctnLabelsUpdateImage").html("");
+     
+     // Validamos si existe información de imagenes
+     if(String(conceptList[0][37]).trim()){
+       
+       // variable para obtener el JSON de imágenes
+       var imageJson = null;
+       
+       // convertimos el texto en un objeto manipulable
+       try{
+         
+         // convertimos el texto en un objeto manipulable
+         imageJson = JSON.parse(conceptList[0][37]);
+         
+       } catch(ex){
+         
+         // establecemos nulo a la variable de los datos de imágenes
+         imageJson = null;
+       }
+       
+       // se valida que existan datos validos de las imagenes
+       if(imageJson){
+       
+         // referenciamos el contenedor
+         var $content = $("#ctnUpdateImageSpecies").removeClass("hidden").find("div.ctnLabelsUpdateImage");
+         
+         // recorremos cada una de las imágenes
+         for(var j = 0; j < imageJson.length; j++){
+           
+           // agregamos el vínculos en el contenedor
+           $content.append(
+             $("<div>").attr({class: "ctn-image"}).data("imageData", imageJson[j]).append(
+               $("<span>").attr({title: "Eliminar imagen"}).text("X").click({mainPanelId: "ctnUpdateImageSpecies", imagePanelClass: "ctnLabelsUpdateImage"}, deleteImageFromContent)
+             ).append(
+               $("<img>").attr({src: "https://drive.google.com/uc?export=download&id=" + imageJson[j].id})
+             )
+           );
+         }
+         
+       }
+     }
+     
+     // creamos la instancia del modal de especies similares
+     var instanceMdl = M.Modal.getInstance($("#mdlUpdateMultipleImages"));
+     
+     // validamos si existe la instancia
+     if(instanceMdl){
+     
+       // abrimos el modal
+       instanceMdl.open();
+     }
+    
+   }else{
+     
+     // mostramos el respectivo mensaje
+     SnvaJsApi.showAlert("Debe seleccionar como mínimo una especie para agregar imágenes.");
+
+   }
+}
+
+
+/*
+* Funcción que permite verificar se tenga seleccioado como minimo una especie 
+*/
+function verifySelectedConcept(){
+  
+  // variable para almacenar las especies
+  var conceptArray = [];
+  
+  // validamos si existe
+  $("#tblSpecies tbody").find("input[type='checkbox']:checked").each(function(){
+    
+    // Agregamos los datos de la especie
+    conceptArray.push($(this).closest("tr").data("speciesData"));
+    
+  });
+  
+  // Retornamos el array con los datos de las especies
+  return conceptArray;
+}
+
+/*
+* Función que permite duplicar una especie
+*/
+function duplicateSpecies(e){  
+   
+   // Se previene el evento por defecto
+   e.preventDefault();
+   
+   // Obtenemos los datos de la especie
+   var speciesData = $(this).closest("tr").data("speciesData");
+   
+   // Reseteamos el formulario de creación
+   resetModuleSpecie();
+   
+   // Datos para especificar el procedimiento que se esta realizando
+   $("#frmCreateSpecies").data("type", "creation");
+   
+   // ajustamos el texto del titulo del panel
+   $("#lblTitleEditSpecie").text("Crear especie");
+   
+   // Insertamos los datos al formulario de creación de especies 
+   insertDataFormCreateSpecie(speciesData);
+   
+   // oculatamos el panel 
+   $("#ctnSpecies").addClass("hidden");
+   
+   // Mostramos el panel de edición
+   $("#ctnEditSpecies").removeClass("hidden");
+   
+}
+
+/**
+* Función que permite habilitar o deshabilitar la opción de adicionar imagenes
+**/
+function enabledAddImage(){
+    
+  // variable para definir el contenedor de la opción
+  var $btn = $("#btnAddImage");
+  
+  // se referencia la tabla
+  var $table = $("#tblSpecies");
+  
+  // se valida si existe algun opción selecciondo
+  if($table.find("tbody tr input[type='checkbox']:checked").length > 0){
+  
+    // habilitamos el boton
+    $btn.attr({disabled: false});
+  
+  } else {
+    
+    // deshabilitamos el boton
+    $btn.attr({disabled: true});
+  }
+}
+
+/*
+* Función que permite editar una especie
+*/
+function generateNameSpecie(){
+  
+  // referenciamos el select
+  var $select = $("#sltDepartment");
+  
+  // validamos si existe un departamento seleccionado
+  if($select.val()){
+    
+    // obtenemos los datos base del departamento
+    var departmentData = $select.find("option:selected").data("departmentData");
+
+    // definimos el id del campo donde debe consultar el valor segun el atributo
+    var referenceFields = {
+      "3": {regexp: /\{1\}/g, id: "sltGender"},
+      "4": {regexp: /\{2\}/g, id: "sltMaterial"},
+      "5": {regexp: /\{3\}/g, id: "sltVariety"},
+      "6": {regexp: /\{4\[1\]\}/g, id: "sltDocumentRD", index: 0, property: "documentRdData"},
+      "7": {regexp: /\{4\[2\]\}/g, id: "sltDocumentRD", index: 1, property: "documentRdData"},
+      "8": {regexp: /\{5\[1\]\}/g, id: "sltNominalDiameterInput", index: 0, property: "nominalDiameterInputData"},
+      "9": {regexp: /\{5\[2\]\}/g, id: "sltNominalDiameterInput", index: 1, property: "nominalDiameterInputData"},
+      "10": {regexp: /\{6\[1\]\}/g, id: "sltNominalDiameterOutput", index: 0, property: "nominalDiameterOutputData"},
+      "11": {regexp: /\{6\[2\]\}/g, id: "sltNominalDiameterOutput", index: 1, property: "nominalDiameterOutputData"},
+      "12": {regexp: /\{7\[1\]\}/g, id: "sltPieceLength", index: 0, property: "pieceLengthData"},
+      "13": {regexp: /\{7\[2\]\}/g, id: "sltPieceLength", index: 1, property: "pieceLengthData"},
+      "14": {regexp: /\{8\[1\]\}/g, id: "sltConnectionTypeInput"},
+      "15": {regexp: /\{8\[2\]\}/g, id: "sltConnectionTypeOutput"},
+      "16": {regexp: /\{9\[1\]\}/g, id: "sltHeight", index: 0, property: "heightData"},
+      "17": {regexp: /\{9\[2\]\}/g, id: "sltHeight", index: 1, property: "heightData"},
+      "18": {regexp: /\{10\}/g, id: "sltAdjustmentType"},
+      "19": {regexp: /\{11\}/g, id: "txtMake"},
+      "20": {regexp: /\{12\}/g, id: "sltSizeOrCapacity"},
+      "21": {regexp: /\{13\[1\]\}/g, id: "sltWidth", index: 1, property: "widthData"},
+      "22": {regexp: /\{13\[2\]\}/g, id: "sltWidth", index: 2, property: "widthData"},
+      "23": {regexp: /\{14\}/g, id: "sltCaliber"},
+      "24": {regexp: /\{15\}/g, id: "sltModel"},
+      "25": {regexp: /\{16\[1\]\}/g, id: "sltFlow", index: 1, property: "flowData"},
+      "26": {regexp: /\{16\[2\]\}/g, id: "sltFlow", index: 2, property: "flowData"},
+      "27": {regexp: /\{16\}/g, id: "sltSeparation"}
+    };
+    
+    // validamos si existen datos en la descrioción
+    if(departmentData && departmentData.length > 3){
+      
+      // variable para obtener los atributos
+      var options = {},
+          currentValue = "",
+          regexp = "",
+          $field = null,
+          propertyValues = [];
+          
+      // definimos el nombre de la especie
+      var specieName = "";
+      
+      // recorremos los atributos
+      for(var i = 3; i < departmentData.length; i++){
+        
+        // se referencia el valor actual
+        currentValue = String(departmentData[i]).trim();
+        
+        // obtenemos las opciones
+        options = referenceFields[i];
+        
+        // se valida que exista un valor
+        if(currentValue && options){
+          
+          // validamos si el texto actual contiene un valor a reemplazar
+          if(options.regexp.test(currentValue)){
+            
+            // referenciamos el campo
+            $field = $("#" + options.id);
+            
+            // validamos si existe un valor seleccionado
+            if($field.val()){
+            
+              // validamos si el atributo solo debe obtener el valor actual seleccionado
+              if(!options.index){
+                
+                // agregamos el valor actual al nombre
+                specieName += currentValue.replace(options.regexp, String($field.val() || "").trim()) + " ";
+                
+              } else {
+                
+                // obtenemos la propiedad
+                propertyValues = $field.find("option:selected").data(options.property);
+                
+                // se valida que exista valores en la propiedad
+                if(propertyValues && propertyValues[options.index]){
+                
+                  // agregamos el valor actual al nombre
+                  specieName += currentValue.replace(options.regexp, propertyValues[options.index]) + " ";
+                }
+              }
+            }
+            
+          } else {
+            
+            // agregamos el valor actual al nombre
+            specieName += currentValue + " ";
+            
+          }
+        }
+      }
+      
+      // actualizamos el nombre
+      $("#txtName").val(specieName.trim());
+      
+    }
+  }
+  
+  // llamamos la función que genera el código respectivo de la especie
+  generateCodeBySpecie();
+  
+}
+
+/*
+* Función que permite generar la clave del producto
+*/
+function generateCodeBySpecie(){
+  
+  // formamos el array con los datos base del campo para formar el código del producto
+  var referenceFields = [
+    {id: "sltDepartment", index: 0, property: "departmentData"},
+    {id: "sltMaterial", index: 0, property: "materialData"},
+    {id: "sltVariety", index: 0, property: "varietyData"},
+    {id: "sltDocumentRD", index: 0, property: "documentRdData"},
+    {id: "sltConnectionTypeInput", index: 0, property: "connectionTypeInputData"}
+  ];
+  
+  // campos para referenciar el campo
+  var $field = null,
+      propertyValues = [];
+          
+  // definimos el nombre de la especie
+  var code = "";
+  
+  // recorremos la referencia de los campos
+  for(var i = 0; i < referenceFields.length; i++){
+    
+    // referenciamos el campo
+    $field = $("#" + referenceFields[i].id);
+    
+    // validamos si existe un valor seleccionado
+    if($field.val()){
+    
+      // obtenemos la propiedad
+      propertyValues = $field.find("option:selected").data(referenceFields[i].property);
+      
+      // se valida que exista valores en la propiedad
+      if(propertyValues && propertyValues[referenceFields[i].index]){
+      
+        // agregamos el valor actual al nombre
+        code += propertyValues[referenceFields[i].index];
+      }
+    }
+  }
+  
+  // referenciamos el valor de diametro
+  var diameterValue = $("#sltNominalDiameterInput").val();
+  
+  // validamos si existealgun valor hasta el momento
+  if(diameterValue){
+    
+    // volvemos el valor a string y quitamos los espacios
+    diameterValue =  String(diameterValue).trim();
+    
+    // se valida si existe información inicial del código
+    if(code){
+      
+      // agregamos el punto
+      code += ".";
+    }
+    
+    // agregamos el valor del diametro de entrada
+    code += diameterValue;
+  }
+  
+  // actualizamos el código
+  $("#txtCode").val(code.trim());
+}
+
+/*
+* Función que permite editar una especie
+*/
+function editSpecies(e){
+   
+   // Se previene el evento por defecto
+   e.preventDefault();
+   
+   // Obtenemos los datos de la especie
+   var speciesData = $(this).closest("tr").data("speciesData");
+   
+   // Reseteamos el formulario de creación
+   resetModuleSpecie();
+   
+   // Insertamos los datos al formulario de creación de especies 
+   insertDataFormCreateSpecie(speciesData);
+  
+   // oculatamos el panel 
+   $("#ctnSpecies").addClass("hidden");
+   
+   // ajustamos el texto del titulo del panel y al boton de crear o modificar
+   $("#lblTitleEditSpecie, #btnCreateSpecies").text("Modificar especie");
+   
+   // Mostramos el panel de edición
+   $("#ctnEditSpecies").removeClass("hidden");
+   
+   // establecemos un data para determinar que se esta realizando una modificación
+   $("#frmCreateSpecies").data("rowIndex", speciesData[38]);
+   
+}
+
+/*
+* Función que permite insertar los datos al formulario cuando es duplicar o editar una especie
+*/
+function insertDataFormCreateSpecie(speciesData){
+   
+   // Validamos de que vengan los datos 
+   if(speciesData && speciesData.length > 0){
+   
+     // Insertamos los datos en el formulario
+     $("#txtCode").val(speciesData[35]); // Codigo
+     $("#txtName").val(speciesData[1]); // Nombre
+     $("#sltDepartment").val(speciesData[0]).formSelect().change(); // Departamento
+     $("#sltFamily").val(speciesData[2]).formSelect().change(); //Familia
+     $("#txtDescription").val(speciesData[36]); // Descripción
+     
+     $("#sltUnitSpecie").val(speciesData[4]).formSelect(); // Unidad
+     $("#txtPriceSpecie").val(String(speciesData[5]).trim().replace(/\,|\$/g, "")).change(); //Precio sugerido
+     $("#sltCurrencySpecie").val(speciesData[6]).formSelect(); // Moneda
+     $("#txtSpareCostSpecie").val(String(speciesData[7]).trim().replace(/\,|\$/g, "")).change();// Costo refacción
+     
+     $("#sltGender").val(speciesData[8]).formSelect().change(); // Genero
+     $("#sltNominalDiameterInput").val(speciesData[13]).formSelect();  // Diametro nominal (Entrada)
+     $("#sltNominalDiameterOutput").val(speciesData[15]).formSelect();  // Diametro nominal (Salida)
+     $("#sltConnectionTypeInput").val(speciesData[19]).formSelect();   // Tipo de conexxión (Entrada)
+     $("#sltConnectionTypeOutput").val(speciesData[20]).formSelect();   // Tipo de conexion de (Salida)
+     $("#sltMaterial").val(speciesData[9]).formSelect().change();  // material
+     $("#sltVariety").val(speciesData[10]).formSelect();  //Variedad
+     $("#sltDocumentRD").val(speciesData[11]).formSelect(); // Cedula RD/espesor
+     $("#sltPieceLength").val(speciesData[17]).formSelect();  // Longitud de la pieza
+     $("#sltHeight").val(speciesData[21]).formSelect();  // Altura
+     $("#sltAdjustmentType").val(speciesData[23]).formSelect();  // Tipo de ajuste
+     $("#sltSizeOrCapacity").val(speciesData[25]).formSelect();  // Tamaño o capacidad
+     $("#txtMake").val(speciesData[24]), // Marca
+     $("#sltWidth").val(speciesData[26]).formSelect();  // Ancho
+     $("#sltCaliber").val(speciesData[28]).formSelect();  // Calibre 
+     $("#sltModel").val(speciesData[29]).formSelect();  // Modelo
+     $("#sltFlow").val(speciesData[30]).formSelect();  // Caudal
+     $("#sltSeparation").val(speciesData[32]).formSelect();  // Separación
+     $("#sltKeyword").val(speciesData[3]).formSelect(); // Palabra clave
+      
+     // Validamos si existe información de imagenes
+     if(String(speciesData[37]).trim()){
+       
+       // variable para obtener el JSON de imágenes
+       var imageJson = null;
+       
+       // convertimos el texto en un objeto manipulable
+       try{
+         
+         // convertimos el texto en un objeto manipulable
+         imageJson = JSON.parse(speciesData[37]);
+         
+       } catch(ex){
+         
+         // establecemos nulo a la variable de los datos de imágenes
+         imageJson = null;
+       }
+       
+       // se valida que existan datos validos de las imagenes
+       if(imageJson){
+       
+         // referenciamos el contenedor
+         var $content = $("#ctnAttachment").removeClass("hidden").find("div.ctnLabelsImage");
+         
+         // recorremos cada una de las imágenes
+         for(var i = 0; i < imageJson.length; i++){
+           
+           // agregamos el vínculos en el contenedor
+           $content.append(
+             $("<div>").attr({class: "ctn-image"}).data("imageData", imageJson[i]).append(
+               $("<span>").attr({title: "Eliminar imagen"}).text("X").click({mainPanelId: "ctnAttachment", imagePanelClass: "ctnLabelsImage"}, deleteImageFromContent)
+             ).append(
+               $("<img>").attr({src: "https://drive.google.com/uc?export=download&id=" + imageJson[i].id})
+             )
+           );
+         }
+       }
+     }
+   }
+   
+   // actualizamos los campos
+   M.updateTextFields();
+
+}
+
+/*
+* Función que permite habilitar el formulario para la nueva especie
+**/
+function newSpecies(){
+   
+   // Reseteamos el formulario de creación
+   resetModuleSpecie(true);
+   
+   // oculatamos el panel 
+   $("#ctnSpecies").addClass("hidden");
+   
+   // Mostramos el panel de edición
+   $("#ctnEditSpecies").removeClass("hidden");
+   
+}
+
+/*
+* Función que permite resetear el formulario de creación de nueva especie o modificación
+**/
+function resetModuleSpecie(isReset){
+  
+  // referenciamos el formulario
+  var $form = $("#frmCreateSpecies");
+  
+  // reseteamos el formulario
+  $form.removeData("rowIndex");
+  
+  // validamos si se requiere resetear
+  if(isReset){
+    
+    // eliminamos los valores de cada uno de los campos
+    $form[0].reset();
+  }
+  
+  // borramos el valor de la estructura
+  $("#structureName").text("--Sin definir propuesta--");
+  
+  // ajustamos el texto del titulo del panel y al boton de crear o modificar
+  $("#lblTitleEditSpecie, #btnCreateSpecies").text("Crear especie");
+  
+  // ocultamos el panel de ver imágenes y borramos etiquetas actuales
+  $("#ctnAttachment").addClass("hidden").find("div.ctnLabelsImage").html("");
+  
+  // agregamos la clase active a los label de cada campo
+  $("div.input-field+label").addClass("active");
+  
+}
+
+/*
+* Función que permite cancelar la creación o modificación de una especie
+**/
+function cancelManageSpecies(e){
+  
+  // mostramos mensaje de confirmación antes de volver al panel anterior
+  SnvaJsApi.confirm("¿Esta seguro que desea regresar al listado de especies?", function(){
+    
+    // Reseteamos el formulario de creación
+     resetModuleSpecie();
+     
+     // oculatamos el panel de edición
+     $("#ctnSpecies").removeClass("hidden");
+     
+     // Mostramos el panel de busqueda de especies
+     $("#ctnEditSpecies").addClass("hidden");
+  
+  });
+  
+}
+
+/*
+* Función que permite adicionar una imagen al panel de detalles
+**/
+function addImageInPanel(e){
+  
+  // Se valida si se seleccionó un archivo
+  if (e.target.files.length === 1) {
+    
+    // obtenemos el ID del panel principal de imágenes
+    var mainPanelId = e.data.panelId;
+    
+    // obtenemos la Clase del panel de imágenes
+    var imagePanelClass = e.data.onlyPanelClass;
+    
+    // Se referencia el archivo seleccionado
+    var selectedFile = e.target.files[0];
+    
+    //Si el archivo seleccionado no es una imagen
+    if (!(/\.(jpg|png|gif|jpeg)$/i).test(selectedFile.name)) {
+    
+      // Se genera una excepción con el siguiente mensaje
+      SnvaJsApi.showAlert("Lo sentimos, solo se permite elegir imágenes.");
+    
+    } else {
+      //Validamos que el archivo no pese mas de dos megas
+      if(selectedFile.size < 2000000){
+      
+        // Se declara una variable de tipo "FileReader" para procesar el archivo seleccionado
+        var reader = new FileReader();
+        
+        // Se compila el archivo
+        reader.readAsDataURL(selectedFile);
+        
+        //Obtenemos la referencia del archivo 
+        var $field = $(this);
+        
+        // Se establece el evento al ejecutar cuando se haya seleccionado el archivo
+        reader.onload = function() {
+          
+          // referenciamos el contenedor
+          var $content = $("#" + mainPanelId).removeClass("hidden").find("div." + imagePanelClass);
+          
+          // obtenemoos los datos de la imagen
+          var imageData = {
+            name: selectedFile.name,
+            base64: reader.result
+          };
+          
+          // agregamos el vínculos en el contenedor
+          $content.append(
+            $("<div>").attr({class: "ctn-image"}).data("imageData", imageData).append(
+              $("<span>").attr({title: "Eliminar imagen"}).text("X").click({mainPanelId: mainPanelId, imagePanelClass: imagePanelClass}, deleteImageFromContent)
+            ).append(
+              $("<img>").attr({src: reader.result})
+            )
+          );
+          
+        };
+        
+      } else {
+      
+        // Se genera una excepción con el siguiente mensaje
+        SnvaJsApi.showAlert("Lo sentimos, la imagen debe pesar menos de 2MB.");
+      }
+    }
+  }
+}
+
+/**
+ * Función que permite eliminar una imagen
+**/
+function deleteImageFromContent(e){
+  
+  // referenciamos el contenedor
+  var $contentImage = $(this).closest("div.ctn-image");
+  
+  // obtenemos el ID del panel principal de imágenes
+  var mainPanelId = e.data.mainPanelId;
+  
+  // obtenemos la Clase del panel de imágenes
+  var imagePanelClass = e.data.imagePanelClass;
+  
+  // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+  SnvaJsApi.confirm("¿Esta seguro que desea eliminar esta imagen?", function(){
+    
+    // referenciamos el contenedor
+    var $content = $("#" + mainPanelId);
+     
+    // Se elimina la respectiva imagen
+    $contentImage.remove();
+    
+    // validamos si no existe una imagen
+    if($content.find("div." + imagePanelClass + " div.ctn-image").length == 0){
+      
+      // ocultamos el panel
+      $content.addClass("hidden");
+      
+    }
+  
+  });
+  
+}
+
+</script>

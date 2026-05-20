@@ -1,0 +1,461 @@
+<div id="ctnSpecies" class="hidden">
+  <h1>Especies</h1>
+  <p>A continuación el panel de busqueda de especies</p>
+  <div class="panel-primary">
+    <div class="panel-primary-header">Listado de especies</div>
+    <div class="panel-primary-body">
+      <form id="frmSearchSpecies" autocomplete="off">
+        <div class="row">
+          <div class="col s12 m3 xl3 input-field">
+            <input id="txtDepartmentSearch" type="text">
+            <label for="txtDepartmentSearch">Departamento</label>
+          </div>
+          <div class="col s12 m3 xl3 input-field">
+            <input id="txtSpecieSearch" type="text">
+            <label for="txtSpecieSearch">Especie</label>
+          </div>
+          <div class="col s12 m3 xl3 input-field">
+            <input id="txtFamilySearch" type="text">
+            <label for="txtFamilySearch">Familia</label>
+          </div>
+          <div class="col s12 m3 xl3 input-field">
+            <input id="txtKeywordSearch" type="text">
+            <label for="txtKeywordSearch">Palabra clave</label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col s1"> 
+            <button id="btnAddImage" type="button" class="#6d4c41 brown darken-1 waves-effect waves-light btn" disabled="disabled"> <i class="material-icons">add_photo_alternate</i> </button>
+          </div>
+          <div class="col s11 text-right"> 
+            <button id="btnUpdateSpecies" title="Actualizar lista de especies" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons size-24">refresh</i></button>
+            <a id="btnAddSpecies" class="#26a69a teal lighten-1 waves-effect waves-light btn"><i class="material-icons left">add</i>Especie</a>
+            <button id="txtSearchSpecies" type="submit" class="btn waves-effect waves-light btn-secundary">Buscar</button>
+          </div>
+        </div>
+      </form>
+      <div class="row">
+        <table id="tblSpecies" class="responsive-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Departamento</th>
+              <th>Especie</th>
+              <th>Familia</th>
+              <th>Palabra clave</th>
+              <th class="text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="info-message">
+              <td colspan="6">No hay especies para mostrar.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="row">
+        <div class="col s12 ctn-pagination">
+          <span class="left spnTotalPagination"></span>
+          <ul class="pagination pager" id="ulPaginationSpecies"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--  contenedor de edición de una especie-->
+<div id="ctnEditSpecies" class="hidden">
+  <h1 id="lblTitleEditSpecie">Crear especie</h1>
+  <p>A continuación puedes crear o editar el nombre de una especie.</p>
+  <form id="frmCreateSpecies" autocomplete="off">
+    <div class="panel-primary">
+      <div class="panel-primary-header panel-header-species">
+        <div class="row">
+          <div class="col s12 m4 ">
+            Datos Principales
+          </div>
+       
+          <div class="col s12 m8 text-right">
+            <strong id="structureName">-----</strong>
+          </div>
+        </div>
+      </div>
+      <div class="panel-primary-body">
+      
+        <div class="row">
+          <div class="col s12 m2">
+            <div class="card-panel">
+              <div class="input-field">
+                <input placeholder="Código" id="txtCode" type="text" disabled required>
+                <label for="txtCode">Código <span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m10">
+            <div class="card-panel">
+              <div class="input-field">
+                <input placeholder="Nombre" id="txtName" type="text" disabled required>
+                <label for="txtName">Nombre <span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        <div class="row">
+        
+          <div class="col s12 m4">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltDepartment" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltDepartment">Departamento <span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m4">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltFamily" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltFamily">Familia<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m4">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltKeyword" disabled required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltKeyword">Palabra clave<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="row">
+        
+          <div class="col s6 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltUnitSpecie" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltUnitSpecie">Unidad <span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col s6 m3">
+            <div class="card-panel">
+              <div class="input-field" >
+                <input placeholder="Precio sugerido" id="txtPriceSpecie" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required>
+                <label for="txtPriceSpecie">Precio sugerido<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col s6 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltCurrencySpecie" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltCurrencySpecie">Moneda<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col s6 m3">
+            <div class="card-panel">
+              <div class="input-field" >
+                <input placeholder="Costo refacción" id="txtSpareCostSpecie" pattern="^(\d|-)?(\d|,)*\.?\d*$" type="text">
+                <label for="txtSpareCostSpecie">Costo refacción<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        
+        <div class="row">
+          <div class="col s12 m12">
+            <div class="card-panel">
+              <div class="input-field">
+                <textarea id="txtDescription" class="materialize-textarea" required></textarea>
+                <label for="txtDescription">Descripción del producto<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+   
+      </div> 
+      
+      <div class="panel-primary-header panel-header-species">Datos Generales</div>
+      
+      <div class="panel-primary-body" >
+        <div class="row">
+        
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltGender" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltGender">Genero<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltNominalDiameterInput" disabled required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltNominalDiameterInput">Diámetro nominal (Entrada)<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltNominalDiameterOutput" disabled required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltNominalDiameterOutput">Diámetro nominal (Salida)<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltConnectionTypeInput" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltConnectionTypeInput">Tipo de conexión (Entrada)<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        <div class="row">
+        
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltConnectionTypeOutput" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltConnectionTypeOutput">Tipo de conexión (Salida)<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltMaterial" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltMaterial">Material<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltVariety" disabled required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltVariety">Variedad<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltDocumentRD" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltDocumentRD">Cédula RD/Espesor<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        <div class="row">
+        
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltPieceLength" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltPieceLength">Longitud de la pieza<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltHeight" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltHeight">Altura</label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltAdjustmentType" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltAdjustmentType">Tipo de ajuste<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltSizeOrCapacity" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltSizeOrCapacity">Tamaño o capacidad<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        <div class="row">
+          <div class="col s12 m6">
+            <div class="card-panel">
+              <div class="input-field" >
+                <input placeholder="Marca" id="txtMake" type="text" required>
+                <label for="txtMake">Marca<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltWidth" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltWidth">Ancho<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m3">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltCaliber" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltCaliber">Calibre<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        <div class="row">
+         
+         
+          <div class="col s12 m4">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltModel" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltModel">Modelo<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col s12 m4">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltFlow" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltFlow">Caudal<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m4">
+            <div class="card-panel">
+              <div class="input-field">
+                <select id="sltSeparation" required>
+                  <option value="">--Seleccione--</option>
+                </select>
+                <label for="sltSeparation">Separación<span class="md-asterisk">*</span></label>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+        <div class="row">
+        
+          <div class="col s12 m12 l6 xl12" style="margin-top: 25px;">
+            <button id="btnSelectedAttachment" type="button" class="ctn-field-file btn #546e7a blue-grey darken-1 waves-effect waves-light">
+              <i class="material-icons left">cloud_upload</i> Adjuntar imagen(es)
+              <input type="file" accept="image/*">
+            </button>
+          </div>
+          <div class="col s12 m12 l12 xl12" id="ctnAttachment">
+            <div class="card-panel" style="min-height:75px;">
+              <span style="font-weight: bold;">Imagenes seleccionadas:</span>
+              <div class="ctnLabelsImage"></div>
+            </div>
+          </div>
+        
+        </div>
+        
+        <br>
+        <div class="row">
+          <div class="col s12 text-right">
+            <button id="btnCancelCreateSpecies" type="button" class="waves-effect waves-light btn btn-cancel-confirm">Cancelar</button>
+            <button id="btnCreateSpecies" type="submit" class="btn btn-primary waves-effect waves-light">Crear especie</button>
+          </div>
+        </div>
+      </div> 
+      
+    </div> 
+  </form> 
+</div>
+
+<!-- Modal: creación de grupos-->
+<div id="mdlUpdateMultipleImages" class="modal modal-fixed-footer modal-fixed-header">
+  <div class="modal-header">
+    <h4 id="txtModalTitle">Actualización de imágenes</h4>
+  </div>
+
+  <div class="modal-content">
+     <div class="row">
+        <div class="col s12 m12 l12 xl12">
+          <strong>Especies seleccionadas:</strong>
+          <ul id="ulSpeciesList">
+          </ul>
+        </div>
+        <div class="col s12 m12 l12 xl12">
+          <button id="btnSelectedUpdateImages" type="button" class="ctn-field-file btn #546e7a blue-grey darken-1 waves-effect waves-light">
+          <i class="material-icons left">cloud_upload</i> Adjuntar imagen(es)
+          <input type="file" accept="image/*">
+          </button>
+        </div>
+        <div class="col s12 m12 l12 xl12" id="ctnUpdateImageSpecies">
+          <div class="card-panel" style="min-height:75px;">
+            <span style="font-weight: bold;">Imagenes seleccionadas:</span>
+            <div class="ctnLabelsUpdateImage"></div>
+          </div>
+        </div>
+        
+      </div>
+  </div>
+
+  <div class="modal-footer">
+    <a href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+    <button id="btnUpdateMultipleImages" type="button" class="btn waves-effect waves-light btn-secundary">Actualizar imágenes</button>
+  </div>
+</div> <!-- Final del modal de grupos -->

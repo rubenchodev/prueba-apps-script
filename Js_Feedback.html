@@ -1,0 +1,552 @@
+<script>
+/**
+ * @[Requirements]:
+ *
+ * - Libreria  de html2canvas: https://html2canvas.hertzen.com/dist/html2canvas.js, en el script original esta el código embebido por si se cierra el proyecto o varia la forma como se usa
+ * - Crear una función que retorne el correo del usuario activo o del usuario que concedio permisos, segun como se encuentre implementado el aplicativo
+ *
+ * @[Example] => Se coloca en el archivo de Javascript principal
+ *
+ *  // Se definen las opciones para inicializar el formulario de retroalimentación
+ *  var optionsFeedback = {
+ *    buttonId: "btnFeedBack",
+ *    reportMail: "user@mydomain.com",
+ *    projectName: "SNVA - My project",
+ *    receiverMail: "soporte@sinova.co",
+ *    functionName: "getUserMail"
+ *  }; 
+ * 
+ *  // inicializamos la opción de inicalizar la opción de feedback
+ *  feedback_snva.init(optionsFeedback);
+ *
+ * @namespace
+ */
+var feedback_snva = (function(ns) {
+
+  // Variable para referenciar la lista de errores
+  ns.errorList = {};
+
+  /**
+   * Permite inicializar la clase
+   */
+  ns.init = function(options) {
+
+    // validamos la variable e inicializamos
+    options = options || {};
+
+    // se define la propiedades por defecto
+    var optionsDefault = {
+      buttonId: "btnFeedBack",
+      reportMail: "Sin definir",
+      title: "Enviar retroalimentación",
+      buttonTitle: "Enviar",
+      placeholder: "Ingresa un comentario adicional...",
+      subject: "SNVA - Reporte incidencias",
+      projectName: "SNVA - Sin nombre de proyecto",
+      receiverMail: "soporte@sinova.co",
+      functionName: "",
+      cc: ""
+    };
+
+    // realizamos una combinación entre las propiedades definidas y las de por defecto
+    Object.keys(optionsDefault).forEach(function(k) {
+      if (!options.hasOwnProperty(k)) {
+        options[k] = optionsDefault[k];
+      }
+    });
+
+    // Refernciamos el boton
+    var $button = $("#" + options.buttonId);
+
+    // se valida que exista alguna función
+    if (options.functionName) {
+      
+      // Encerramos en try-catch por si el nombre de la función no es corecto
+      try {
+      
+        // obtenemos el correo del usuario activo
+        google.script.run.withSuccessHandler(function(userMail) {
+
+          // actualizamos el correo
+          options.reportMail = userMail;
+
+          // creamos el modal y lo agregamos al final del cuerpo
+          ns.create(options);
+          
+          // definimos el comportamiento del metodo que uestra los errores del aplicativo
+          ns.settingError();
+          
+          // asignamos el evento al boton de enviar el feedback
+          $button.click(ns.show);
+
+        }).withFailureHandler(function(error) {
+          
+          // Se muestra el error al dar click
+          ns.showError("No se puede inicializar el formulario de retroalimentación.", error, $button);
+          
+        })[options.functionName]();
+        
+      } catch (e) {
+
+        // Se muestra el error al dar click
+        ns.showError("No se encuentra el nombre de la función proporcionada.", e, $button);
+
+      }
+    } else {
+
+      // Mostramos un alerta
+      alert("Se debe definir el nombre de la función que retorna el correo del usuario activo.");
+    }
+  }
+
+  /**
+   * Permite definir el comportamiento de los mensaje de error
+   */
+  ns.showError = function(message, errorMsj, $button) {
+
+    // Agregamos un evento por defecto
+    $button.click(function() {
+
+      // mostramos la respectiva alerta
+      alert(message);
+      
+      // Mostramos el error 
+      console.error(errorMsj);
+    });
+  }
+
+  /**
+   * Permite definir el comportamiento de los mensaje de error
+   */
+  ns.settingError = function() {
+
+    // modificamos el comportamiento de la función de error
+    window.onerror = function (message, url, lineNumber, columnNo, error) {
+      
+      // removemos la clase de animaciòn
+      $("#btnFeedBack div img").removeClass("animation-feedback-img");
+     
+      // mostramos el mensaje de error en consola
+      console.error(message + " :: " + lineNumber);
+
+      // ocultamos el loading
+      ns.toogleLoader();
+
+      // obtenemos la fecha actual
+      var currentDate = new Date();
+
+      // Validamos si el reporte de errores es del día actual
+      ns.verifyDateErrors(currentDate);
+
+      // validamos que existan menos de 50 regsitros
+      if (Object.keys(ns.errorList).length < 50) {
+
+        // valiamos si el error es nuevo
+        if (!ns.errorList[message]) {
+
+          // inicializamos el tipo de error
+          ns.errorList[message] = [];
+
+        }
+
+        // validamos si ya existe 5 registros para eliminar el primero
+        if (ns.errorList[message].length == 5) {
+
+          // eliminamos el primer registro
+          ns.errorList[message].splice(0, 1);
+        }
+
+        // Agregamos la fecha y hora en que se presento el error
+        ns.errorList[message].push({
+          url: url,
+          lineNumber: lineNumber,
+          date: String(currentDate)
+        });
+      }
+
+      //save error and send to server for example.
+      return true;
+    };
+  }
+
+  /**
+   * Permite crear el modal de retroalimentación
+   */
+  ns.verifyDateErrors = function(currentDate) {
+
+    // validamos si la variable de errores no tiene elementos
+    if (Object.keys(ns.errorList).length == 0) {
+
+      // agregamos la propiedad de la fecha actual
+      ns.errorList["currentDate"] = String(currentDate);
+
+      // Salimos de la función
+      return false;
+    }
+
+    // obtenemos la fecha actual refernciada del Objeto
+    var dateReference = new Date(ns.errorList.currentDate || currentDate);
+
+    // validamos si el día es diferente entre las 2 fechas
+    if (currentDate.getDate() != dateReference.getDate()) {
+
+      // Inicializamos el objeto
+      ns.errorList = {
+        currentDate: String(currentDate)
+      };
+    }
+
+  }
+
+  /**
+   * Permite crear el modal de retroalimentación
+   */
+  ns.create = function(options) {
+
+    // se referencia el body de la página
+    var $body = $("body");
+
+    // removemos cualquier modal creado con anterioridad
+    $(".snva-mdl-feedback").remove();
+
+    // definimos el modal de retroalimentación
+    var $modalContainer = $("<div>").attr({
+      class: "snva-mdl-feedback"
+    });
+
+    // agregamos el modal al final del body
+    $body.append($modalContainer);
+
+    // agregamos el contenedor y el formulario respectivo
+    $modalContainer.append(
+      $("<div>").attr({
+        class: "snva-mdl-content"
+      }).append(
+        $("<div>").attr({
+          class: "snva-mdl-header"
+        }).append(
+          $("<span>").attr({
+            class: "snva-mdl-header-close",
+            title: "Cerrar"
+          }).html("&times;").click(ns.close)
+        ).append(
+          $("<h2>").html(options.title)
+        )
+      ).append(
+        $("<div>").attr({
+          class: "snva-mdl-body"
+        }).append(ns.form(options))
+      ).append(
+        $("<div>").attr({
+          class: "snva-mdl-footer"
+        }).append(
+          $("<button>").text(options.buttonTitle).click({
+            settingsData: options
+          }, ns.sendMail)
+        )
+      )
+    );
+  }
+
+  /**
+   * Permite mostrar el modal de feedback
+   */
+  ns.toogleLoader = function(button, isShow) {
+
+    // referenciamso el boton como objeto Jquery
+    var $button = button ? $(button) : $(".snva-mdl-feedback button");
+
+    // removemos el loading
+    $button.find(".snva-spinner").remove();
+
+    // validamos si se debe mostrar el loading
+    if (isShow) {
+
+      // agregamos un elemento al principio del boton
+      $button.prepend(
+        $("<span>").attr({
+          class: "snva-spinner"
+        })
+      );
+
+      // Deshabilitamos la opción de cerrar
+      $(".snva-mdl-header-close").css("pointer-events", "none");
+
+      // Deshabilitamos los campos del formulario
+      $("#txtSnvaFeedback, .snva-mdl-feedback button").attr("disabled", true);
+    } else {
+
+      // habilitamos los campos del formulario
+      $("#txtSnvaFeedback, .snva-mdl-feedback button").attr("disabled", false);
+
+      // Habilitamos la opción de cerrar
+      $(".snva-mdl-header-close").css("pointer-events", "auto");
+    }
+
+  }
+
+  /**
+   * Permite mostrar el modal de feedback
+   */
+  ns.sendMail = function(e) {
+
+    // mostramos el loading y deshabilitamos los campos
+    ns.toogleLoader(this, true);
+
+    // obtenemos lsa opciones reportadas
+    var settingsData = e.data.settingsData;
+
+    // url del webservice
+    var urlWebService = "https://script.google.com/macros/s/AKfycby3_YcK40KgDqp-X5CPXg9qjWv9VVwwyHbyRZQUwSI91BnUh14/exec";
+
+    // Parámetros del usuario y aplicativo
+    var optionsSend = {
+      reportMail: settingsData.reportMail,
+      subject: settingsData.subject,
+      receiverMail: settingsData.receiverMail,
+      projectName: settingsData.projectName,
+      cc: settingsData.cc
+    };
+    
+    // Objeto de javaScript  para invocar el Webservice
+    var xhr = new XMLHttpRequest();
+
+    // creamos un objeto para agrupar los datos a enviar como parametro
+    var formData = new FormData();
+
+    // definimos que acción se va a realizar
+    formData.append("type", $("#sltTypeFeedBack").val());
+    
+    // definimos que acción se va a realizar
+    formData.append("description", $("#txtSnvaFeedback").val());
+
+    // definimos los parametros que deseaos enviar
+    formData.append("errorObject", JSON.stringify(ns.errorList));
+
+    // definimos los parametros que deseaos enviar
+    formData.append("base64Url", $("#imgSnvaFeedback").attr("src"));
+
+    // definimos los parametros que deseaos enviar
+    formData.append("options", JSON.stringify(optionsSend));
+
+    // Creamos el evento para cuando se obtenga la respuesta del webservice 
+    xhr.addEventListener("readystatechange", function() {
+
+      // Verificamnos la respuesta del lado del servidor  lectura y estado de respuesta
+      if (this.readyState === 4 && this.status === 200 && this.responseText) {
+
+        // Obtenemos el resultado como objeto manipulable
+        var returnObject = JSON.parse(this.responseText);
+
+        // validamos si todo salio bien
+        if (returnObject.success) {
+
+          // Cerramos el modal y lo inicializamos
+          ns.close();
+
+          // mostramos la respectiva ventana de información
+          ns.ahowAlert(returnObject.returnValue);
+        } else {
+
+          // ocultamos el loading
+          ns.toogleLoader();
+
+          // Imprimimos el error
+          console.error(returnObject.returnValue);
+
+          // mostramos la respectiva ventana de información
+          ns.ahowAlert("Lo sentimos no se ha podido enviar el reporte de incidencias, por favor revisa la conexión a internet.", true);
+
+        }
+      }
+
+    });
+
+    // Realizamos la petición al webservice		
+    xhr.open("POST", urlWebService, true);
+
+    // Enviamos los datos para la consulta 
+    xhr.send(formData);
+  }
+
+  /**
+   * Permite mostrar el modal de feedback
+   */
+  ns.form = function(options) {
+
+    // Creamos el contenedor del cuerpo del modal
+    var $bodyContent = $("<div>");
+
+    // agregamos el área de texto
+    $bodyContent.append(
+      $("<div>").attr({
+        class: "snva-field"
+      }).append(
+        $("<select>").attr({id:"sltTypeFeedBack"}).append(
+         $("<option>").attr({value: "Incidencia"}).text("Incidencia")
+        ).append(
+         $("<option>").attr({value: "Caracteristica deseable"}).text("Característica deseable")
+        ).append(
+         $("<option>").attr({value: "Caracteristica urgente"}).text("Característica urgente")
+        )
+      ).append(
+        $("<textarea>").attr({
+          placeholder: options.placeholder,
+          id: "txtSnvaFeedback",
+          rows: "3"
+        })
+      )
+    );
+
+    // agregamos el separador
+    $bodyContent.append(
+      $("<div>").attr({
+        class: "snva-separator"
+      })
+    );
+
+    // agregamos el área de la captura de pantalla
+    $bodyContent.append(
+      $("<div>").attr({
+        class: "snva-screenshot"
+      }).append(
+        $("<img>").attr({
+          class: "snva-img-screenshot",
+          id: "imgSnvaFeedback"
+        })
+      )
+    );
+
+    // retornamos el formulario
+    return $bodyContent;
+  }
+
+  /**
+   * Permite mostrar el modal de feedback
+   */
+  ns.show = function() {
+    
+    // agregamos la clase de animaciòn
+    $("#btnFeedBack div img").addClass("animation-feedback-img");
+    
+    // se referencia el modal de reporte de feedback
+    var $modalFeedback = $(".snva-mdl-feedback");
+
+    // restablecemos el modal
+    ns.reset($modalFeedback);
+    
+    // se crea la respectiva imagen
+    html2canvas(document.body).then(canvas => {
+    
+      // se obtiene la imagen respectiva
+      var imageUrl = canvas.toDataURL();
+
+      // agregamos la url de la imagen
+      $("#imgSnvaFeedback").attr("src", imageUrl);
+      
+      // mostramos el modal
+      $modalFeedback.show();
+      
+      // removemos la clase de animaciòn
+      $("#btnFeedBack div img").removeClass("animation-feedback-img");
+      
+    });
+  }
+
+  /**
+   * Permite inicializar el formulario
+   */
+  ns.reset = function($modalFeedback) {
+
+    // Borramos el texto del área de texto
+    $("#txtSnvaFeedback").val("");
+
+    // Eliminamos la imágen
+    $("#imgSnvaFeedback").removeAttr("src");
+
+    // ocultamos el loading
+    ns.toogleLoader();
+
+  }
+
+  /**
+   * Permite inicializar el formulario
+   */
+  ns.close = function() {
+
+    // se referencia el modal de reporte de feedback
+    var $modalFeedback = $(".snva-mdl-feedback");
+
+    // cerramos el modal
+    $modalFeedback.hide();
+
+    // restablecemos el modal
+    ns.reset($modalFeedback);
+
+  }
+
+  /**
+   * Permite crear una venta de alerta
+   */
+  ns.ahowAlert = function(message, isError) {
+
+    // se referencia el body de la página
+    var $body = $("body"),
+      newClass = "";
+
+    // validamos si es un error
+    if (isError) {
+
+      // agregamos la clase de error
+      newClass = " snva-alert-error";
+    }
+
+    // removemos cualquier modal creado con anterioridad
+    $(".snva-mdl-alert").remove();
+
+    // definimos el modal de retroalimentación
+    var $modalContainer = $("<div>").attr({
+      class: "snva-mdl-alert" + newClass
+    });
+
+    // agregamos el modal al final del body
+    $body.append($modalContainer);
+
+    // agregamos el contenedor y el formulario respectivo
+    $modalContainer.append(
+      $("<div>").attr({
+        class: "snva-mdl-content"
+      }).append(
+        $("<div>").attr({
+          class: "snva-mdl-header"
+        }).append(
+          $("<h2>").html("Mensaje")
+        )
+      ).append(
+        $("<div>").attr({
+          class: "snva-mdl-body"
+        }).append(message)
+      ).append(
+        $("<div>").attr({
+          class: "snva-mdl-footer"
+        }).append(
+          $("<button>").text("Aceptar").click(ns.closeAlert)
+        )
+      )
+    );
+  }
+
+  /**
+   * Permite inicializar el formulario
+   */
+  ns.closeAlert = function() {
+
+    // removemos cualquier modal creado con anterioridad
+    $(".snva-mdl-alert").remove();
+
+  }
+
+  // se retorna las funciones que solo funcionaran en el mismo espacio
+  return ns;
+})(feedback_snva || {});
+</script>

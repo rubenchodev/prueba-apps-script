@@ -1,0 +1,334 @@
+<!-- Panel Principal de renovación-->
+<div id="pnlRenovationMain">
+  <p class="md-description">A continuación encontrarás el listado de cotizaciones de refacción creadas hasta la fecha actual.</p>
+  <div class="col s12">
+    <!-- Ubicación del proyecto -->
+    <div class="panel-primary">
+      <div class="panel-primary-header" style="font-size: 1.1em;">
+        Generador de cotizaciones de refacción
+      </div>
+      <div class="panel-primary-body">
+        <div class="row ctn-search-table" >
+          <div class="col s12 m6" style="margin-top: 24px;">
+          	<button id="btnCreateRenByOther" data-position="right" data-tooltip="Crear cotización a partir de la seleccionada" type="submit" class="tooltipped btn #424242 grey darken-3 waves-effect waves-light" disabled="disabled"><i class="material-icons">content_copy</i></button>
+          </div>
+          <div class="col s12 m6">
+            <div class="input-field">
+              <i class="material-icons prefix">search</i>
+              <input id="txtSearchTableRenovation" type="text" class="validate">
+              <label for="txtSearchTableRenovation">Buscar</label>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <table id="tblRenovationList" class="responsive-table">
+            <thead>
+              <tr>
+                <th class="text-center">Seleccionar</th>
+                <th># de la cotización</th>
+                <th>Cliente</th>
+                <th>Fecha de emisión</th>
+                <th>Vigencia(Días)</th>
+                <th>Autor</th>
+                <th>Importe</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="info-message">
+                <td colspan="8">No hay cotizaciones de refacción para mostrar.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="row">
+          <div class="col s12 ctn-pagination">
+            <span class="left spnTotalPagination"></span>
+            <ul class="pagination pager" id="ulRenovationPagination"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="fixed-action-btn fixed-action-btn-left">
+    <a href="javascript:void(0)" class="btn-floating btn-large red tooltipped btn-secundary1" id="btnCreateRenovation" data-position="right" data-tooltip="Crear cotización de refacción">
+      <i class="large material-icons">add</i>
+    </a>
+  </div>
+</div>
+
+<!-- Panel de creación de cotización de refacciones -->
+<div id="pnlCreateRenovation" style="display:none;">
+  <h1 id="lblTitleFormRenovation">Crear cotización de refacción</h1>
+  <p>Los campos con asterisco (<span class="md-asterisk">*</span>) son obligatorios</p>
+  <!-- Se define el formulario para la creación de una solicitud -->
+  <form id="frmCreateRenovation" autocomplete="off">
+    <!-- Panel de Plazos -->
+    <div class="panel-primary">
+      <div class="panel-primary-header">
+        Plazos y lugar de expedición
+      </div>
+      <div class="panel-primary-body">
+        <div class="row">
+          <div class="col s12 m4 xl4 input-field">
+            <i class="material-icons prefix">calendar_today</i>
+            <input id="txtIssueRenovation" type="text" class="datepicker" required>
+            <label for="txtIssueRenovation">Emisión <span class="md-asterisk">*</span></label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <input id="txtValidityRenovation" type="number" min="0" required>
+            <label for="txtValidityRenovation">Vigencia (Días)<span class="md-asterisk">*</span></label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <select id="sltStateRenovation" required>
+            </select>
+            <label for="sltStateRenovation">Estado <span class="md-asterisk">*</span></label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <select id="sltMunicipalityRenovation" required>
+              <option value="">-- Seleccione una opción --</option>
+            </select>
+            <label for="sltMunicipalityRenovation">Municipio <span class="md-asterisk">*</span></label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <select id="sltLocationRenovation" required>
+              <option value="">-- Seleccione una opción --</option>
+            </select>
+            <label for="sltLocationRenovation">Localidad <span class="md-asterisk">*</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Razon social del solicitante -->
+    <div class="panel-primary">
+      <div class="panel-primary-header">
+        Razon social del solicitante
+      </div>
+      <div class="panel-primary-body">
+        <div class="row">
+          <div class="col s12 m4 xl4 input-field">
+            <input id="txtClientRenovation" type="text" class="autocomplete" autocomplete="off" required>
+            <label for="txtClientRenovation">Nombre <span class="md-asterisk">*</span></label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <input id="txtFederalRecordRenovation" type="text">
+            <label for="txtFederalRecordRenovation">Registro federal de contribuyentes</label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <input id="txtAgentRenovation" type="text">
+            <label for="txtAgentRenovation">Representante</label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <input id="txtFiscalResidenceRenovation" type="text">
+            <label for="txtFiscalResidenceRenovation">Domicilio fiscal</label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <input id="txtSaleContactRenovation" type="text" required>
+            <label for="txtSaleContactRenovation">Contacto de ventas <span class="md-asterisk">*</span></label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <input id="txtTelephoneRenovation" type="text" required>
+            <label for="txtTelephoneRenovation">Teléfono <span class="md-asterisk">*</span></label>
+          </div>
+          <div class="col s12 m4 xl4 input-field">
+            <input id="txtEmailRenovation" type="email">
+            <label for="txtEmailRenovation">Correo</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Panel de selección de archivos -->
+    <!-- SE ELIMINA A SOLICITUD DE JOSE JUAN - 04/09/2026 -->
+    <!-- <div class="panel-primary">
+      <div class="panel-primary-header">
+        Selección de archivos
+      </div>
+      <div class="panel-primary-body">
+        <p>A continuación debes seleccionar la carpeta donde desea guardar la cotización y el archivo plantilla del documento que se envia al cliente.</p>
+        <div class="row" style="margin: 0px;">
+          <div class="col s12 m4 xl4 input-field" style="margin-top: 25px;">
+            <button id="btnSelectedFolderRenovation" type="button" class="btn waves-effect waves-light btn-secundary"><i class="material-icons left">folder</i> Seleccione la carpeta</button>
+          </div>
+          <div class="col s12 m8 xl8 input-field" id="ctnLinkRenovation">
+          </div>
+        </div>
+        <div class="row" style="margin: 0px;">
+          <div class="col s12 m4 xl4 input-field" style="margin-top: 25px;">
+            <button id="btnSelectedTemplateRenovation" type="button" class="btn waves-effect waves-light"><i class="material-icons left">insert_drive_file</i> Seleccione la plantilla</button>
+          </div>
+          <div class="col s12 m8 xl8 input-field" id="ctnLinkTemplateRenovation">
+          </div>
+        </div>
+      </div>
+    </div> -->
+    
+    <!-- Generación de presupuesto -->
+    <div class="panel-primary">
+      <div class="panel-primary-header">
+        Lista de refacciones
+      </div>
+      <div class="panel-primary-body">
+      
+        <div class="row text-right">
+          <button class="btn waves-effect waves-light btn-primary" id="btnAddConceptRenovation" type="button">
+            <i class="material-icons left" style="margin-right: 5px;">add</i>
+            Refacción
+          </button>
+        </div>
+        
+        <div class="row">
+          <table class="responsive-table" id="tblConceptRenovation">
+            <thead>
+              <tr>
+                <th>Moneda</th>
+                <th>Inventario</th>
+                <th>Descripción</th>
+                <th>Unidad</th>
+                <th>Cantidad</th>
+                <th>Costo unitario</th>
+                <th>Importe</th>
+                <th class="text-center" style="min-width: 118px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="info-message" style="">
+                <td colspan="8">No hay refacciones para mostrar.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="row">
+          <div class="col s12 ctn-pagination">
+            <span class="left spnTotalPagination">0 resultados en total</span>
+            <ul class="pagination pager" id="ulPaginationConceptList"></ul>
+          </div>
+        </div>
+        
+        <div class="row">
+          <div class="col s0 m3 xl7"></div>
+            <div class="col s12 m9 xl5">
+              <table id="tblResultRenovation">
+                <thead>
+                    <tr>
+                        <th>Moneda</th>
+                        <th>Tipo de cambio</th>
+                        <th>Subtotal</th>
+                        <th>Subtotal MxN</th>
+                    </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                        <td>Euros [EU]</td>
+                        <td><input type="text" pattern="^[0-9]+(?:\.[0-9]+){0,1}$" value="0" style="max-width: 80px;" id="txtEUCounter" required></td>
+                        <td class="tdEUSubTotal">0</td>
+                        <td class="tdEUTotal">0</td>
+                    </tr>
+                    <tr>
+                        <td>Dolares [USD]</td>
+                        <td><input type="text" pattern="^[0-9]+(?:\.[0-9]+){0,1}$" value="0" style="max-width: 80px;" id="txtUSDCounter" required></td>
+                        <td class="tdUSDSubTotal">0</td>
+                        <td class="tdUSDTotal">0</td>
+                    </tr>
+                    <tr>
+                        <td>Pesos Mexicanos</td>
+                        <td><input type="text" min="0" value="1" style="max-width: 80px;" id="txtMxMCounter" disabled></td>
+                        <td class="tdMxNSubTotal">0</td>
+                        <td class="tdMxNTotal">0</td>
+                    </tr>
+                    <tr>
+                      <td colspan="3" style="text-align:right;">
+                        <b>Total</b>
+                      </td>
+                      <td class="td_Total">0</td>
+                    </tr>
+                    <tr>
+                      <td colspan="4" class="text-center" style="background: #f5f5f5;">
+                        <p>Consulta el tipo de cambios actual en el siguiente <a href="https://www.xe.com/es/?cn=mx" target="_blank">Vínculo</a></p>
+                      </td>
+                    </tr>
+                </tbody>
+            </table>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+    <!-- Panel para configurar la tabla de tiempo de respuesta -->
+    <div class="panel-primary">
+      <div class="panel-primary-header">
+        Tabla de tiempo de entrega
+      </div>
+      <div class="panel-primary-body">
+        <p>A continuación puedes configurar el tiempo de entrega de las refacciones que no se encuentran en el inventario.</p>
+        <br>
+        <div class="row">
+          <table class="responsive-table" id="tblConceptPending">
+            <thead>
+              <tr>
+                <th>Descripción de la refacción</th>
+                <th>Tiempo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="info-message" style="">
+                <td colspan="2">No hay refacciones pendientes para mostrar.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="row">
+          <div class="col s12 ctn-pagination">
+            <span class="left spnTotalPagination">0 resultados en total</span>
+            <ul class="pagination pager" id="ulPaginationConceptPending"></ul>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+    <!-- Panel de selección de ítems de precios -->
+    <div class="panel-primary">
+      <div class="panel-primary-header" style="justify-content: space-between;">
+        Ítems de la categoría de precios
+        <button id="btnUpdatePrices" type="button" title="Actualizar lista de precios" class="waves-effect waves-light btn btn-update">
+          <i class="material-icons left">refresh</i>
+        </button>
+      </div>
+      <div class="panel-primary-body">
+        <p>A continuación debes seleccionar al menos un ítem del listado de descripciones sobre el precio.</p>
+        <br>
+        <div class="row" id="ctnPricesList">
+        </div>
+      </div>
+    </div>
+    
+    <!-- Panel para configurar la tabla de tiempo de respuesta -->
+    <div class="panel-primary">
+      <div class="panel-primary-header">
+        Envio de correo electrónico
+      </div>
+      <div class="panel-primary-body">
+        <br>
+        <div class="row">
+          <label>
+            <input type="checkbox" class="filled-in" id="chxSendMail">
+            <span>¿Desea enviar la cotización por correo electrónico?</span>
+          </label>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="col s12 text-right">
+        <a href="!#" id="btnOpenFileRenovation" target="_blank" class="waves-effect waves-light btn green" style="float: left;display:none;">Abrir cotización</a>
+        <button id="btnCancelCreateRenovation" type="button" class="waves-effect waves-light btn btn-cancel-confirm">Cancelar</button>
+        <button id="btnManagerRenovation" type="submit" class="btn btn-primary waves-effect waves-light">Crear cotización</button>
+      </div>
+    </div>
+  </form>
+</div>

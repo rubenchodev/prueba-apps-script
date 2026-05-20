@@ -1,0 +1,3155 @@
+<script>
+/*
+* Funcion encargada de iniciar los elementos principales del módulo de catálogo 
+**/
+function initCatalogModule(){
+ 
+  // Evento para abrir el módulo de catalogo 
+  $("#btnCatalog").click(catalogOpen);
+  
+  // asignamos el evento para almacenar los datos del catálogo
+  $("#btnSavePnlCatalog").click(saveInfoCatalog);
+  
+  // definimos el evento a l opción de cambiar el tamaño del panel
+  $(".win-size-grip").mousedown(changeHeightPanel);
+  
+  // inicializamos los tabs del modal
+  $(".tabs").tabs();
+  
+  // inicializamos los modales
+  $("#mdlPreviewCard, #mdlCatalogData, #mdlParticipation, #mdlParticipationWorkforce, #mdlAddLading, #mdlRepetitions, #mdlGenerateStateTab").modal({
+    dismissible: false,
+    startingTop: '2%',
+    endingTop: '2%',
+  });
+  
+  // se crea el evento para volver a la edición de la cotización del proyecto
+  $("#btnBackToProject").click( function(){
+  
+      // mostramos ventana de confirmación
+      SnvaJsApi.confirm("¿Seguro desea volver al panel de edición?, recuerda que puedes perder datos ya diligenciados.", function(){
+        
+        // ocultamos el panel de catalogo
+        $("#ctn-catalog").addClass("hidden");
+        
+        // mostramos el respectivo panel de proyectos
+        $("#ctn-projects").removeClass("hidden");
+        
+        // removemos el contenido del catálogo
+        $("#ctnConceptsList").html("");
+        
+        // ocultamos el panel de edición del catálogo
+        $("#pnlCatalog").hide();
+        
+        // Removemos la cantidad de estilo de scroll
+        $("#ctnScroll")[0].style.height = "0px";
+        
+      });
+    }
+  );
+  
+  // Evento para cerrar el panel de detalles de la especie 
+  $("#btnClosePnlCatalog").click(closePnlCatalog);
+  
+  // agregamos la tabla editable
+  createTableEditable("ctnAllItems", "tableAllItems", "", false, 150);
+  createTableEditable("ctnMaterialItems", "tableMaterialItems", "", false,null,true);
+  createTableEditable("ctnManpowerItems", "tableManpowerItems", "tdInputManpowers", false,null,true);
+  createTableEditable("ctnEquipmentItems", "tableEquipmentItems", "tdInputEquipments", false,null,true);
+  createTableEditable("ctnKitItems", "tableKitItems", "tdInputKits");
+  createTableEditable("ctnAuxiliaryItems", "tableAuxiliaryItems", "tdInputAuxiliaries");
+  createTableEditableLading("ctnTransportItems", "tableTransportItems");
+  createTableEditable("ctnSubcontractItems", "tableSubcontractItems", "");
+  
+  // obtenemos los datos de autocompletados para los campos de descripción
+  google.script.run.withSuccessHandler(initAutocompleteCatalog).withFailureHandler(SnvaJsApi.onFailure).getGeneralDataFromCatalog();
+  
+  // calculamos el total
+  $("#pnlCatalog ul.tabs li a:first").click(getSummanyCatalog);
+  
+  // Evento para la información de la cabecera del catalogo
+  $("#btnCreateCatalog").click(dataCatalog);
+  
+  // agregamos el evento para expandir
+  $("#btnExpandCatalog").click(expandAllCatalog);
+  
+  // agregamos el evento para colapsar
+  $("#btnCollapsibleCatalog").click(collapseAllCatalog);
+  
+  // Evento que la creación de las tarjetas
+  $("#btnCreateCards").click(createCardsByConcepts);
+  
+  // Evento para crear el catalogo en una hoja de cáculo 
+  $("#frmCreateCatalog").submit(getDataCatalog);
+  
+  // Asignamoss el evento para que cada vez que cambie el valor se realicen los calculo s
+  $("#sltUnitMeasureModel-Catalog, #sltUnitUME-Catalog").change(calculationsParticipation);
+  $("#txtEquivalentAmount-Catalog, #txtUmlProgress-Catalog, #txtInvestmentTime-Catalog").on("keyup change", calculationsParticipation);
+  
+  // Asignamos el evento para el calulo de partiipación en la mano de obra  
+  $("#txtUnitNumber-Catalog, #txtParticipationPerLine-Catalog").on("keyup change", calculationsParticipationMO);
+  
+  // Evento par guardar los datos de participación 
+  $("#btnSaveParticipation").click(saveTemporalParticipation);
+  
+  // Evento par guardar los datos de participación 
+  $("#btnSaveParticipationWorkforce").click(saveTemporalParticipationWorkforce);
+  
+  // Evento para adicionar un nuevo flete 
+  $("#btnAddLading").click(addLadingToTable);
+  
+  // Evento que permite guardar los fletes 
+  $("#btnSaveLading").click(saveLading);
+  
+  // Agregamos el evento del boton de crera un nuevo grupo
+  $("#btnNewGroupLading").click(createNewGroupLading);
+  
+  // Evento para realizar los diferentes calculos 
+  $("#txtLength").on("keyup change", calculationsRepetitions); 
+  
+  // Evento para guardar las repeticiones 
+  $("#frmRepetitions").submit(saveRepetitions);
+
+}
+
+
+/*
+* Permtie guardar los fletes 
+*/
+function saveLading(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // Referenciamos el modal 
+  var $mdlAddLading = $("#mdlAddLading"); 
+  
+  // obtenemos los datos del modal 
+  var processData = $mdlAddLading.data();
+  
+  // Obtenemos la filas de la tabla 
+  var $rows = $("#tblLading tbody tr:not(.info-message)");
+  
+  // Datos del flete
+  var objDataLading = {};
+  
+  // Flete registrados
+  var arrayLading =[];
+  
+  // Validamos de que se tenga  tabla 
+  if($rows.length > 0){
+    
+    // Datos de cada fila 
+    var type = "", middle = "", description = "", vehicle = "", $row = "",  data="", typeData= "";
+    
+    // Estado para guardar 
+    var state = true;
+    
+    // recorremos cada fila para obtener los dato s
+    $rows.each(function(){
+      
+      // Referencia a la fila 
+      $row = $(this);
+      
+      // Obtenemos el tipo 
+      type = $row.find("td:nth-child(2) textarea").val().trim()
+      data = $row.find("td:nth-child(2) textarea").data("itemsObj"); // Obtenemos todos los datos de los fletes 
+      middle = $row.find("td:nth-child(3)").text();
+      spanData = $row.find("td:nth-child(1) span").data("groupData");
+ 
+      // Validamos si la tabla que se esta trabajando es de equipos
+      if(processData.tableId == "tableEquipmentItems"){
+        
+        // Obtenemos la descripción 
+        description = $row.find("td:nth-child(4)").text();
+      
+      }else if(processData.tableId == "tableMaterialItems" || processData.tableId == "tableManpowerItems"){
+        
+        // Obtenemos la descripción 
+        description = $row.find("td:nth-child(4) select").val();
+      }
+      
+      // Obtenemos el vehiculo seleccionado
+      vehicle = $row.find("td:nth-child(5) select option:selected").data("vehicleData");
+      
+      // Obtenemos los datos del flete
+      typeData = data ? data[type] : null;
+      
+      // validamos de que se tengan los datos seleccionados
+      if(typeData && middle && description && vehicle){
+                
+        // Agregmaos el dato del flete
+        arrayLading.push({
+         spanData: spanData,
+         typeData: typeData ,
+         middle: middle,
+         description: description, 
+         vehicle: vehicle
+        });
+        
+      }else{
+         //cambiamos el estado
+        state = false;
+        
+        // Obligamos a sale
+        return false;
+      }
+    });
+     
+    // Validamos el estado para ver si se puede guardar 
+    if(state){
+      
+      // Insertamos los datos del flete
+      saveDataLadingTable(arrayLading, processData, $mdlAddLading);
+      
+      // cambiamos el estado para mostrar el mensaje para guardar los datos s
+      changeStateSaving();
+    }else{
+      
+      // mostramos mensaje
+      SnvaJsApi.showAlert("Los datos se encuentran incompletos o no existe un tipo de flete con el nombre proporcionado.");
+    }
+  }else{
+    
+    // mostramos mensaje
+    SnvaJsApi.showAlert("Debe agregar minimo un flete.");
+  }
+   
+}
+
+
+/*
+* permite almacenar los datos en la tabla o fila segun se requiera
+*/
+function saveDataLadingTable(arrayLading, processData, $mdlAddLading){
+  
+  // mostramos la ventana de confirmación al momento de almacenar la información del catálogo para la especie actual
+  SnvaJsApi.confirm("¿Seguro desea registrar los datos del catálogo para la especie actual?", function(){
+    
+    // Mostramos el loading
+    SnvaJsApi.manageLoading("block", "Almacenando información de los fletes, espera un momento por favor...");
+     
+    // referenciamos la instancia del modal
+    var instanceModal = M.Modal.getInstance($mdlAddLading);
+    
+    // se valida que exista la instancia
+    if(instanceModal){
+      
+      // Cerramos  el modal
+      instanceModal.close();
+    }
+    
+    // validamos si la tabla es de materiales 
+    if(processData.tableId == "tableMaterialItems"){
+    
+      // Guardamos los datos de los flete
+      $("#tableMaterialItems").data({"arrayLading": arrayLading});
+    
+    // validamos si la tabla es de mano de obra 
+    }else if(processData.tableId == "tableManpowerItems"){
+      
+      // Guardamos los datos de los flete
+      $("#tableManpowerItems").data({"arrayLading": arrayLading});
+    
+    }else if(processData.tableId == "tableEquipmentItems"){
+
+      // Guardamos los datos de los flete
+      processData.rowData.data({"arrayLading": arrayLading});
+    
+    }
+    
+    // Actualizamos el listado de los fletes 
+    updateListLadingInTable();
+    
+    // Calculamos el total de fletes
+    calculateCurrentTotal($("#tableTransportItems tbody tr:first-child"), "ctnTransportItems");
+    
+    // Ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+    
+    // mostramos mensaje
+    SnvaJsApi.showAlert("Datos almacenados exitosamente.");
+    
+  });
+
+}
+
+/*
+* Permite agregar un nuevo flete a la tabla 
+*/
+function addLadingToTable(isRequiredRow){
+  
+  // Referenciamos al cuerpo de la tabla de los fletes 
+  var $tBodyLading = $("#tblLading tbody");
+  
+  // obtenemos los datos del modal 
+  var processData = $("#mdlAddLading").data();
+  
+  // Medio del flete 
+  var middle = "";
+  
+  // Array para las opciones de descripción 
+  var arrayDescription = [];
+  
+  // validamos si la tabla del flete es pra materiales
+  if(processData && processData.tableId == "tableMaterialItems"){
+    
+    // Asignamos el medio
+    middle = "Materiales";
+    
+    // Obtenemos las opciones 
+    arrayDescription = getOptions("tableMaterialItems");
+    
+  // validamos si la tabla del flete es pra mano de obra 
+  }else if(processData && processData.tableId == "tableManpowerItems"){
+    
+    // Asignamos el medio
+    middle = "Mano de obra";
+    
+    // Obtenemos las opciones 
+    arrayDescription = getOptions("tableManpowerItems");
+  
+  // validamos si la tabla del flete es pra tableEquipmentItems
+  }else if(processData && processData.tableId == "tableEquipmentItems"){
+    
+    // Asignamos el medio
+    middle = "Equipos";
+    
+  }else{
+  
+    // Asignamos el medio
+    middle = "otros"; 
+  }
+  
+  // Obtenemos las filas validad de la tabla 
+  var $rows = $tBodyLading.find("tr.isValid");
+  
+  // Validamos si no hay filas 
+  if($rows && $rows.length == 0){
+    
+    // Limpiamos la tabla
+    $tBodyLading.html("");
+  }
+  
+  // Referencia a la nueva fila  
+  var $row = $("<tr>").attr({class: "isValid"});
+  
+  // agregamos la fila al cuerpo de la tabla
+  $tBodyLading.append($row);
+  
+  // Se define los parametros del grupo
+  var groupData = {
+    "name": "Sin grupo",
+    "className": "bg-default"
+  };
+  
+  // Etiqueta del grupo 
+  $row.append(
+    $("<td>").attr({class: "text-center"}).append(
+      $("<span>").attr({class: "spn-group-lading " + groupData.className}).data("groupData", groupData).text(groupData.name).click(selectedGroupLanding)
+    )
+  );
+  
+  // nuevo campo de busqueda
+  var $newField = $("<strong>").attr({class: "input-field"}).append(
+    $("<textarea>").attr({class: "autocomplete cell-editable-autocomplete ", type: "text", rows:"3"})
+  );
+  
+  // creamos las respectivas filas
+  $row.append($("<td>").append($newField));// Tipo de flete
+  $row.append($("<td>").text(middle)); // Medio
+  
+  // Validamos cuantas opciones viene  en las descripciones 
+  if(arrayDescription && arrayDescription.length > 0){
+  
+    $row.append($("<td>").append($("<select>"))); // Descripción
+    
+    // insertamos los datos de los fabricante en la opción de selección  
+    SnvaJsApi.insertOptionToSelect( $row.find("td:nth-child(4) select"), arrayDescription, "name", "name", "descriptionData", true, true);
+    
+  }else{
+
+    // validamos de que se encuentre el datos de los equipos 
+    if(processData.rowData){
+
+      // Obtenemos el dato de la descripción 
+      var valueEquipement = processData.rowData.find("td:nth-child(3) input").val();
+     
+      // Validamos si obtenemos un datos 
+      if(valueEquipement){
+      
+        // Creamos la celda 
+        $row.append( $("<td>").append(valueEquipement)); // Descripción
+      }
+    }
+  }
+  
+  $row.append( $("<td>").append($("<select>"))); // Vehiculo
+  
+  $row.append(
+    $("<td>").attr({class: "text-center"}).append(
+      $("<a>").attr({title: "Eliminar flete", href: "javascript:void(0)", class: "btn-icon-table btn-floating red waves-effect"}).append(
+        $("<i>").attr("class", "material-icons").text("delete")
+      ).click(deleteLading)
+    )
+  ); // Eliminar Flete
+  
+  // insertamos los datos de los fabricante en la opción de selección  
+  SnvaJsApi.insertOptionToSelect( $row.find("td:nth-child(5) select"), processData.vehicles, "carDetails", "carDetails", "vehicleData", true, true);
+  
+  // inicializamos los campos del panel de fletes 
+  $row.find("td:nth-child(2) textarea").data("itemsObj", processData.ladingData.allData).autocomplete({
+    data: processData.ladingData.data,
+    limit: 5
+  });
+  
+  // flete por defecto 
+  var lading = "FLETE TERRESTRE NACIONAL ORDINARIO [INCLUYE CARGA & DESCARGA (FULL LINE TERMS)]";
+  
+   // validamos si la tabla es de materiales o mano de obra 
+  if(processData && (processData.tableId  == "tableMaterialItems" || processData.tableId == "tableManpowerItems")){
+    // Establecemos el flete por defecto para mano de obra 
+    lading = "TRASLADO";
+  }
+  
+  // Establecemos el texto 
+  $row.find("td:nth-child(2) textarea").text(lading);
+  
+  // Validamos is se requiere retornar la fila 
+  if(isRequiredRow){
+    // Retornamos la fila si es necesario 
+    return $row;
+  }
+}
+
+
+
+/*
+* Función que permite eliminar una fila de la tabla de fletes
+*/
+function deleteLading(e){
+  
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // Referenciamos la fila
+  var $row = $(this).closest("tr");
+  
+  // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+  SnvaJsApi.confirm("¿Esta seguro que desea eliminar el flete del listado?", function(){
+    
+    // removemos la fila
+    $row.remove();
+    
+    // actualizamos el valor del consecutivo
+    var $rows = $("#tblLading tbody tr:not(.info-message)");
+    
+    // Validamos si la cantidad de la filas es cero
+    if($rows && $rows.length == 0){
+      
+      // Referenciamos la tabla
+      $("#tblLading tbody").append(
+        $("<tr>").attr({class: "info-message"}).append(
+          $("<td>").attr({colspan: 6}).text("No hay fletes para mostrar.")
+        )
+      ); 
+     
+    }
+  
+  });
+}
+
+
+/*
+* permite obtener las opciones 
+*/
+function getOptions( tableId){
+  
+  // Obtenemos la filas de la tabla 
+  var $rows = $("#"+ tableId+" tbody tr");
+ 
+  // Datos de la fila 
+  var rowData = "",
+      $row = null;
+  
+  //  Datos de las opciones 
+  var arrayData = [];
+  
+  // Dato de la descripción
+  var data = "";
+  
+  // recorremos cada fila para obtener los dato s
+  $rows.each(function(){
+    
+    // validamos si la tabla es de materiales
+    if(tableId == "tableMaterialItems"){
+    
+      // Obtenemos el datos de la descripción 
+      data = $(this).find("td:nth-child(3)").text();
+      
+    // Validamo si la tabla es de mano de obra
+    }else if(tableId == "tableManpowerItems"){
+      
+      // Obtenemos el datos de la descripción 
+      data = $(this).find("td:nth-child(3) input").val();
+    
+    }
+    
+    // Validamos de que exista el datos 
+    if(data){
+      
+      // Obtenemos los datos 
+      arrayData.push({ name: data });
+    }
+   
+  });
+  
+  // Retornamos el listado de las opciones 
+  return arrayData; 
+}
+
+
+/*
+* Función que permite obtener los datos 
+**/
+function saveInfoCatalog(e){
+  
+  // se previene el evento por degfecto
+  e.preventDefault();
+  
+  // referenciamos el panel donde se edita el catálogo
+  var $pnlCatalog = $("#pnlCatalog");
+  
+  // validamos si se requiere almacenar información
+  if($pnlCatalog.data("requiredSaveData")){
+  
+    // mostramos la ventana de confirmación al momento de almacenar la información del catálogo para la especie actual
+    SnvaJsApi.confirm("¿Seguro desea registrar los datos del catálogo para la especie actual?", function(){
+      
+      // obtenemos los datos anteriores asociados al concept actual
+      var beforeData = $("#ctnConceptsList tr.tr-selected").data();
+      
+      // Obtenemos los datos del catálogo
+      var allCatalogData = getAllCatalogData(beforeData);
+      
+      // obtenemos los datos del proyecto
+      var projectData = $("#btnCatalog").data("requestData");
+      
+      // Mostramos el loading
+      SnvaJsApi.manageLoading("block", "Almacenando información del catálogo para la especie actual, espera un momento por favor...");
+     
+      // Creamos el catalogo 
+      google.script.run.withSuccessHandler(function(resultData) {
+        
+        // almacenamos la información
+        $("#ctnConceptsList tr.tr-selected").data(resultData);
+        
+        // Ocultamos el loading
+        SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+        
+        // removemos la propiedad que determina que tiene datos pendiente por guardar
+        $pnlCatalog.removeData("requiredSaveData");
+        
+        // Removemos la clase "pulse" y deshabilitamos el boton
+        $("#btnSavePnlCatalog").removeClass("pulse").attr("disabled", true);
+        
+        // mostramos mensaje
+        SnvaJsApi.showAlert("Datos almacenados exitosamente.");
+        
+      }).withFailureHandler(SnvaJsApi.onFailure).saveInfoCatalog(beforeData, allCatalogData, projectData);
+    
+    });
+  
+  } else {
+    
+    // mostramos mensaje
+    SnvaJsApi.showAlert("No existen datos nuevos para guardar.");
+    
+  }
+}
+
+/*
+* Función que permite obtener todos los datos associados al catálogo de la especie seleccionada 
+**/
+function getAllCatalogData(beforeData){
+  
+  // definimos los valores de cada una de las tablas
+  var tableProperties = [
+    {tableId: "tableMaterialItems", propertyName: "materials", columns: ["2", "3", "5", "6", "7", "8"]},
+    {tableId: "tableManpowerItems", propertyName: "workforce", columns: ["2", "3", "5", "6", "7", "8"]},
+    {tableId: "tableEquipmentItems", propertyName: "teams", columns: ["2", "3", "5", "6", "7", "8"]},
+    {tableId: "tableKitItems", propertyName: "tools", columns: ["2", "3", "4", "5", "6", "7"]},
+    {tableId: "tableAuxiliaryItems", propertyName: "auxiliaries", columns: ["2", "3", "4", "5", "6", "7"]},
+    {tableId: "tableTransportItems", propertyName: "lading", columns: ["2", "3", "4", "6", "7", "8"]},
+    {tableId: "tableSubcontractItems", propertyName: "subcontracts", columns: ["2", "3", "4", "5", "6", "7"]}
+  ];
+  
+  // definimos el objeto que deseamos retornar
+  var returnObject = {};
+  
+  // recorremos los datos actuales para guardar
+  for(var i = 0; i < tableProperties.length; i++){
+  
+    // Obtenemos los datos para cada una de las tabla
+    returnObject[tableProperties[i].propertyName] = getDataFromTableCatalog(beforeData.lineProductName, beforeData.conceptObj.conceptData[1], tableProperties[i].tableId, tableProperties[i].columns);
+    
+  }
+ 
+  // se retorna el objeto
+  return returnObject;
+}
+
+/*
+* Función que permite obtener los datos segun la tabla ques e referencia por parametro
+**/
+function getDataFromTableCatalog(lineProductName, conceptData, tableId, columns){
+  
+  // Obtenemos la lista de tablas
+  var $rowsList = $("#pnlCatalog .ctn-panels-tab table#" + tableId + " tbody tr");
+  
+  // definimos el objeto que deseamos retornar
+  var rerurnObject = {
+    records: [],
+    generalParameters: null,
+    recordsObj: []
+  };
+  
+  // obtenemos los datos de las demas secciones
+  var tempObj = {}, tempArray = [],
+      $currentRow = null,
+      $fieldTemp = null,
+      currentDataRow = null;
+  
+  // validamos si la tabla es "tableMaterialItems" o "tableManpowerItems"
+  if(tableId == "tableMaterialItems" || tableId == "tableManpowerItems"){
+    
+    // obtenemos los datos de "arrayLading"
+    var arrayLading = $("#" + tableId).data("arrayLading");
+    
+    // se valida si existe
+    if(arrayLading){
+      
+      // se agrega la información de la propiedad
+      rerurnObject.generalParameters = { "arrayLading": arrayLading };
+      
+    } else {
+    
+      // agregamos la información en la propiedad de datos generales
+      rerurnObject.generalParameters = "";
+    }
+  }
+  
+  // validamos si la tabla es "tableMaterialItems" o "tableManpowerItems"
+  if(tableId == "tableTransportItems"){
+    
+    // agregamos la información en la propiedad de datos generales
+    rerurnObject.generalParameters = $("#" + tableId).data() || "";
+  }
+  
+  // recorremos cada uno de los cuerpo de la tabla
+  $rowsList.each(function(){
+    
+    // se referencia la fila actual
+    $currentRow = $(this);
+    
+    // se obtiene el campo de descipción
+    $fieldTemp = $currentRow.find("td:nth-child(" + columns[1] + ") input"); 
+    
+    // obtenemos los datos actuales de cada columna
+    tempObj = {
+     key: $currentRow.find("td:nth-child(" + columns[0] + ")").text(),
+     description: ($fieldTemp.length > 0 ? $fieldTemp.val() : $currentRow.find("td:nth-child(" + columns[1] + ")").text()),
+     unit: $currentRow.find("td:nth-child(" + columns[2] + ")").text(),
+     quantity: $currentRow.find("td:nth-child(" + columns[3] + ")").text(),
+     unitCost: $currentRow.find("td:nth-child(" + columns[4] + ")").text(),
+     total: $currentRow.find("td:nth-child(" + columns[5] + ")").text()
+    };
+    
+    // Validamos si la tabla es la de mano de obra 
+    if(tableId == "tableManpowerItems"){
+      
+      // obtenemos los datos de la fila
+      currentDataRow = $currentRow.data("currentItem");
+      
+      // Validamos si se tiene los datos de la participación 
+      if(currentDataRow && currentDataRow.participation){
+        
+        // Agregamos la participación 
+        tempObj.participation = currentDataRow.participation;
+        
+      }
+    }
+    
+    
+    // validamos si la tabla es "tableMaterialItems" o "tableManpowerItems" o "tableEquipmentItems"
+    if(tableId == "tableMaterialItems" || tableId == "tableManpowerItems" || tableId == "tableEquipmentItems"){
+      
+      // agregamos datos de avance
+      tempObj.avanceData = $currentRow.data("avanceData") || "";
+      
+      // se valida si la tabla es de equipo
+      if(tableId == "tableEquipmentItems"){
+       
+        // agregamos la información de fletes
+        tempObj.arrayLading = $currentRow.data("arrayLading") || "";        
+      }
+      
+    }
+    
+    // se valida que exista alguno de los siguiente valores
+    if(tempObj.key || tempObj.description || tempObj.unit || tempObj.quantity || tempObj.unitCost || tempObj.total){
+      
+      // iniciamos el array temporal
+      tempArray = [
+        lineProductName,
+        conceptData,
+        tempObj.key,
+        tempObj.description,
+        tempObj.unit,
+        tempObj.quantity,
+        tempObj.unitCost.replace(/,/g, ""),
+        tempObj.total.replace(/,/g, "")
+      ];
+      
+      // validamos si la tabla es de mano de obra
+      if(tableId == "tableManpowerItems"){
+        
+        // agregamso la información en el array de la participación 
+        tempArray.push(tempObj.participation || "");
+      }
+      
+      // se valida si existe información de avance
+      if(tempObj.avanceData != undefined){
+        
+        // agregamso la información en el array
+        tempArray.push(jsonToString(tempObj.avanceData));
+      }
+      
+      // se valida si existe información de fletes
+      if(tempObj.arrayLading != undefined){
+        
+        // agregamso la información en el array
+        tempArray.push(jsonToString(tempObj.arrayLading));
+      }
+    
+      // agregamos el valor al array y al objeto
+      rerurnObject.records.push(tempArray);
+      rerurnObject.recordsObj.push(tempObj);
+      
+    }
+    
+  });
+  
+  // se retorna el listado
+  return rerurnObject;
+}
+
+/**
+ * Permite convertir texto en objeto manipulable
+**/
+function jsonToString(value){
+  
+  // variable para guardra el valor
+  var stringData = "";
+  
+  // encerramos en try-cath para evitar errores al convertir el texto en objeto manipulable
+  try {
+                    
+    // se convierte el texto en objeto manipulable
+    stringData = JSON.stringify(value);
+    
+  } catch(e){
+    
+    // inicializamos la variable en null
+    stringData = "";
+  }
+  
+  // Retornamos el objeto
+  return stringData;
+  
+}
+
+/*
+* Función que permite obtener los datos y crear
+**/
+function createCardsByConcepts(e){
+  
+  // se previene el evento por degfecto
+  e.preventDefault();
+  
+  // mostramos la ventana de confirmación al momento de crear las tarjetas
+  SnvaJsApi.confirm("¿Seguro desea crear el archivo con las tarjetas para las especies con información del catálogo?", function(){
+    
+    // Mostramos el loading
+    SnvaJsApi.manageLoading("block", "Generando el archivo con las tarjetas de cada una de los conceptos, espera un momento por favor...");
+    
+    // obtenemos los datos del proyecto
+    var projectData = $("#btnCatalog").data("requestData");
+    
+    // obtenemos los datos de las especies
+    var orderProjects = $("#btnCreateCatalog").data("orderProjects");
+   
+    // Creamos el catalogo 
+    google.script.run.withSuccessHandler(function(fileUrl) {
+      
+      // Ocultamos el loading
+      SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+      
+      // mostramos un mensaje sobre la creación de las tarjetas
+      SnvaJsApi.showAlert("Se ha generado las tarjetas con éxito, para abrirlo haz clic en el siguiente <a href='" + fileUrl + "' target='_blank'>vínculo</a>.");
+      
+    }).withFailureHandler(SnvaJsApi.onFailure).createCards(orderProjects, projectData);
+  
+  });
+  
+}
+
+/**
+* Función que permite expandir todos los paneles de presupuesto
+**/
+function initAutocompleteCatalog(resultObj){
+  
+  // Insertamos los valores de las unidades de medidad
+  insertOptionUnit(resultObj.unitList, "sltUnitMeasureModel-Catalog");
+  
+  // insertamso los valores de la s unidades de medidad UME
+  $("#sltUnitUME-Catalog").data("resultArrayData", resultObj.unitListUME.resultArrayData);
+  
+  // inicializamos los campos del panel de mano de obra
+  $("#tableManpowerItems input.tdInputManpowers").data("itemsObj", resultObj.manpowerData.allData).change(updateRowDataFromCatalog).autocomplete({
+    data: resultObj.manpowerData.data,
+    limit: 5
+  });
+  
+  // inicializamos los campos del panel de Herramientas
+  $("#tableKitItems input.tdInputKits").data("itemsObj", resultObj.kitData.allData).change(updateRowDataFromCatalog).autocomplete({
+    data: resultObj.kitData.data,
+    limit: 5
+  });
+  
+  // inicializamos los campos del panel de Equipos
+  $("#tableEquipmentItems input.tdInputEquipments").data("itemsObj", resultObj.equipmentData.allData).change(updateRowDataFromCatalog).autocomplete({
+    data: resultObj.equipmentData.data,
+    limit: 5
+  });
+  
+  // inicializamos los campos del panel de Auxiliares
+  $("#tableAuxiliaryItems input.tdInputAuxiliaries").data("itemsObj", resultObj.auxiliaryData.allData).change(updateRowDataFromCatalog).autocomplete({
+    data: resultObj.auxiliaryData.data,
+    limit: 5
+  });
+    
+  // Agregamos los datos de los fletes al modal 
+  $("#mdlAddLading").data({"ladingData": resultObj.lading, "vehicles": resultObj.vehicles});
+  
+  // Guardamos la costantes en el modal 
+  $("#mdlRepetitions").data({ "unitListUME": resultObj.unitListUME.resultObjData });
+}
+
+/*
+* permite insertar las opciones de unidades de medida
+*/
+ function insertOptionUnit(unitList, idField, stateData, valueDefault, tableId){
+ 
+  // agregamos los items en el select de unidades en el modal del catalogo
+  var $select = $("#" + idField);
+  
+  // reseteamos el select
+  $select.html('<option value="">--Seleccione--</option>');
+  
+  // recorremos cada uno de los valores a ingresar en los selects
+  for(var i = 0; i < unitList.length; i++){
+    
+    if(stateData){
+    
+      // Validamos si la tabla es de materiales 
+      if(tableId == "tableMaterialItems"){
+        // agregamos cada una de las opciones
+        $select.append(
+          $("<option>").attr("value", (i+1)).text(unitList[i].name).data({"dataUnit": unitList[i]})
+        );
+      
+      // validamos si la tabla es de equipos 
+      }else if(tableId == "tableEquipmentItems"){
+        
+        // agregamos cada una de las opciones
+        $select.append(
+          $("<option>").attr("value", (i+1)).text(unitList[i].nameEquipment).data({"dataUnit": unitList[i]})
+        );
+      }
+    
+    }else{
+      // agregamos cada una de las opciones
+      $select.append(
+        $("<option>").attr("value", unitList[i].name).text(unitList[i].name)
+      );
+    }
+  }
+  
+  // inicializamos los selects
+  $select.formSelect();
+  
+  // Validamos si se requiere tener una opción por defecto 
+  if(valueDefault){
+ 
+    // Seleccionamos la opción 
+    $select.val(valueDefault).formSelect();
+  }
+}
+
+/**
+ * Permite insertar una nueva fila al catálogo 
+ **/
+function updateRowDataFromCatalog(e) {
+  
+  // referenciamos el campo
+  var $field = $(this);
+  
+  // obtenemos los datos 
+  var itemsObj = $field.data("itemsObj");
+  
+  // refernciamos los datos del cliente encontrados
+  var currentItem = itemsObj[$field.val()];
+
+  // variable para calcular la cantidad
+  var quantity = 0;
+  
+  // validamos si existe la propiedad
+  if (itemsObj && currentItem) {
+   
+    // Obtenemos el id de la tabla  
+    var tableId = $field.closest("table").attr("id");
+    
+    // referenciamos la fila
+    var $row = $field.closest("tr").data("currentItem", currentItem);
+    
+    // agregamos la clave
+    $row.find("td:nth-child(2)").text(currentItem.key);
+    
+    // Referencia a la fila del total 
+    var $rowTotal = "";
+    
+    // obtenemos la cantidad
+    quantity = currentItem.quantity;
+   
+    // validamos si la tabla contenedora es "tableManpowerItems" mano de obra
+    if(tableId == "tableManpowerItems"){
+     
+      // obtenemos los datos asociados a la especie o a las especies
+      var conceptData = $("#tableManpowerItems").data("costObj");
+      
+      // se valida que exista "workforceDefault"
+      if(conceptData.workforceDefault && conceptData.workforceDefault.length > 0){
+      
+        // recorremos los datos de mano de obra
+        for(var i = 0; i < conceptData.workforceDefault.length; i++){
+  
+          // se valida si uno de las manos de obra equivale al que se esta agregando
+          if(conceptData.workforceDefault[i].position == $field.val()){
+         
+            // se halla la cantidad teniendo en cuenta el rendimiento
+            quantity = conceptData.performance * (currentItem.participation * (conceptData.workforceDefault[i].percent / 100));
+           
+            // salimos del ciclo
+            break;
+          }
+        }
+      }
+    }
+    
+    if(tableId == "tableMaterialItems" || tableId == "tableManpowerItems" || tableId == "tableEquipmentItems"){
+      
+      // Insertamos los datos de la columna 4 , 5 ,6 , 7 dependiendo de la table
+      insertDataTableColumns($row, tableId, quantity, currentItem);
+      
+      // Referenciamos a la fila del total 
+      $rowTotal = $row.find("td:nth-child(6)"); 
+    
+    }else{
+      
+      // agregamos la Unidad
+      $row.find("td:nth-child(4)").text(currentItem.unit);
+      
+      // agregamos el costo unitario
+      $row.find("td:nth-child(6)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(currentItem.unitCost, 6)));
+     
+      // Referenciamos a la fila del total 
+      $rowTotal = $row.find("td:nth-child(5)"); 
+    }
+    
+    // agregamos la Cantidad
+    $rowTotal.text(SnvaJsApi.roundDecimal(quantity, 6)).trigger("keyup");
+    
+  }
+}
+
+
+/*
+* Permite insertar los datos de cierta columna de la fila de la tabla 
+*/
+function insertDataTableColumns($row, tableId, quantity, currentItem){
+ 
+  //Limpiamos la posisicón 
+  $row.find("td:nth-child(4)").html("");
+  
+  // agregamos el avance
+  $row.find("td:nth-child(4)").attr({class: "text-center"}).append(
+    $("<a>").attr({href:"javascript:void(0)", class:"btn-icon-advance", title:"Avance"}).append(
+      $("<i>").attr({class:"material-icons"}).html("access_alarms")
+    ).click({tableId: tableId, quantity: quantity, unit: currentItem.unit}, showMdlParticipation)
+  );
+  
+  // validamos si la tabla es "tableEquipmentItems"
+  if(tableId == "tableEquipmentItems"){  
+    
+    // agregamos el avance
+    $row.find("td:nth-child(4)").append(
+      $("<a>").attr({href:"javascript:void(0)", class:"btn-icon-flight", title:"Flete"}).append(
+        $("<i>").attr({class:"material-icons"}).html("flight_takeoff")
+      ).click({"tableId":tableId, "rowData": $row}, showMdlFlete)
+    );
+    
+  }
+
+  // agregamos la Unidad
+  $row.find("td:nth-child(5)").text(currentItem.unit);
+  
+  // agregamos el costo unitario
+  $row.find("td:nth-child(7)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(currentItem.unitCost, 6)));
+}
+ 
+ 
+/**
+* Función que permite expandir todos los paneles de presupuesto
+**/
+function expandAllCatalog(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // referenciamos el contenedor de los collapsables de presupuesto en el catálogo
+  var $container = $("#ctnConceptsList").parent();
+  
+  // agregamos la clase "active" para mostrar los paneles
+  $container.find("div.collapsible-header").closest("li").addClass("active");
+  
+  // configuramos el colapsable para que no realiza el acordion
+  $container.find("ul.collapsible").collapsible({accordion: false});
+}
+
+
+/**
+* Función que permite colapsar los paneles de presupuesto en el catálogo
+**/  
+function collapseAllCatalog(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // referenciamos el contenedor de los collapsables de presuupuesto
+  var $container = $("#ctnConceptsList").parent();
+  
+  // removemos la clase "active"
+  $container.find("div.collapsible-header").closest("li").removeClass("active");
+  
+  // removemos el atributo "style"
+  $container.find("div.collapsible-body").removeAttr("style");
+  
+  // restablecemos el acordión
+  $container.find("ul.collapsible").collapsible({accordion: true});
+}
+
+
+/*
+* Función que permite obtener los datos para creación del catalogo 
+**/
+function dataCatalog(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // Mostramos el loading
+  SnvaJsApi.manageLoading("block", "Cargando datos principales del catálogo, espera un momento por favor...");
+
+  // obtenemos los datos de las especies
+  var orderProjects = $("#btnCreateCatalog").data("orderProjects");
+   
+  // obtenemos los datos del proyecto
+  var projectData = $("#btnCatalog").data("requestData");
+  
+  // Obtenemos el numero de la concessión 
+  google.script.run.withSuccessHandler(function(concessionNumber) {
+     
+     // insertamos el nombre o razón social 
+     $("#txtName-Catalog").val(projectData.name ? projectData.name: "");
+   
+     // Obtenemos los datos de la estrucutura
+     var structuresData = JSON.parse(projectData.structures[projectData.mainSheetName].structure);
+     
+     // Insertamos la superficie 
+     $("#txtSurface-Catalog").val(structuresData.surface ? structuresData.surface: "");
+     
+     //  Insertamos la localidad municipio y estado 
+     $("#txtLocation-Catalog").val(projectData.location ? projectData.location: "");
+     
+     //  Insertamos la numero de titulo de concesipon 
+     $("#txtConcessionTitleNumber-Catalog").val(concessionNumber);
+     
+     //  Insertamos numero de obra hidraulica
+     $("#txtNameHydraulicWork-Catalog").val(getNameHydraulicWork(structuresData.orderProjects));
+     
+     // actualizamos las clase de los campos
+     M.updateTextFields();
+     
+     // creamos la instancia del modal de datos del catalogo
+     var instanceMdlCatalogData = M.Modal.getInstance($("#mdlCatalogData"));
+     
+     // validamos si existe la instancia
+     if(instanceMdlCatalogData){
+       
+       // abrimos el modal
+       instanceMdlCatalogData.open();
+     }
+     
+     // Ocultamos el loading
+     SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+     
+   }).withFailureHandler(SnvaJsApi.onFailure).getConcessionNumber(projectData.infoCatalogSheetId);
+  
+}
+
+
+/*
+* Permite crear el catalogo en una hoja de cálculo
+*/
+function getDataCatalog(e){
+  
+  // se previene el evento por defecto
+  e.preventDefault();
+  
+  // mostramos la ventana de confirmación al momento de crear el catálogo
+  SnvaJsApi.confirm("¿Seguro desea crear el catálogo de conceptos?", function(){
+    
+    // Mostramos el loading
+    SnvaJsApi.manageLoading("block", "Generando archivo con el catálogo de conceptos, espera un momento por favor...");
+    
+    // obtenemos los datos de las conceptos
+    var orderProjects = $("#btnCreateCatalog").data("orderProjects");
+    
+    // obtenemos los datos del proyecto
+    var projectData = $("#btnCatalog").data("requestData");
+    
+    // Obtenemos los datos para la cabecera del catalogo 
+    var headerDataCatalog = {
+      name_catalog: $("#txtName-Catalog").val() ? $("#txtName-Catalog").val(): "", // Nombre o razón social 
+      surface_catalog: $("#txtSurface-Catalog").val() ? $("#txtSurface-Catalog").val(): "", // superficie
+      location_catalog: $("#txtLocation-Catalog").val() ? $("#txtLocation-Catalog").val(): "" , // lacalidad municipio y estado
+      concessionNumber_catalog: $("#txtConcessionTitleNumber-Catalog").val() ? $("#txtConcessionTitleNumber-Catalog").val(): "", // Numero de tiutlo de concession 
+      nameHydraulicWork_catalog: $("#txtNameHydraulicWork-Catalog").val() ? $("#txtNameHydraulicWork-Catalog").val(): "" // Nombre de mano de obra
+    };
+    
+    // creamos la instancia del modal de datos del catalogo
+    var instanceMdlCatalogData = M.Modal.getInstance($("#mdlCatalogData"));
+    
+    // validamos si existe la instancia
+    if(instanceMdlCatalogData){
+    
+      // cerramos  el modal
+      instanceMdlCatalogData.close();
+    }
+    // Creamos el catalogo 
+    google.script.run.withSuccessHandler(function(fileUrl) {
+      
+      // Ocultamos el loading
+      SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+      
+      // mostramos un mensaje sobre la creación de las tarjetas
+      SnvaJsApi.showAlert("Se ha generado el catálogo de conceptos con éxito; para abrirlo haz clic en el siguiente <a href='" + fileUrl + "' target='_blank'>vínculo</a>.");
+      
+    }).withFailureHandler(SnvaJsApi.onFailure).createCatalog(orderProjects, projectData, headerDataCatalog);
+  
+  });
+} 
+
+
+/*
+* Función que permite crear el nombre de la obra hidraulica
+*/
+function getNameHydraulicWork(orderProjects){
+
+  // Nombre de  la obra hidraulica
+  var nameHydraulicWork = "";
+  
+  // Validamo de ve existan ordenes
+  if(orderProjects && orderProjects.length > 0){
+    
+    // datos de la lineas por orden 
+    var lines = "";
+    
+    // Nombre de la linnea 
+    var lineName = [];
+    
+    var orderName = "";
+    
+    // Recorremos cada orden 
+    for( var i = 0; i < orderProjects.length; i++){
+       
+       // Obtenemos el nombre de la linea
+       orderName = orderProjects[i].orderName.split(". ")[1];
+       
+       // Validamos si es la primera orden 
+       if(i == 0  && orderName == "Sistema de riego"){
+         
+         // Agregamos el inicio del nombre
+         nameHydraulicWork += "Suministro e Instalación de "; 
+       }else{
+          
+          // Nombre de la siguiente line
+          nameHydraulicWork += orderName + " con ";
+       }
+       
+       // Obtenemos los datos de las lineas 
+       lines = orderProjects[i].linesProducts;
+       
+       // Recorremos cada uno de las lineas
+       for(var j = 0; j < lines.length; j++){
+       
+         // Obtenemos el nombre de la linea
+         lineName = lines[j].lineProductName.split(". ")[1];
+         
+         nameHydraulicWork += lineName;
+         
+         // Validamos si no es el ultimo registro 
+         if((j+1) < lines.length){
+           
+           // Agregamos una coma y un espacio para el nombre de la proxima linea 
+           nameHydraulicWork += ", ";
+         }
+       }
+       
+       // Validamo si no es el ultimo registro 
+       if((i+1) < orderProjects.length){
+         
+         // Agregamos una coma y un espacio para el nombre de la proxima ordern 
+         nameHydraulicWork += "; ";
+       }
+    }
+  }
+  
+  // Retronamos el nombre de la obra hidraulica obtenida
+  return nameHydraulicWork;  
+
+}
+
+
+/**
+ * Función que permite obtener el resumen del catalogo de cada uno de los items
+**/
+function getSummanyCatalog(){
+  
+  // Obtenemos la lista de tablas
+  var $rowsList = $("#pnlCatalog .ctn-panels-tab table:not(:first) tbody tr");
+  
+  // obtenemos la el cuerpo de la tabla principal de Todos
+  var $tbody = $("#pnlCatalog .ctn-panels-tab table:first tbody");
+  
+  // borramos el texto de la tabla principal
+  $tbody.find("tr td:not(:nth-child(1))").text("");
+  
+  // obtenemos los datos de las demas secciones
+  var arrayData = [],tableId= null,
+      tempObj = {},
+      $currentRow = null, $fieldTemp = null;
+  
+  // recorremos cada uno de los cuerpo de la tabla
+  $rowsList.each(function(){
+    
+    // se referencia la fila actual
+    $currentRow = $(this);
+    
+    // Obtenemos el id de la tabla  
+    tableId = $currentRow.closest("table").attr("id");
+    
+    // se obtiene el campo de descipción
+    $fieldTemp = $currentRow.find("td:nth-child(3) input"); 
+    
+    // obtenemos los datos actuales de cada columna
+    tempObj = {
+      key: $currentRow.find("td:nth-child(2)").text(),
+      description: ($fieldTemp.length > 0 ? $fieldTemp.val() : $currentRow.find("td:nth-child(3)").text()),
+    };
+    
+    // Validamos si son las tabla materioles, mano de obra, equipos
+    if(tableId == "tableMaterialItems" || tableId == "tableManpowerItems" || tableId == "tableEquipmentItems"){
+    
+      // obtenemos los datos actuales de cada columna
+      tempObj.unit= $currentRow.find("td:nth-child(5)").text();
+      tempObj.quantity= $currentRow.find("td:nth-child(6)").text();
+      tempObj.coste= $currentRow.find("td:nth-child(7)").text();
+      tempObj.total= $currentRow.find("td:nth-child(8)").text();
+    
+    // Validamos si la tabla es la de fletes 
+    }else if(tableId == "tableTransportItems"){
+      
+      // obtenemos los datos actuales de cada columna
+      tempObj.unit= $currentRow.find("td:nth-child(4)").text();
+      tempObj.quantity= $currentRow.find("td:nth-child(6)").text();
+      tempObj.coste= $currentRow.find("td:nth-child(7)").text();
+      tempObj.total= $currentRow.find("td:nth-child(8)").text();
+    }
+    
+    // se valida que exista alguno de los siguiente valores
+    if(tempObj.key || tempObj.description || tempObj.unit || tempObj.quantity || tempObj.coste || tempObj.total){
+      
+      // agregamos el valor al array
+      arrayData.push(tempObj);
+    }
+    
+  });
+  
+  // referenciamos la fila
+  var $rowIndex = null;
+  
+  // recorremos la cantidad de items
+  for(var i = 0; i < arrayData.length; i++){
+    
+    // referenciamos la fila
+    var $rowIndex = $tbody.find("tr:eq(" + i + ")");
+    
+    // se valida que exista la fila
+    if($rowIndex.length > 0){
+      // agregamos los textos
+      $rowIndex.find("td:nth-child(2)").text(arrayData[i].key);
+      $rowIndex.find("td:nth-child(3)").text(arrayData[i].description);
+      $rowIndex.find("td:nth-child(4)").text(arrayData[i].unit);
+      $rowIndex.find("td:nth-child(5)").text(arrayData[i].quantity);
+      $rowIndex.find("td:nth-child(6)").text(arrayData[i].coste);
+      $rowIndex.find("td:nth-child(7)").text(arrayData[i].total);
+    }
+  }
+}
+
+
+/**
+ * Función que permite crear la tabla editable con los valores respectivos
+**/
+function createTableEditable(contentId, tableId, inputClass, editable, items, advance){
+
+  // Se define un estado por defecto
+  if(editable == undefined) editable = true;
+  
+  // Se define una cantidad de ítems por defecto
+  if(items == undefined) items = 40;
+ 
+  // Referenciamos el contenedor
+  var $content = $("#" + contentId);
+  
+  // Creamos la tabla
+  var $table = $("<table>").attr({id: tableId, class: "table-editable"});
+  
+  // Agregamos la tabla al contenedor
+  $content.html("").append($table);
+  
+  // Creamos la cabecera de la tabla 
+  createTableHead($table, tableId, advance);
+  
+  // variable que almacena la fila
+  var $row = null,
+      $tbody = $table.find("tbody"),
+      $newField = null;
+  
+  // ccreamos cada una de las filas respectivas
+  for(var i = 0; i < items; i++){
+    
+    // se crea la nueva fila
+    $row = $("<tr>");
+    
+    // inicializamos la variable del campo nuevo
+    $newField = "";
+  
+    // se valida si el panel es editable
+    if(inputClass){
+   
+      // nuevo campo de busqueda
+      $newField = $("<strong>").attr({class: "input-field"}).append(
+        $("<input>").attr({class: "autocomplete cell-editable-autocomplete " + inputClass, style: "box-shadow: none !important;border-bottom: none !important;", type: "text"}).on("keyup change",resetField)
+      );
+    }
+    
+    // agregamos la fila al cuerpo de la tabla
+    $tbody.append($row);
+    
+    // creamos las respectivas filas
+    $row.append($("<td>").text(i + 1));
+    $row.append($("<td>").attr({contenteditable: editable}).on("keyup", changeStateSaving)); // Clave
+    $row.append($("<td>").attr({contenteditable: ($newField ? false : editable)}).on("keyup", changeStateSaving).append($newField)); // Descripción
+    
+    // validamos si se debe incluir otra celda para el avance
+    if(advance){
+      $row.append( $("<td>").attr({contenteditable: editable})); // Avance
+    }
+    
+    $row.append($("<td>").attr({contenteditable: editable}).on("keyup", changeStateSaving)); // Unidad
+    $row.append($("<td>").attr({contenteditable: editable, "data-pattern": "^[0-9]+(?:\\.[0-9]{1,6}){0,1}$"}).on("keyup",{contentId: contentId}, calculateTotalByItem).on("paste keypress", SnvaJsApi.validateNumberFormatTd)); // Cantidad
+    $row.append($("<td>").attr({contenteditable: editable, "data-pattern": "^(\\d|-)?(\\d|,)*\\.?\\d*$"}).on("keyup",{contentId: contentId}, calculateTotalByItem).on("paste keypress", SnvaJsApi.validateNumberFormatTd)); // Costo unitario
+    $row.append($("<td>")); // Total 
+   
+  }
+  
+}
+
+/*
+* permite crear la cabecera de la tabla
+*/
+function createTableHead($table, tableId, advance){
+  
+  // validamos si se debe incluir un avance
+  if(advance){
+    
+    // Validamos si la tabla es de materiales 
+    if(tableId == "tableMaterialItems" || tableId == "tableManpowerItems"){
+     
+      $table.append(
+        $("<thead>").append(
+          $("<tr>").append(
+            $("<th>")
+          ).append(
+            $("<th>").text("Clave")
+          ).append(
+            $("<th>").text("Descripción")
+          ).append(
+            $("<th>").append("Avance ").append(
+              $("<a>").attr({href:"javascript:void(0)", class:"btn-icon-flight", title:"Flete"}).append(
+                $("<i>").attr({class:"material-icons"}).html("flight_takeoff")
+              ).click({"tableId":tableId}, showMdlFlete) 
+            )
+          ).append(
+            $("<th>").text("Unidad")
+          ).append(
+            $("<th>").text("Cantidad")
+          ).append(
+            $("<th>").text("Costo unitario")
+          ).append(
+            $("<th>").text("Total")
+          )
+        )
+      ).append(
+        $("<tbody>")
+      )
+    
+    }else{
+    
+      // Creamos el encabezado
+      $table.html('<thead><tr>\
+        <th></th>\
+        <th>Clave</th>\
+        <th>Descripción</th>\
+        <th>Avance</th>\
+        <th>Unidad</th>\
+        <th>Cantidad</th>\
+        <th>Costo unitario</th>\
+        <th>Total</th>\
+        </tr></thead><tbody></tbody>');
+    }  
+  }else{
+    
+    // Creamos el encabezado
+    $table.html('<thead><tr>\
+      <th></th>\
+      <th>Clave</th>\
+      <th>Descripción</th>\
+      <th>Unidad</th>\
+      <th>Cantidad</th>\
+      <th>Costo unitario</th>\
+      <th>Total</th>\
+      </tr></thead><tbody></tbody>');
+  }
+  
+}
+
+/**
+ * Función que permite crear la tabla editable con los valores respectivos 
+**/
+function createTableEditableLading(contentId, tableId, editable, items){
+
+  // Se define un estado por defecto
+  if(editable == undefined) editable = true;
+  
+  // Se define una cantidad de ítems por defecto
+  if(items == undefined) items = 40;
+ 
+  // Referenciamos el contenedor
+  var $content = $("#" + contentId);
+  
+  // Creamos la tabla
+  var $table = $("<table>").attr({id: tableId, class: "table-editable"});
+  
+  // Agregamos la tabla al contenedor
+  $content.html("").append($table);
+  
+  // Creamos el encabezado
+  $table.html('<thead><tr>\
+  <th></th>\
+  <th>Clave</th>\
+  <th>Descripción</th>\
+  <th>Unidad</th>\
+  <th>Repeticiones</th>\
+  <th>Cantidad</th>\
+  <th>Costo unitario</th>\
+  <th>Importe</th>\
+  </tr></thead><tbody></tbody>');
+      
+  // variable que almacena la fila
+  var $row = null,
+      $tbody = $table.find("tbody");
+  
+  // ccreamos cada una de las filas respectivas
+  for(var i = 0; i < items; i++){
+    
+    // se crea la nueva fila
+    $row = $("<tr>");
+    
+    // agregamos la fila al cuerpo de la tabla
+    $tbody.append($row);
+    
+    // creamos las respectivas filas
+    $row.append($("<td>").text(i + 1));
+    $row.append($("<td>")); // Clave
+    $row.append($("<td>")); // Descripción
+    
+    $row.append($("<td>")); // Unidad
+    $row.append($("<td>")); // Cantidad
+    $row.append($("<td>")); // Repeticiones
+    $row.append($("<td>")); // Costo unitario
+    $row.append($("<td>")); // Importe 
+   
+  }
+  
+}
+
+
+/*
+** Función que permita limpiar los campos 
+*/
+function resetField(e){
+   
+  // referenciamos el campo
+  var $field = $(this);
+
+  // obtenemos los datos 
+  var itemsObj = $field.data("itemsObj");
+  
+  // refernciamos los datos del cliente encontrados
+  var currentItem = itemsObj[$field.val()];
+  
+  // validamos si existe la propiedad
+  if (itemsObj && !currentItem) {
+  
+    // referenciamos la fila
+    var $row = $field.closest("tr");
+    
+    // agregamos la clave
+    $row.find("td:nth-child(2)").text("");
+    
+    // agregamos la Avance
+    $row.find("td:nth-child(4)").text("");
+    // agregamos la Unidad
+    $row.find("td:nth-child(5)").text("");
+    
+    // agregamos el costo unitario
+    $row.find("td:nth-child(7)").text("");
+    
+     // agregamos la Cantidad
+    $row.find("td:nth-child(6)").text("").trigger("keyup");
+  }
+
+}
+
+
+/**
+ * FUnción que permite cálcular el total de un ítem
+**/
+function changeStateSaving(){
+  
+  // cambiamos la propiedad a verdadero
+  $("#pnlCatalog").data("requiredSaveData", true);
+  
+  // Agregamos la clase "pulse" y habilitamos el boton
+  $("#btnSavePnlCatalog").addClass("pulse").removeAttr("disabled");
+  
+}
+
+/**
+ * FUnción que permite cálcular el total de un ítem
+**/
+function calculateTotalByItem(e){
+  
+  // obtenemos el id del contenedor
+  var contentId = e.data.contentId;
+  
+  // referenciamos la celda
+  var $cell = $(this);
+  
+  // llamamamos la función que cambia el estado de que requiere un guardado
+  changeStateSaving();
+  
+  // se valida si el costo
+  if(e.target.cellIndex == 6){
+  
+    // actualizamos el valor formateado
+    this.textContent = SnvaJsApi.formatValue(this.textContent);
+    
+    // definimos en que posición debo colocarme
+    var char = this.textContent.length, sel; // character at which to place caret
+    
+    // se realiza focus sobre el campo
+    this.focus();
+    
+    // se valida si existe la posibilidad de seleccionar
+    if (document.selection) {
+      
+      // se crea un rango en la selección
+      sel = document.selection.createRange();
+      
+      // se mueve el cursos hacia el caracter que se encuentra ne la posición proporcionada
+      sel.moveStart('character', char);
+      
+      // se procede a selección la posición
+      sel.select();
+    } else {
+      
+      // se crea una instancia de la seleción que se realiza en el navegador
+      sel = window.getSelection();
+      
+      // se selecciona el primera coincidencia
+      sel.collapse(this.firstChild, char);
+    }
+    
+  }
+  
+  // obtenemos la fila respectiva
+  var $row = $cell.closest("tr");
+  
+  // Datos para los calculos 
+  var $rowTotal = "", quantity= 0, coste=0;
+  
+  // se validad si el Contenedor es de materiales, mano de obra y  equipos 
+  if(contentId =="ctnMaterialItems" || contentId =="ctnManpowerItems" || contentId == "ctnEquipmentItems"){
+    
+    // obtenemos la cantidad
+    quantity = Number($row.find("td:nth-child(6)").text().replace(/,/g, "")) || 0; 
+    
+    // obtenemos el costo unitario
+    coste = Number($row.find("td:nth-child(7)").text().replace(/,/g, "")) || 0;
+    
+    // calculamos el total
+    $rowTotal = $row.find("td:nth-child(8)");
+  
+  }else{
+
+    // obtenemos la cantidad
+    quantity = Number($row.find("td:nth-child(5)").text().replace(/,/g, "")) || 0; 
+    
+    // obtenemos el costo unitario
+    coste = Number($row.find("td:nth-child(6)").text().replace(/,/g, "")) || 0;
+    
+    // calculamos el total
+    $rowTotal = $row.find("td:nth-child(7)");
+   }
+  
+  // Se validad si es herremienta menoor
+  if(contentId =="ctnKitItems"){
+  
+     // Se divida para el porcentaje
+     quantity = quantity / 100;
+  }
+  
+ 
+  // obtenemos el total
+  var total = quantity * coste;
+  
+  // se valida si el total es diferente de cero
+  if(total != 0){
+    
+    // redondeamos y damos forma al total
+    total = SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(total, 6));
+    
+  }  else {
+    // definimos un valor vacio
+    total = "";
+  }
+  
+  // calculamos el total
+  $rowTotal.text(total);
+  
+  // llamamos la función que calcula el total del item actual
+  calculateCurrentTotal($row, contentId);
+  
+}
+
+/**
+ * Función que permite cálcular el total de todas las opciones
+**/
+function calculateAllTotal(){
+  
+  // obtenemos todas las columnas del total
+  var $items = $("#pnlCatalog ul.tabs li a:not(:first) span.tab-value");
+  
+  // variable de total
+  var total = 0;
+  
+  // se recorre cada una de las columnas
+  $items.each(function(index, ele){
+    
+    // se valida que exista algun texto
+    if(this.textContent && index < 6){
+      
+      // obtenemos el valor
+      total += (Number(this.textContent.replace(/,|\(|\)/g, "")) || 0);
+    }
+  });
+  
+  // calculamos el total
+  $("#pnlCatalog ul.tabs li a:first span.tab-value").text("(" + SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(total, 2)) + ")");
+  
+}
+
+/**
+ * Función que permite cálcular el total de cada sección
+**/
+function calculateCurrentTotal($row, contentId){
+  
+  // referenciamos la tabla
+  var $table = $row.closest("table");
+  
+  // obtenemos todas las columnas del total
+  var $lastColumns = $table.find("tr td:last-child");
+  
+  // variable de total
+  var total = 0;
+  
+  // se recorre cada una de las columnas
+  $lastColumns.each(function(){
+    
+    // se valida que exista algun texto
+    if(this.textContent){
+    
+      // obtenemos el valor
+      total += (Number(this.textContent.replace(/,/g, "")) || 0);
+    }
+  });
+ 
+  // calculamos el total
+  $("#pnlCatalog ul li a[href='#" + contentId + "'] span.tab-value").text("(" + SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(total, 2)) + ")");
+  
+  // calculamos el total de todas las opciones actuales
+  calculateAllTotal();
+}
+ 
+/**
+ * Función que permite redimencionar la altura de un panel
+**/
+function changeHeightPanel(e){
+ 
+  // se previene el evento por defecto
+  e.preventDefault();
+  
+  // Contenedor
+  var $content = $("#pnlCatalog");
+
+  // definimos los datos para cambiar el tamaño
+  $content.data("options", {startHeight: $content.height(), clientY: e.clientY});
+  
+  // definimos los eventos
+  document.documentElement.addEventListener('mousemove', resizePanel, false);
+  document.documentElement.addEventListener('mouseup', stopChangeHeightPanel, false);
+}
+ 
+
+/**
+ * Función encargada de cambiar la altura del panel
+**/
+function resizePanel(e){
+ 
+  // Referenciamos el contenedor
+  var $content = $("#pnlCatalog");
+    
+  // obtenemos los datos de altura actual
+  var allHeight = $(window).height();
+  
+  // obtenemos las opciones
+  var options = $content.data("options");
+
+  // obtenemos la nueva altura
+  var newHeight = (options.startHeight - (e.clientY - options.clientY));
+  
+  // Removemos la cantidad de estilo de scroll
+  $("#ctnScroll")[0].style.height = (newHeight +10) + "px";
+  
+  // se valida que la altura sea mayor 
+  if (newHeight > 51 && newHeight <= (allHeight - 5)) {
+    
+    // establecemos la nueva altura
+    $content[0].style.height = newHeight + "px";
+    
+    // cambiamos la altura por defecto del contenedor de paneles
+    $(".ctn-panels-tab div").css("height", $content.height() - 100);
+      
+  }
+}
+
+/**
+ * Función que permite detener el cambio de altura
+**/
+function stopChangeHeightPanel() {
+  
+  // se remueve el evento de cambiar tamaño
+  document.documentElement.removeEventListener('mousemove', resizePanel, false);
+  document.documentElement.removeEventListener('mouseup', stopChangeHeightPanel, false);
+}
+
+/*
+* Función que permite cerrar el panede de detalles de la especie
+*/
+function closePnlCatalog(e){
+  
+  // Prevenimos el evento por defecto 
+  e.preventDefault();
+  
+  // referenciamos el panel del catalogo
+  var $pnlCatalog = $("#pnlCatalog");
+  
+  // obtenemos la propiedad del estado de guardado
+  var requiredSaveData = $pnlCatalog.data("requiredSaveData");
+
+  // se valida si requiren guardar datos
+  if(requiredSaveData){
+    
+    // mostramos el mensaje de confirmación
+    mbox.custom({
+      message: "Existen datos sin guardar sobre la especie actual. ¿Esta seguro que desea cerrar la ventana de edición del catálogo?",
+      options: {}, // see Options below for options and defaults
+      buttons: [{
+        label: "No",
+        color: "btn-cancel-confirm",
+        callback: function() {}
+      },
+      {
+        label: "Si",
+        color: "btn-ok-confirm",
+        callback: function() {
+          
+          // Ocultamos el panel
+          $pnlCatalog.removeData("requiredSaveData").hide();
+          
+          // Removemos la clase "pulse" y deshabilitamos el boton
+          $("#btnSavePnlCatalog").removeClass("pulse").attr("disabled", true);
+          
+          // removemos todas las clases "tr-selected"
+          $("#ctnConceptsList tr.tr-selected").removeClass("tr-selected");
+          
+          // Removemos la cantidad de estilo de scroll
+          $("#ctnScroll")[0].style.height = "0px";
+          
+        }
+      }]
+    });
+    
+  } else {
+    
+    // Ocultamos el panel
+    $pnlCatalog.removeData("requiredSaveData").hide();
+    
+    // Removemos la clase "pulse" y deshabilitamos el boton
+    $("#btnSavePnlCatalog").removeClass("pulse").attr("disabled", true);
+    
+    // removemos todas las clases "tr-selected"
+    $("#ctnConceptsList tr.tr-selected").removeClass("tr-selected");
+    
+    // Removemos la cantidad de estilo de scroll
+    $("#ctnScroll")[0].style.height = "0px";
+    
+  }
+}
+
+
+/*
+* Funcion encargada de mostrar el catalogo  
+*/
+function catalogOpen(e){
+  
+  // prevenimos el evento por defecto 
+  e.preventDefault();
+  
+  // validamos que existan ordenes creadas y lineas cargadas
+  if($("#ctnOrdersPanels div.collapsible-product-line-header").length > 0){
+  
+    // Mostramos el loading
+    SnvaJsApi.manageLoading("block", "Habilitando el catálogo para edición, espera un momento por favor...");
+    
+    // se referencia el boton de catálogo
+    var $btnCatalog = $(this);
+    
+    // obtenemos los datos del proyecto
+    var projectData = $btnCatalog.data("requestData");
+   
+    // Objeto con los datos del proyecto 
+    var orderProjects = [];
+    
+    // ocultamos el panel de edición del catálogo
+    $("#pnlCatalog").hide();
+    
+    // recorremos cada una de las opciones seleccionadas sobre orden
+    $("#ctnOrders input").each(function(index, element){
+     
+     // Validamos que el elemento se encuentre seleccionado
+     if(element.checked){
+     
+       // Agregamos cada una de las ordenes del proyecto
+        orderProjects.push({
+          orderName: this.value,
+          linesProducts: getProductsLines($("#ctnOrdersPanels li[data-position=" + (index + 1) + "]"))
+        });
+     }
+
+    });
+    
+    // Obtenemos el año seleccionado
+    var yearSelected = $("#sltProjectYears").val();
+    
+    // consultamos los costos de las conceptos asociados al proyecto 
+    google.script.run.withSuccessHandler(function(resultData) {
+    
+      // se valida si existe datos de la solicitud para actualizar
+      if(resultData.requestData){
+      
+        // actualizamos el listado de solicitudes
+        insertRecordsFromTable(resultData.requestData);
+        
+        // actualizamos los datos de la propiedad del boton
+        $btnCatalog.data("requestData", resultData.projectData);
+      }
+       
+      // Agregamos la información de rendimiento
+      $btnCatalog.data("performanceData", resultData.performanceData);
+      
+      // agregamos los datos del catalogo de conceptos
+      addConceptsInCatalog(resultData.orderProjects);
+      
+      // ocultamos el panel de proyectos 
+      $("#ctn-projects").addClass("hidden");
+      
+      // mostramos el respectivo panel
+      $("#ctn-catalog").removeClass("hidden");
+      
+      // Expandimos los items del catálogo
+      $("#btnExpandCatalog").click();
+      
+      // ubicamos el scroll en la parte superior del catálogo
+      $(window).scrollTop(0);
+      
+      // Ocultamos el loading
+      SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+    
+    }).withFailureHandler(SnvaJsApi.onFailure).getListCostsConcepts(orderProjects, projectData, userRole, yearSelected);
+    
+  } else {
+    
+    // mostramos mensaje
+    SnvaJsApi.showAlert("Verifica que tenga seleccionada como mínimo una línea de producto.");
+        
+  }
+}
+
+/*
+* Funcion encargada de agregar cada una de las ordenes y lineas asociadas al proyecto actual 
+*/
+function addConceptsInCatalog(orderProjects){
+  
+  // referenciamos el contenedor 
+  var $mainContainer = $("#ctnConceptsList");
+  
+  // removemos los datos actuales
+  $mainContainer.html("");
+  
+  // recorremos cada una de las ordenes 
+  for(var i = 0; i < orderProjects.length; i++){
+    
+    // agregamos el panel de cada orden
+    addOrderPanelFromCatalog($mainContainer, orderProjects[i]);
+  }
+    
+  // agregamos las ordenes del proyecto 
+  $("#btnCreateCatalog").data({"orderProjects": orderProjects})
+  
+}
+
+/**
+ * Función que permite adicionarun panel de tipo orden
+**/
+function addOrderPanelFromCatalog($mainContainer, orderData){
+
+  // creamos el contenedor del la lista en el colapssable
+  var $nowElement = $("<li>");
+  
+  // creamos el contenedor del elemento colapsable
+  var $productLineUl = $("<ul>").attr({class: "collapsible"});
+  
+  // agregamos el orden en el respectivo panel principal
+  $mainContainer.append($nowElement);
+    
+  // agregamos la estructura del contenedor
+  $nowElement.append(
+    $("<div>").attr({class: "collapsible-header collapsible-order-header collapsible-catalog-header"}).append(orderData.orderName).append(
+      $("<i>").attr({class: "material-icons right expand-order"}).text("expand_less")
+    )
+  ).append(
+    $("<div>").attr({class: "collapsible-body collapsible-order-body"}).append(
+      $("<p>").attr({style: "font-weight: bold;"}).html("Líneas de productos")
+    ).append("<br>").append(
+      $("<div>").attr({class: "row"}).append($productLineUl)
+    )
+  );
+  
+  // recorremos cada una de las líneas del producto
+  for(var i = 0; i < orderData.linesProducts.length; i++){
+    
+    // agregamos el panel por cada linea
+    insertProductLineFromCatalog($productLineUl, orderData.linesProducts[i]);
+    
+  }
+  
+  // actualizamos el collapsible
+  $mainContainer.collapsible();
+  
+  // inicializamos el calapsable de linea de producto
+  $productLineUl.collapsible();
+  
+}
+
+/**
+ * Función que permite agregar el contenedor de linea
+**/
+function insertProductLineFromCatalog($mainContainer, lineData){
+
+  // creamos el contenedor del la lista en el colapssable
+  var $nowElement = $("<li>");
+  
+  // agregamos la línea el respectivo panel principal
+  $mainContainer.append($nowElement);
+  
+  // agregamos la estructura del contenedor
+  $nowElement.append(
+    $("<div>").attr({class: "collapsible-header collapsible-product-line-header collapsible-line-header"}).append(lineData.lineProductName).append(
+      $("<i>").attr({class: "material-icons right expand-product-line"}).text("expand_less")
+    )
+  ).append(
+    $("<div>").attr({class: "collapsible-body collapsible-product-line-body"}).append(function(){
+    
+      // retornamos la interfaz de catálogos
+      return insertConceptInLine(lineData.conceptList, lineData.workforceDefault, lineData.lineProductName);
+    })
+  );
+  
+  // iniciamos el paginador de la tabla
+  SnvaJsApi.initPaginationByTable($nowElement.find("table"),  "ul.pagination", 10);
+  
+}
+
+/**
+ * Función que permite generar el contenedor para crear una nueva especie
+**/
+function insertConceptInLine(conceptList, workforceDefault, lineProductName){
+
+  // creamos la fila para agregar la opción de agregar especie
+  var $panel = $("<div>").attr({class: "ctn-concept"});
+  
+  // se crea la respectiva tabla
+  var $table = $("<table>").attr({class: "responsive-table table-concept-hover"});
+  
+  // agregamos la cabecera
+  $table.append(
+    $("<thead>").append(
+      $("<tr>").append(
+        $("<th>").text("Nombre")
+      ).append(
+        $("<th>").text("Unidad")
+      ).append(
+        $("<th>").text("Cantidad")
+      ).append(
+        $("<th>").text("Costo unitario")
+      ).append(
+        $("<th>").text("Total")
+      ).append(
+        $("<th>").attr({class: "text-center"}).text("Acciones")
+      )
+    )
+  );
+  
+  // agregamos el cuerpo de la tabla
+  $table.append(
+    $("<tbody>").append(
+      $("<tr>").attr({class: "info-message"}).append(
+        $("<td>").attr({colspan: 6}).text("No hay conceptos para mostrar.")
+      )
+    )
+  );
+  
+  // agregamos la respectiva tabla
+  $panel.append(
+    $("<div>").attr({class: "row"}).append($table)
+  );
+  
+  // recorremos cada uno de las especies
+  for(var i = 0; i < conceptList.length; i++){
+    
+    // agregamos cada especie en la tabla
+    addConceptInCatalog($table, conceptList[i], workforceDefault, lineProductName);
+    
+  }
+  
+  // agregamos el respectivo contenedor del paginador
+  $panel.append(
+    $("<div>").attr({class: "row"}).append(
+      $("<div>").attr({class: "col s12 ctn-pagination"}).append('<span class="left spnTotalPagination"></span>').append(
+        $("<ul>").attr({class: "pagination pager"})
+      )
+    )
+  );
+  
+  // retornamos el respetivo panel
+  return $panel;
+  
+}
+
+/**
+* Función que permite insertar una especie a la tabla principal de especies
+**/
+function addConceptInCatalog($table, conceptObj, workforceDefault, lineProductName) {
+
+  // obtenemos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+ 
+  // variable para almacenar la referencia de la fila creada
+  var $row = $("<tr>").attr({class: "isValid disable-select"}).data({"conceptObj": conceptObj, "workforceDefault": workforceDefault, lineProductName: lineProductName}).click(showEditCatalog);
+  
+  // agregamos la fila al cuerpo de la tabla
+  $tBody.append($row);
+  
+  // creamos la fila de: Nombre
+  $row.append(
+    $("<td>").text(conceptObj.conceptData[1])
+  );
+  
+  // creamos la fila de: Unidad
+  $row.append(
+    $("<td>").text(conceptObj.conceptData[4])
+  );
+  
+  // creamos la fila de: cantidad
+  $row.append(
+    $("<td>").text(conceptObj.conceptCount)
+  );
+  
+  // creamos la fila de: Costo unitario
+  $row.append(
+    $("<td>").text(SnvaJsApi.formatValue(String(conceptObj.conceptData[5]).replace(/\$|\,/g, "")))
+  );
+  
+  // obtenemos el total
+  var total = SnvaJsApi.roundDecimal(Number(conceptObj.conceptCount) * Number(String(conceptObj.conceptData[5]).replace(/\$|\,/g, "")), 2);
+  
+  // creamos la fila de: Total
+  $row.append(
+    $("<td>").text(SnvaJsApi.formatValue(total))
+  );
+  
+  // creamos la fila de: acciones
+  $row.append(
+    $("<td>").attr({class: "text-center"}).append(
+      $("<a>").attr({title: "Previsualizar tarjeta", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+        $("<i>").attr("class", "material-icons background-write").text("remove_red_eye").click({workforceDefault: workforceDefault}, previewCardByConcept)
+      )
+    )
+  );
+  
+}
+
+
+/**
+ * Función que permite mostrar el panel de edición del catálogo
+**/
+function showEditCatalog(e){
+  
+  // validamos si el clic se esta realizando sobre la opción de ver la previsualización de la tarjeta
+  if(e.target && e.target.tagName == "I") return false;
+  
+  // referenciamos el elemeto actual
+  var element = this;
+  
+  // Referenciamos el panel del catálogo 
+  var $pnlCatalog = $("#pnlCatalog");
+  
+  // obtenemos la propiedad del estado de guardado
+  var requiredSaveData = $pnlCatalog.data("requiredSaveData");
+  
+  // se valida si requiren guardar datos
+  if(requiredSaveData){
+    
+    // mostramos la ventana de confirmación
+    mbox.custom({
+      message: "Existen datos sin guardar sobre la especie actual. ¿Esta seguro de cambiar la especie?",
+      options: {}, // see Options below for options and defaults
+      buttons: [{
+        label: "No",
+        color: "btn-cancel-confirm",
+        callback: function() {}
+      },
+      {
+        label: "Si",
+        color: "btn-ok-confirm",
+        callback: function() {
+          
+          // Ocultamos el panel
+          $pnlCatalog.removeData("requiredSaveData");
+          
+          // Removemos la clase "pulse" y deshabilitamos el boton
+          $("#btnSavePnlCatalog").removeClass("pulse").attr("disabled", true);
+          
+          // se muestra el panel respectivo
+          showPanelEditCatalog(element, $pnlCatalog);
+          
+        }
+      }]
+    });
+    
+  } else {
+    
+    // Removemos la clase "pulse" y deshabilitamos el boton
+    $("#btnSavePnlCatalog").removeClass("pulse").attr("disabled", true);
+    
+    // se muestra el panel respectivo
+    showPanelEditCatalog(element, $pnlCatalog);
+    
+  }
+  
+}
+
+
+/**
+ * Función que permite mostrar el panel de edición del catálogo
+**/
+function showPanelEditCatalog(element, $pnlCatalog){
+  
+  // Mostramos el loading
+  SnvaJsApi.manageLoading("block", "Iniciando edición del catálogo...");
+  
+  // referenciamos el elemeto actual como Jquery
+  var $element = $(element);
+  
+  // obtenemos la información de la mano de obra por defecto
+  var workforceDefault = $element.data("workforceDefault");
+  
+  // removemos todas las clases "tr-selected"
+  $("#ctnConceptsList tr.tr-selected").removeClass("tr-selected");
+  
+  // Obtenemos los datos de la especie 
+  var conceptObj = $element.addClass("tr-selected").data("conceptObj");
+  
+  // borramos el texto de todas las tablas del catálogo
+  $("#tableAllItems, #tableMaterialItems, #tableSubcontractItems, #tableTransportItems").find("tbody tr td:not(:nth-child(1))").text("");
+  
+  // borramos el texto de los campos de autocompletado
+  $("input.cell-editable-autocomplete").val("").trigger("change");
+  
+  // borramos el texto de las celdas de las 4 tablas que tienen campos de autocompletar
+  $("#tableManpowerItems, #tableEquipmentItems, #tableKitItems, #tableAuxiliaryItems").find("tbody tr td[contenteditable='true']:not(:nth-child(1)), tbody tr td:last-child").text("");
+  
+  // reestablecemos el total en cada una de las pestañas
+  $("#pnlCatalog ul.tabs li a span.tab-value").text("(0)")
+  
+  // Referenciamos la instancia de los tabs
+  var instanceUl = M.Tabs.getInstance($pnlCatalog.find("ul.tabs"));
+  
+  // se valida que la instancia exista
+  if(instanceUl){
+    
+    // seleccionamos la primera opción de "Todos"
+    instanceUl.select("ctnAllItems");
+    
+  }
+  
+  // validamos si el modal se encuentra visible s
+  var isVisableModal = $pnlCatalog.is(":visible");
+  
+  // Inicializamos la propiedad del estado de guardado
+  $pnlCatalog.data("requiredSaveData", false);
+  
+  // Removemos la clase "pulse" y deshabilitamos el boton
+  $("#btnSavePnlCatalog").removeClass("pulse").attr("disabled", true);
+  
+  // se valida si no esta visible
+  if(!isVisableModal){
+    
+    // se muestra el panel
+    $pnlCatalog.show();
+    
+    // definimos la altura por defecto 
+    $pnlCatalog[0].style.height = "300px";
+    
+    // Removemos la cantidad de estilo de scroll
+    $("#ctnScroll")[0].style.height = "300px";
+    
+    // definimos un tamaño de los contenedores de las tablas editables
+    $(".ctn-panels-tab div").css("height", 198);
+  }
+   
+  // Adicionamos el nombre de la especie al panel 
+  $("#nameConceptCatalog").text(conceptObj.conceptData[1]);
+  
+  // Agregamos la información de materiales
+  addMaterialInCatalog(conceptObj, workforceDefault, $pnlCatalog);
+  
+}
+
+
+/**
+ * Función que permite agregar el material o los materiales segun si es grupo en el catálogo
+**/
+function addMaterialInCatalog(conceptObj, workforceDefault, $pnlCatalog){
+
+  // Borramos los datos de los fletes de la tabla de materiales 
+  $("#tableMaterialItems").removeData("arrayLading");
+  
+  // Validamos si vienen los datos generales 
+  if(conceptObj.cost && conceptObj.cost.materials && conceptObj.cost.materials.generalParameters && conceptObj.cost.materials.generalParameters.arrayLading){
+  
+    // Insertamos los datos de los fletes 
+    $("#tableMaterialItems").data("arrayLading", conceptObj.cost.materials.generalParameters.arrayLading);
+  }
+  
+  // se valida si la unidad es diferente de grupo
+  if(conceptObj.conceptData[4] != "GRUPO"){
+    
+    // Referenciamos la primera fila de la tabla de materiales
+    var $row = $("#tableMaterialItems tbody tr:first-child");
+    
+    // agregamos la descripción
+    $row.find("td:nth-child(3)").text(conceptObj.conceptData[1]);
+    
+    // Limpiamos el html
+    $row.find("td:nth-child(4)").html("");
+    
+    // agregamos el avance
+    $row.find("td:nth-child(4)").attr({class: "text-center"}).append(
+      $("<a>").attr({href:"javascript:void(0)", class:"btn-icon-advance", title:"Avance"}).append(
+        $("<i>").attr({class:"material-icons"}).html("access_alarms")
+      ).click({tableId: "tableMaterialItems", quantity: conceptObj.conceptCount, unit: conceptObj.conceptData[4]}, showMdlParticipation)
+    );
+  
+    // agregamos la Unidad
+    $row.find("td:nth-child(5)").text(conceptObj.conceptData[4]);
+   
+    // agregamos el costo unitario
+    $row.find("td:nth-child(7)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(String(conceptObj.conceptData[5]).replace(/\$|\,/g, ""), 6))); 
+  
+    // agregamos la Cantidad
+    $row.find("td:nth-child(6)").text(SnvaJsApi.roundDecimal(String(conceptObj.conceptCount).replace(/\$|\,/g, ""), 6)).trigger("keyup");
+    
+    // Removemos los tados de avance de la fila 
+    $row.removeData("avenceData");
+ 
+    // Validamos de que se encuentre los datos de avance 
+    if(conceptObj.cost && conceptObj.cost.materials.recordsObj[0] && conceptObj.cost.materials.recordsObj[0].avanceData){
+    
+      // Adicionamos los datos de acance de la fila 
+      $row.data("avanceData", conceptObj.cost.materials.recordsObj[0].avanceData); 
+    
+    }
+    
+    // variable para obtener el valor de rendimiento
+    var performanceNumber = 0;
+    
+    // validamos si los datos de conceptos no es mayor que 33
+    if(conceptObj.conceptData.length >= 34){
+      
+      // obtenemos el valor del rendimiento guardado anteriormente
+      performanceNumber = (Number(conceptObj.conceptData[33]) || 0);
+      
+    } else {
+      
+      // Obtenemos los datos de rendimiento por concepto
+      var performanceData = $("#btnCatalog").data("performanceData") || {};
+      
+      // validamos que exista el departamento
+      if(performanceData[conceptObj.conceptData[0]]){
+        
+        // validamos que exista la familia
+        if(performanceData[conceptObj.conceptData[0]][conceptObj.conceptData[2]]){
+            
+          // validamos que exista la palabra clave
+          if(performanceData[conceptObj.conceptData[0]][conceptObj.conceptData[2]][conceptObj.conceptData[3]]){
+            
+            // se obtiene el rendimiento actual
+            performanceNumber = performanceData[conceptObj.conceptData[0]][conceptObj.conceptData[2]][conceptObj.conceptData[3]][conceptObj.conceptData[1]] || 0;
+            
+          }
+        }
+      }
+    }
+    
+    // función que agrega los datos de costos en el panel
+    insertCatalogDataInPanel(conceptObj, workforceDefault, performanceNumber, false);
+    
+    // Removemos la propiedad que determina que require guardado
+    $pnlCatalog.removeData("requiredSaveData");
+    
+    // Removemos la clase "pulse" y deshabilitamos el boton
+    $("#btnSavePnlCatalog").removeClass("pulse").attr("disabled", true);
+    
+  } else {
+    
+    // obtenemos los datos de cada uno de las especie segun el grupo
+    google.script.run.withSuccessHandler(function(groupData){
+    
+      // agregamos los datos del grupo
+      var performance = addMaterialsFromGroup(groupData, conceptObj);
+      
+      // función que agrega los datos de costos en el panel
+      insertCatalogDataInPanel(conceptObj, workforceDefault, performance, true);
+      
+      // Removemos la propiedad que determina que require guardado
+      $pnlCatalog.removeData("requiredSaveData");
+      
+      // Removemos la clase "pulse" y deshabilitamos el boton
+      $("#btnSavePnlCatalog").removeClass("pulse").attr("disabled", true);
+      
+    }).withFailureHandler(SnvaJsApi.onFailure).getInfoByGroupName(conceptObj.conceptData);
+    
+  }
+}
+
+
+/**
+ * Función que permite agregar los materiales segun de un grupo en el catálogo
+**/
+function addMaterialsFromGroup(groupData, conceptObj){
+
+  // Se define la cantidad por cada especie del grupo
+  var quantity = conceptObj.conceptCount;
+  
+  // variable para obtener la sumatoria del rendimiento
+  var performance = 0;
+  
+  // obtenemos el costo del grupo 
+  var groupCost = SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(String(conceptObj.conceptData[5]).replace(/\$|\,/g, ""), 6));
+  
+  // se define la variable para referenciar la fila
+  var $row = null,
+      conceptData = [],
+      performanceNumber = 0;
+  
+  // Obtenemos los datos de rendimiento por concepto
+  var performanceData = $("#btnCatalog").data("performanceData") || {};
+  
+  // validamos de que venga el objeto con los datos del grupo 
+  if(groupData && groupData.groupObj && groupData.groupObj.length > 0){
+
+    // recorremos cada uno de las especies
+    for(var i = 0; i < groupData.groupObj.length; i++){
+    
+      // Referenciamos la primera fila de la tabla de materiales
+      $row = $("#tableMaterialItems tbody tr:eq(" + i + ")");
+      
+      // obtenemos la información de uno de las especies del grupo
+      conceptData = groupData.groupObj[i].conceptData;
+      
+      // variable para obtener el valor de rendimiento
+      performanceNumber = 0;
+      
+      // validamos si los datos de conceptos no es mayor que 33
+      if(conceptData.length >= 34){
+        
+        // obtenemos el valor del rendimiento guardado anteriormente
+        performanceNumber = (Number(conceptData[33]) || 0);
+        
+      } else {
+        
+        // validamos que exista el departamento
+        if(performanceData[conceptObj.conceptData[0]]){
+          
+          // validamos que exista la familia
+          if(performanceData[conceptObj.conceptData[0]][conceptObj.conceptData[2]]){
+              
+            // validamos que exista la palabra clave
+            if(performanceData[conceptObj.conceptData[0]][conceptObj.conceptData[2]][conceptObj.conceptData[3]]){
+              
+              // se obtiene el rendimiento actual
+              performanceNumber = performanceData[conceptObj.conceptData[0]][conceptObj.conceptData[2]][conceptObj.conceptData[3]][conceptObj.conceptData[1]] || 0;
+              
+            }
+          }
+        }
+      }
+      
+      // realizamos la sumatoria del rendimiento
+      performance += performanceNumber;
+      
+      // agregamos la descripción
+      $row.find("td:nth-child(3)").text(conceptData[1]);
+       
+      // agregamos el avance
+      $row.find("td:nth-child(4)").attr({class: "text-center"}).append(
+        $("<a>").attr({href:"javascript:void(0)", class:"btn-icon-advance", title:"Avance"}).append(
+          $("<i>").attr({class:"material-icons"}).html("access_alarms")
+        ).click({tableId: "tableMaterialItems", quantity: groupData.groupObj[i].quantity, unit: conceptObj.conceptData[4]}, showMdlParticipation)
+      );
+       
+      // agregamos la Unidad
+      $row.find("td:nth-child(5)").text(conceptObj.conceptData[4]); 
+      
+      // agregamos el costo unitario
+      $row.find("td:nth-child(7)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(String(conceptData[5]).replace(/\$|\,/g, ""), 6)));
+      
+      // agregamos la Cantidad
+      $row.find("td:nth-child(6)").text(SnvaJsApi.roundDecimal(groupData.groupObj[i].quantity.replace(/\$|\,/g, ""), 6)).trigger("keyup");
+      
+      // Removemos los tados de avance de la fila 
+      $row.removeData("avenceData");
+      
+      // Validamos de que se encuentre los datos de avance 
+      if(conceptObj.cost && conceptObj.cost.materials.recordsObj[0] && conceptObj.cost.materials.recordsObj[0].avanceData){
+      
+        // Adicionamos los datos de acance de la fila 
+        $row.data("avanceData", conceptObj.cost.materials.recordsObj[i].avanceData); 
+      }
+    }
+  
+  }
+ 
+  // retornamos el valor de rendimiento
+  return performance;
+  
+}
+
+
+/**
+ * Función que permite agregar los datos de: mano de obra, equipo,herramientas, auxiliares, fletes y subcontratos
+**/
+function insertCatalogDataInPanel(conceptObj, workforceDefault, performance, isGroup){
+  
+  // Borramos los datos de los fletes de la tamba de mano de obra 
+  $("#tableManpowerItems").removeData("arrayLading");
+  
+  // Validamos si vienen los datos generales para la tabla de mano de obra 
+  if( conceptObj.cost && conceptObj.cost.workforce && conceptObj.cost.workforce.generalParameters && conceptObj.cost.workforce.generalParameters.arrayLading){
+    
+    // Insertamos los datos de los fletes 
+    $("#tableManpowerItems").data("arrayLading", conceptObj.cost.workforce.generalParameters.arrayLading);
+  }
+  
+  // agregamos los datos de la especie o especies en la referencia de la tabla
+  $("#tableManpowerItems").data("costObj", {performance: performance, workforceDefault: workforceDefault});
+
+  // se valida si existe la propiedad "cost"
+  if(conceptObj.cost){
+  
+    // se valida si existen datos de de mano de obra guardados
+    if(conceptObj.cost.workforce && conceptObj.cost.workforce.recordsObj && conceptObj.cost.workforce.recordsObj.length > 0){
+     
+      // agragamos la información de mano de obra
+      addItemFromTab(conceptObj.cost.workforce, "tableManpowerItems");
+
+    } else {
+      // agregamos la mano de obra por defecto
+      addWorkforceDefault(workforceDefault);
+      
+      
+    }
+    
+    // agragamos la información de Equipos
+    addItemFromTab(conceptObj.cost.teams, "tableEquipmentItems");
+    
+    // agragamos la información de fletes
+    addItemFromTab(conceptObj.cost.lading, "tableTransportItems");
+    
+    // se valida que existan datos generales
+    if(conceptObj.cost.lading.generalParameters){
+    
+      // Agregamos los datos generales de fletes
+      $("#tableTransportItems").data(conceptObj.cost.lading.generalParameters);
+    }
+    
+    // actualizamos los datos de fletes
+    updateListLadingInTable();
+
+  } else {
+    
+    // agregamos la mano de obra por defecto
+    addWorkforceDefault(workforceDefault);
+    
+  } 
+  
+  // agregamos las especies en la lista de todos
+  getSummanyCatalog();
+  
+  // Ocultamos el loading
+  SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+  
+}
+
+
+/**
+ * Función que permite agregar la mano de obra por defecto
+**/
+function addWorkforceDefault(workforceDefault){
+  
+  // se valida si existe al menos un registro
+  if(!workforceDefault || workforceDefault.length == 0) return false;
+  
+  // se define la variable para referenciar la fila
+  var $row = null,
+      $tbody = $("#tableManpowerItems tbody");
+  
+  // recorremos cada uno de las especies
+  for(var i = 0; i < workforceDefault.length; i++){
+    
+    // Referenciamos la primera fila de la tabla de materiales
+    $row = $tbody.find("tr:eq(" + i + ")");
+    
+    // agregamos la descripción
+    $row.find("td:nth-child(3) input").val(workforceDefault[i].position).change();
+  }
+}
+
+
+/**
+ * Función que permite adicionar cada uno de los item para los diferenetes paneles
+**/
+function addItemFromTab(itemData, tableId){
+  
+  // Obtenemos los datso 
+  var arrayData = itemData.recordsObj;
+  
+  // se valida si existe al menos un registro
+  if(!arrayData || arrayData.length == 0) return false;
+  
+  // se define la variable para referenciar la fila
+  var $row = null,
+      $tbody = $("#" + tableId + " tbody");
+      
+  // recorremos cada uno de las especies
+  for(var i = 0; i < arrayData.length; i++){
+    
+    // Referenciamos la primera fila de la tabla de materiales
+    $row = $tbody.find("tr:eq(" + i + ")");
+    
+    // Removemos los datos de la fila 
+    $row.removeData("avanceData");
+    
+    // Validamossi tiene los datos de los avances 
+    if(arrayData[i].avanceData){
+      
+      // Agregamos los datos de los avances 
+      $row.data("avanceData", arrayData[i].avanceData);
+    }
+    
+    // agregamos la clave
+    $row.find("td:nth-child(2)").text(arrayData[i].key);
+    
+    // Validamos si la tabla es de materiales, mano de obra o equipos 
+    if(tableId == "tableMaterialItems" || tableId == "tableManpowerItems" || tableId == "tableEquipmentItems" ){
+      
+      // agregamos la descripción
+      $row.find("td:nth-child(3) input").val(arrayData[i].description);
+      
+      // Agregamos los datos de la fila 
+      $row.data("currentItem", arrayData[i]);
+  
+      // agregamos el avance
+      $row.find("td:nth-child(4)").attr({class: "text-center"}).html("").append(
+        $("<a>").attr({href:"javascript:void(0)", class:"btn-icon-advance", title:"Avance"}).append(
+          $("<i>").attr({class:"material-icons"}).html("access_alarms")
+        ).click({tableId: tableId, quantity: arrayData[i].quantity, unit: arrayData[i].unity}, showMdlParticipation)
+      );
+      
+      // validamos si la tabla es "tableEquipmentItems"
+      if(tableId == "tableEquipmentItems"){
+      
+        // Validamos de que vengan los datos de los fletes
+        if(arrayData[i].arrayLading){
+          
+          //  Agregamos la información de los fletes para la fila 
+          $row.data("arrayLading", arrayData[i].arrayLading);
+        
+        }
+        
+         // agregamos el avance
+         $row.find("td:nth-child(4)").append(
+           $("<a>").attr({href:"javascript:void(0)", class:"btn-icon-flight", title:"Flete"}).append(
+             $("<i>").attr({class:"material-icons"}).html("flight_takeoff")
+           ).click({"tableId":tableId, "rowData": $row}, showMdlFlete)
+         );
+        
+      }
+   
+      // agregamos la Unidad
+      $row.find("td:nth-child(5)").text(arrayData[i].unity);
+      
+      // agregamos el costo unitario
+      $row.find("td:nth-child(7)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(arrayData[i].unitCost, 6)));
+      
+      // agregamos la Cantidad
+      $row.find("td:nth-child(6)").text(SnvaJsApi.roundDecimal(String(arrayData[i].quantity).replace(/\$|\,/g, ""), 6)).trigger("keyup");
+      
+    // validamos si la tabla es de 
+    }else if(tableId == "tableTransportItems"){
+      
+      // agregamos la descripción
+      $row.find("td:nth-child(3)").text(arrayData[i].description);
+      
+      // agregamos la Unidad
+      $row.find("td:nth-child(4)").text(arrayData[i].unity);
+     
+      // agregamos las repeticiones
+      $row.find("td:nth-child(5)").attr("class", "text-center").html("").append( 
+        $("<a>").attr({href:"javascript:void(0)", class:"btn-icon-flight", title:"Repeticiones"}).append(
+          $("<i>").attr({class:"material-icons"}).html("line_style")
+        ).click({"vehiclesData": {"arrayVehicles": "", "typeData": "", "middle": "", "description":"", "rowIndex": (i + 1)}}, showMdlRepetitions)
+      );
+      
+      // agregamos la Cantidad
+      $row.find("td:nth-child(6)").text(String(SnvaJsApi.roundDecimal(String(arrayData[i].quantity).replace(/\$|\,/g, ""), 6)).replace(/\$|\,/g, "")).trigger("keyup");
+      
+      // agregamos la Costos unitaio
+      $row.find("td:nth-child(7)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(arrayData[i].unitCost, 6)));
+      
+      // agregamos la importe
+      $row.find("td:nth-child(8)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal((arrayData[i].quantity * arrayData[i].unitCost), 6)));
+    
+    }
+  }
+}
+
+
+/**
+ * Función que permite previsualizar el modal con la tarjeta de una especie
+**/
+function previewCardByConcept(e){
+ 
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos la mano de obra por defecto
+  var workforceDefault = e.data.workforceDefault;
+  
+  // Mostramos el loading
+  SnvaJsApi.manageLoading("block", "Mostrando tarjeta...<br>Espera un momento por favor.");
+  
+  // referenciamos la fila donde se encuentra el usuario
+  var $currentRow = $(this).closest("tr");
+  
+  // obtenemos los datos de la especie
+  var conceptObj =  $currentRow.data("conceptObj");
+  
+  // variable para guardar el totall de costos directos
+  var totalDirect = 0;
+  
+  // definimos la variable del total total
+  var endTotal = String(conceptObj.conceptData[5]).replace(/\$|\,/g, "");
+  
+  // validamos que exista datos de materiales
+  if((conceptObj.cost && conceptObj.cost.materials)){
+  
+    // agregamos los datos de materiales
+    totalDirect += insertPreviewDataInTable("tblPreviewMaterials", conceptObj.cost.materials.recordsObj);
+  
+  } else {
+  
+    // agregamos los datos de materiales
+    insertPreviewDataInTable("tblPreviewMaterials", []);
+    
+    // agregamos los datos de materiales
+    totalDirect += (Number(conceptObj.conceptCount) || 0) * (Number(endTotal) || 0);
+  }
+  
+  // agregamos los datos de Mano de obra
+  totalDirect += insertPreviewDataInTable("tblPreviewWorkforce", ((conceptObj.cost && conceptObj.cost.workforce.recordsObj) ? conceptObj.cost.workforce.recordsObj : []));
+  
+  // agregamos los datos de Herramienta
+  totalDirect += insertPreviewDataInTable("tblPreviewTools", ((conceptObj.cost && conceptObj.cost.tools.recordsObj) ? conceptObj.cost.tools.recordsObj : []));
+  
+  // agregamos los datos de Equipos
+  totalDirect += insertPreviewDataInTable("tblPreviewTeams", ((conceptObj.cost && conceptObj.cost.teams.recordsObj) ? conceptObj.cost.teams.recordsObj : []));
+  
+  // agregamos los datos de auxiliares
+  totalDirect += insertPreviewDataInTable("tblPreviewAuxiliars", ((conceptObj.cost && conceptObj.cost.auxiliaries.recordsObj) ? conceptObj.cost.auxiliaries.recordsObj : []));
+  
+  // agregamos los datos de fletes
+  totalDirect += insertPreviewDataInTable("tblPreviewLading", ((conceptObj.cost && conceptObj.cost.lading.recordsObj) ? conceptObj.cost.lading.recordsObj : []));
+  
+  // referenciamos la tabla de resumen
+  var $tblSummany = $("#mdlPreviewCard table.table-summany-card");
+  
+  // agregamos el total de costo directo
+  $tblSummany.find("tbody tr:first td:eq(2)").text( SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(totalDirect, 4)) );
+  
+  // calculamos el valor de impuestos
+  var impostTotal = totalDirect * 0.16;
+  
+  // agregamos elTotal de impuestos
+  $tblSummany.find("tbody tr.tr-impost td:eq(3)").text( SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(impostTotal, 4)) );
+  
+  // obtenemos los Para la tabla de costos
+  google.script.run.withSuccessHandler(function(dataCostObj){
+    
+    // Insertamos los datos de la cabecera y pie de la pagina 
+    insertDataPieAndFooterTarjet(dataCostObj, totalDirect, conceptObj, $tblSummany);
+    
+    // Ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor.");
+  
+  }).withFailureHandler(SnvaJsApi.onFailure).addConceptCosts(false, {"totalCost":[endTotal]}, false, false, true);
+  
+}
+
+/*
+*- Permite insertar los datos del cabecera y pie de la tarjeta
+*/
+function insertDataPieAndFooterTarjet(dataCostObj, totalDirect, conceptObj, $tblSummany){
+ 
+  // Validmos si hay costos
+  if(dataCostObj){
+  
+    // Obtenemos los cargos adiciones  y el impuesto
+    var additionalCharge =  Number(dataCostObj.additionalCharge);
+    var impost = Number(dataCostObj.impost);
+    
+    var indirect = SnvaJsApi.roundDecimal(totalDirect * ( dataCostObj.indirect / 100), 4);
+    var financing = SnvaJsApi.roundDecimal(totalDirect * ( dataCostObj.financing / 100 ), 4);
+    var utility = SnvaJsApi.roundDecimal(totalDirect * ( dataCostObj.utility / 100 ), 4);
+    var additionalChargeValue = SnvaJsApi.roundDecimal(totalDirect * ( additionalCharge / 100 ), 4);
+    var importValue = SnvaJsApi.roundDecimal(totalDirect * ( impost / 100 ), 4);
+    
+    // Agregamos los indirectos
+    $tblSummany.find("tbody tr:eq(1) td:eq(3)").text(dataCostObj.indirect);
+    $tblSummany.find("tbody tr:eq(1) td:eq(4)").text(indirect);
+    
+    // Agregamos los indirectos de oficina
+    $tblSummany.find("tbody tr:eq(2) td:eq(3)").text(dataCostObj.indirectOffice);
+    $tblSummany.find("tbody tr:eq(2) td:eq(4)").text(SnvaJsApi.roundDecimal(totalDirect * (dataCostObj.indirectOffice / 100),4));
+    
+    // Agregamos los indirectos de campo 
+    $tblSummany.find("tbody tr:eq(3) td:eq(3)").text(dataCostObj.indirectField);
+    $tblSummany.find("tbody tr:eq(3) td:eq(4)").text(SnvaJsApi.roundDecimal(totalDirect * ( dataCostObj.indirectField / 100), 4));
+    
+    // Agregamos los Finaciamiento 
+    $tblSummany.find("tbody tr:eq(4) td:eq(3)").text(dataCostObj.financing);
+    $tblSummany.find("tbody tr:eq(4) td:eq(4)").text(financing);
+    
+    // Agregamos los Finaciamiento 
+    $tblSummany.find("tbody tr:eq(5) td:eq(3)").text(dataCostObj.utility);
+    $tblSummany.find("tbody tr:eq(5) td:eq(4)").text(utility);
+    
+    // Agregamos los cargos adicionales 
+    $tblSummany.find("tbody tr:eq(6) td:eq(3)").text(additionalCharge);
+    $tblSummany.find("tbody tr:eq(6) td:eq(4)").text(additionalChargeValue);
+    
+    // Agregamos los Impuesto al valor agregado
+    $tblSummany.find("tbody tr:eq(7) td:eq(3)").text(impost);
+    $tblSummany.find("tbody tr:eq(7) td:eq(4)").text(importValue);
+    
+    // calculamos el sobre cosoto
+    var costOverruns = indirect + financing + utility + additionalChargeValue + importValue;
+    
+    // agregamos el total de sobrecostos
+    $tblSummany.find("tbody tr:last-child td:eq(2)").text(SnvaJsApi.roundDecimal(costOverruns, 4));
+    
+    // Obtenemos el precio analalizado 
+    var priceAnalyzed =  SnvaJsApi.roundDecimal((costOverruns + totalDirect), 4);
+    
+    // agregamos el precio unitario analizado en numero
+    $("table.table-end-card thead tr.tr-title th:eq(1)").text(priceAnalyzed);
+    
+    // agregamos el precio unitario analizado en texto
+    $("table.table-end-card tbody tr td").text( CifrasEnLetras.convertirNumeroEnLetras(SnvaJsApi.roundDecimal(priceAnalyzed, 2)) );
+    
+    // referenciamos la tabla de análisis
+    var $tbodyMain = $("#tblPreviewInfo tbody");
+    
+    // borramos el contenido actual
+    $tbodyMain.html("");
+    
+    // agregamos la información de la especie
+    $tbodyMain.append(
+      $("<tr>").append($("<td>")).append(
+        $("<td>")
+      ).append(
+        $("<td>").text(conceptObj.conceptData[1])
+      ).append(
+        $("<td>").text(conceptObj.conceptData[4])
+      ).append(
+        $("<td>").text(conceptObj.conceptCount)
+      ).append(
+        $("<td>").text(priceAnalyzed)
+      ).append(
+        $("<td>").text( SnvaJsApi.formatValue(SnvaJsApi.roundDecimal( (conceptObj.conceptCount * priceAnalyzed), 4)) )
+      )
+    );
+    
+    // referenciamos la instancia del modal
+    var instanceModal = M.Modal.getInstance($("#mdlPreviewCard"));
+    
+    // se valida que exista la instancia
+    if(instanceModal){
+    
+      // mostramos el modal
+      instanceModal.open();
+    }
+  }else{
+  
+    // mostramos el respectivo mensaje
+    SnvaJsApi.showAlert("No se puede viazulizar la tarjeta, debido a que los datos principales de este concepto se encuentra incompletos.");
+   
+  }
+
+}
+
+/**
+ * Función que permite agregar las opciones en cada uno de los ítems en las respectivas tablas
+**/
+function insertPreviewDataInTable(tableId, arrayData){
+  
+  // referenciamos el cuerpo de la tabla
+  var $tbody = $("#" + tableId + " tbody");
+  
+  // borramos las filas que no tengan la clase "tbody-title"
+  $tbody.find("tr:not(.tbody-title)").remove();
+  
+  // variable usadas en el ciclo
+  var total = 0, $row = null;
+  
+  // validamos si existe la los datos y hay al menos uno
+  if(arrayData && arrayData.length > 0){
+    
+    // recorremos cada una de las opciones
+    for(var i = 0; i < arrayData.length; i++){
+      
+      // creamos una fila
+      $row = $("<tr>");
+      
+      // agregamos la fila en el cuerpo
+      $tbody.append($row);
+      
+      // creamos una columna vacia
+      $row.append($("<td>"));
+      
+      // creamos la columna de: Clave
+      $row.append($("<td>").text(arrayData[i].key));
+      
+      // creamos la columna de: Descripción
+      $row.append($("<td>").text(arrayData[i].description));
+      
+      // creamos la columna de: Unidad
+      $row.append($("<td>").text(arrayData[i].unity));
+      
+      // creamos la columna de: Cantidad
+      $row.append($("<td>").text(arrayData[i].quantity));
+      
+      // creamos la columna de: P.Unitario
+      $row.append($("<td>").text( SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(arrayData[i].unitCost, 4)) ));
+      
+      // creamos la columna de: Importe
+      $row.append($("<td>").text( SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(arrayData[i].total, 4)) ));
+      
+      // realizamos la sumatoria del total
+      total += (Number(arrayData[i].total) || 0);
+      
+    }
+  }
+  
+  // actualizamos el valor del total
+  $("#" + tableId + " tfoot tr td:eq(3)").text( SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(total, 4)) );
+  
+  // retornamos el total de la sección
+  return total;
+}
+
+/*
+* Permite mostrar la opción de agregar flete
+*/
+function showMdlFlete(e){
+  
+  // prevenimos el evento por defecto 
+  e.preventDefault();
+  
+  // Obtenemos le id de la tabla    
+  var tableId = e.data.tableId;
+  
+  // Referenciamos el modal 
+  var $mdlAddLading = $("#mdlAddLading");
+  
+  // Agregamos los datos al modal
+  $mdlAddLading.data({"tableId": tableId});
+  
+  // Obtenemos los datos de los fletes registrados 
+  var arrayDataLading = [];
+  
+  // validamos si la tabla es de materiales 
+  if(tableId == "tableMaterialItems"){
+    
+    // Obtenemos loda datos de los fletes
+    arrayDataLading = $("#tableMaterialItems").data("arrayLading");
+    
+  // validamos si la tabla es de mano de obra 
+  }else if(tableId == "tableManpowerItems"){
+    
+    //  Obtenemos loda datos de los fletes
+    arrayDataLading = $("#tableManpowerItems").data("arrayLading");
+  
+  }else if(tableId == "tableEquipmentItems"){
+    
+    //obtenemos la referecia de la fila 
+    var rowData = e.data.rowData;
+    
+    // Agregamos los datos al modal 
+    $mdlAddLading.data({"rowData": rowData});
+    
+    // Obtenemos loda datos de los fletes
+    arrayDataLading = rowData.data("arrayLading");
+  
+  }
+  
+  // Insertamos los datos de los fletes 
+  insertDataLading(arrayDataLading, tableId);
+  
+  // referenciamos la instancia del modal
+  var instanceModal = M.Modal.getInstance($mdlAddLading);
+  
+  // se valida que exista la instancia
+  if(instanceModal){
+    
+    // Abrimos el modal
+    instanceModal.open();
+  }
+  
+}
+
+
+/*
+* Permite guardar temporalmente los fletes en un data
+*/
+function insertDataLading(arrayDataLading, tableId){
+  
+  // Referenciamos al cuerpo de la tabla de los fletes 
+  var $tbody = $("#tblLading tbody");
+  
+  // Limpiamos la tabla de los fletes
+  $tbody.html("");
+  
+  // Validamos de que venga los datos de los fletes 
+  if(arrayDataLading && arrayDataLading.length >0){
+    
+    // Fila que se va a insertar en la tabla 
+    var $row = "";
+    
+    // Recorremos cada uno de los feltes 
+    for(var i = 0; i < arrayDataLading.length; i++){
+      
+      //creamos la fila 
+      var $row = addLadingToTable(true);
+      
+      // Validamos de que se tenga los datos de la fila 
+      if($row){
+      
+         // Establecmeos la clase y el nombre del grupo 
+         $row.find("td:nth-child(1) span").attr({class: "spn-group-lading " + arrayDataLading[i].spanData.className})
+           .data("groupData", arrayDataLading[i].spanData).text(arrayDataLading[i].spanData.name)
+           .click(selectedGroupLanding);
+        
+         $row.find("td:nth-child(2) textarea").val(arrayDataLading[i].typeData.description);
+         $row.find("td:nth-child(3)").text(arrayDataLading[i].middle);
+         
+         // validamos si la tabla es de materiales o mano de obra 
+         if(tableId == "tableMaterialItems" ||tableId == "tableManpowerItems"){
+         
+          // Establecemos el texto 
+           $row.find("td:nth-child(4) select").val(arrayDataLading[i].description).formSelect();
+           
+         // validamos si la tabla es de equipos
+         }else if(tableId == "tableEquipmentItems"){
+           
+           // Establecemos el texto 
+           $row.find("td:nth-child(4)").text(arrayDataLading[i].description);
+         }
+         
+         // Seleccionamos el vehiculo
+         $row.find("td:nth-child(5) select").val(arrayDataLading[i].vehicle.carDetails).formSelect();
+        
+      }
+    }
+    
+  } else {
+    
+    // Insertamos las filas por defectos 
+    insertRowsDefault(tableId);
+
+  }
+  
+}
+
+/*
+* Permite insertar las filas por defecto 
+*/
+function insertRowsDefault(tableId){
+  
+  // Referencia a la fila
+  var $row = "";
+  
+  // flete por defecto 
+  var lading = "FLETE TERRESTRE NACIONAL ORDINARIO [INCLUYE CARGA & DESCARGA (FULL LINE TERMS)]";
+  
+  // validamos si la tabla es de materiales o mano de obra 
+  if(tableId == "tableMaterialItems" || tableId == "tableManpowerItems"){
+    
+    // Obtenemos el array de las descripciones 
+    var arrayDescription =  getOptions(tableId);
+    
+    // Validamos si la tabla es de mano de obra
+    if(tableId == "tableManpowerItems"){
+    
+       // Establecemos el flete por defecto para mano de obra 
+       lading = "TRASLADO";
+    }
+    
+    // Recorremos cada una de las descripciones
+    for(var i = 0; i < arrayDescription.length; i++){
+    
+      // Creamos la fila   
+      $row = addLadingToTable(true);
+      
+      // Establecemos el texto 
+      $row.find("td:nth-child(4) select").val(arrayDescription[i].name).formSelect();
+      
+      // Establecemos el texto 
+      $row.find("td:nth-child(2) textarea").text(lading);
+      
+    }
+    
+   
+  // validamos si la tabla es de equipos
+  }else if(tableId == "tableEquipmentItems"){
+     
+    // Creamos la fila   
+    $row = addLadingToTable(true);
+    
+    // Establecemos el flete por defecto para equipos
+    lading = "TRASLADO";
+    
+    // Establecemos el texto 
+    $row.find("td:nth-child(2) textarea").text(lading);
+  }
+  
+}
+
+</script>

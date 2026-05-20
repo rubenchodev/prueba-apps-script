@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <base target="_top">
+    <!-- Libreria de jquery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <!--Import Google Icon Font-->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!--Import la tipografía Roboto-->
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+
+    <!--Importar los estilos para normalizar-->
+    <?!= includeHtmlFile("Css_Normalize", false, false) ?>
+    <!--Importar los estilos propios-->
+    <?!= includeHtmlFile("Css_Stylesheet", false, false) ?>
+    <!--Importar los estilos para cruceros y remisiones-->
+    <?!= includeHtmlFile("Styles/Cruises", false, false) ?>
+    <?!= includeHtmlFile("Styles/Emitter", false, false) ?>
+    <!-- Libreria de general de Sinova -->
+    <?!= includeHtmlFile("Js_LibSnvaApi", false, false) ?>
+    <!-- Libreria para el paginador -->
+    <?!= includeHtmlFile("Js_PaginationMaterial", false, false) ?>
+    
+    <!-- Cargamos los archivos de javascript para el manejo del ocalstorage del navegador-->
+    <?!= includeHtmlFile("Js_LocalStorageApi", false, false); ?>
+    
+    <!-- Estilos y funciones para el formulario de feedback-->
+    <?!= includeHtmlFile("Js_Feedback", false, false); ?>
+    <?!= includeHtmlFile("Css_Feedback", false, false); ?>
+    
+    <!-- Cargamos los archivos de javascript-->
+    <?!= includeHtmlFile("Js_Mbox", false, false); ?>
+    
+    <!-- Cargamos los archivos de javascript para crear una imagen a partir de un HTML-->
+    <?!= includeHtmlFile("Js_Html2Canvas", false, false); ?>
+    
+    <!-- Cargamos La libreria para convertir un teto en letras-->
+    <?!= includeHtmlFile("Js_NumberToLetter", false, false); ?>
+    
+    <!-- Libreria para mostrar los popover https://www.jqueryscript.net/tooltip/minimal-clean-popover.html -->
+    <?!= includeHtmlFile("Js_PluginPopover", false, false); ?>
+
+    <!-- Libreria para el manejo de feedback -->
+    <script src="https://cdn.jsdelivr.net/gh/rubenchodev/open-source-libraries@main/qc_feedback/qc_feedback_min.js"></script>
+    
+    <!-- Libreria para el selector de archivos -->
+    <script type="text/javascript" src="https://apis.google.com/js/api.js"></script>
+    
+  </head>
+  <body>
+    <!-- Widget de Feedback -->
+    <qc-feedback
+      app-name="Hidrocotizador"
+      primary-color="#009688"
+      position="bottom-right"
+      endpoint="https://script.google.com/macros/s/AKfycbz0OD7JHBzJyANUzUJjkwmtxIXaXRCwSo_aaJbyuPrSiQKTi3sP6MaGuTIwpQ5Zi6xUNw/exec"
+      title="Enviar feedback"
+      subtitle="¿Encontraste un problema? Cuéntanos"
+      modules="Proyectos,Refacciones,Cruceros,Formulario de creación"
+      size="md"
+      theme="light"
+      image-scale="2"
+      image-quality="0.85">
+    </qc-feedback>
+
+    <!-- Interfaz del loading -->
+    <div id="loading">
+      <div class="spinner">
+        <div class="preloader-wrapper big active">
+          <div class="spinner-layer spinner-blue-only">
+            <div class="circle-clipper left">
+              <div class="circle"></div>
+            </div>
+            <div class="gap-patch">
+              <div class="circle"></div>
+            </div>
+            <div class="circle-clipper right">
+              <div class="circle"></div>
+            </div>
+          </div>
+        </div>
+        <div id="text-loading" class="text-loading">Espere un momento por favor...</div>
+      </div>
+    </div>
+    
+    <!-- <button id="btnFeedBack" title="Enviar retroalimentación">
+      <div>
+        <img alt="Retroalimentación" src="https://cdn-icons-png.flaticon.com/512/2665/2665051.png">
+      </div>
+      <span>Feedback</span>
+    </button> -->
+    
+    <!-- Contenido base -->
+    <div class="ctn-main">
+      <div class="navbar-fixed">
+        <nav>
+          <div class="nav-wrapper">
+            <a href="javascript:void(0)" class="brand-logo not-events">HidroCotizador</a>
+            <a id="btnShowMenu" href="javascript:void(0)" data-target="ctn-menu-fixed" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+              <? if(userRole != "sales") {?>
+              <li class="active"><a href="#ctn-projects" class="options-menu"><i class="material-icons left">library_add</i>Proyectos</a></li>
+              <li ><a href="#ctn-setting-line" class="options-menu"><i class="material-icons left">settings</i>Prioridad</a></li>
+              <?}?>
+              <li><a href="#ctn-renovation" class="options-menu"><i class="material-icons left">playlist_add</i>Refacciones</a></li>
+              <!-- Validamos si el usuario no solo tiene un rol -->
+              <? if(onlyOneRole == false) {?>
+                
+                <li><a href="<?!=link?>?4cqu151t10n" target="_top" class="showLoadingIndeterminate"><i class="material-icons left">open_in_new</i>Módulo de adquisiciones</a></li>
+              <?}?>
+              <? if(onlyOneRole == false) {?>
+                
+                <li><a href="<?!=link?>?3nv1r0nm3n7" target="_top" class="showLoadingIndeterminate"><i class="material-icons left">open_in_new</i>Entorno</a></li>
+              <?}?>
+              <li>
+                <div class="chip ctn-logo">
+                  <span id="lblUserShortName">Usuario</span>
+                  <img id="imgUser" src="http://ssl.gstatic.com/accounts/ui/avatar_2x.png" alt="Contact Person">
+                </div>
+              </li>
+            </ul>
+          </div>
+        </nav>
+      </div>
+      
+      <!-- Menu que se muestra cuando esta en pantallas pequeñas -->
+      <ul id="ctn-menu-fixed" class="sidenav">
+        <li>
+          <div class="user-view">
+            <div class="background"></div>
+            <a href="javascript:void(0)"><img class="circle" src="http://ssl.gstatic.com/accounts/ui/avatar_2x.png"></a>
+            <a href="javascript:void(0)"><span class="white-text name">Usuario</span></a>
+            <a href="javascript:void(0)"><span class="white-text email"></span></a>
+          </div>
+        </li>
+        <? if(userRole != "sales") {?>
+        <li class="active"><a href="#ctn-projects" class="options-menu"><i class="material-icons left">library_add</i>Proyectos</a></li>
+        <li><a href="#ctn-setting-line" class="options-menu"><i class="material-icons left">settings</i>Configurar prioridad</a></li>
+        <? }?>
+        <li><a href="#ctn-renovation" class="options-menu"><i class="material-icons left">playlist_add</i>Refacciones</a></li>
+        <!-- Validamos si el usuario no solo tiene un rol -->
+        <? if(onlyOneRole == false) {?>
+          
+          <li><a href="<?!=link?>?4cqu151t10n" target="_top" class="showLoadingIndeterminate"><i class="material-icons left">open_in_new</i>Módulo de adquisiciones</a></li>
+        <?}?>
+      </ul>
+      
+      <!-- Contenido base -->
+      <div class="ctn-container">
+        
+        <!-- Contenedor de la configuración de líneas de productos -->
+        <div id="ctn-setting-line" class="hidden">
+          <h1>Administrar prioridad de líneas de productos.</h1>
+          <p>A continuación puedes configurar tu propia prioridad de las lineas de productos. Si no configuras ninguna se toma la configuración por defecto.</p>
+          <div class="panel-primary">
+            <div class="panel-primary-header">Líneas de productos</div>
+            <div class="panel-primary-body">
+              <h5>Convensiones:</h5>
+              <div id="ctnConventionsPriority">
+              </div>
+              <form id="frmSettingPriorityLines">
+                <table id="tblPriorityLine" class="responsive-table">
+                  <thead>
+                    <tr style="background: var(--main-color); color: #fff;">
+                      <th>Orden</th>
+                      <th>Línea de producto</th>
+                      <th class="center">Prioridad por defecto</th>
+                      <th class="center">Tu prioridad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="info-message">
+                    <td colspan="4">No líneas para mostrar.</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <br>
+                <div class="row">
+                  <div class="col s12 text-right">
+                    <button id="btnPriorityLines" type="submit" class="btn btn-primary waves-effect waves-light">Crear prioridad</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Contenedor del cotizador de proyectos -->
+        <div id="ctn-projects">
+        
+          <!-- Panel Principal de proyectos-->
+          <div id="pnlMain">
+            <p class="md-description">A continuación encontrarás el listado de cotizaciones creadas hasta la fecha actual.</p>
+            <div class="col s12">
+              <!-- Ubicación del proyecto -->
+              <div class="panel-primary">
+                <div class="panel-primary-header" style="font-size: 1.1em;justify-content: space-between;">
+                  Generador de cotizaciones de proyectos
+                </div>
+                <div class="panel-primary-body">
+                  <div class="row ctn-search-table" >
+                    <div class="col s12 m6" style="margin-top: 24px;">
+                      <button id="btnCreateCotByOther" data-position="right" data-tooltip="Crear cotización a partir de la seleccionada" type="submit" class="tooltipped btn #424242 grey darken-3 waves-effect waves-light" disabled><i class="material-icons">content_copy</i></button>
+                    </div>
+                    <div class="col s12 m6 input__layout-flex">
+                      <div class="input-field" style="width: 110px;">
+                        <select id="sltProjectYears" required>
+                        </select>
+                        <label for="sltProjectYears">Seleccione el año</label>
+                      </div>
+                      <div class="input-field">
+                        <i class="material-icons prefix">search</i>
+                        <input id="txtSearchTable" type="text" class="validate">
+                        <label for="txtSearchTable">Buscar</label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <table id="tblQuotationList" class="responsive-table">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Seleccionar</th>
+                          <th>Creador</th>
+                          <th>RFC</th>
+                          <th>Nombre del cliente</th>
+                          <th>Tipo de sistema de riego</th>
+                          <th>Ubicación del proyecto</th>
+                          <th>Fecha de emisión</th>
+                          <th>Oferta</th>
+                          <th class="text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr class="info-message">
+                          <td colspan="9">No hay cotizaciones para mostrar</td>
+                        </tr>
+                        
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="row">
+                    <div class="col s12 ctn-pagination">
+                      <span class="left spnTotalPagination"></span>
+                      <ul class="pagination pager" id="ulPagination"></ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+            <div id="ctnTempConcept"></div>
+            <div class="fixed-action-btn fixed-action-btn-left">
+              <a href="javascript:void(0)" class="btn-floating btn-large red tooltipped btn-secundary" id="btnCreateQuotation" data-position="right" data-tooltip="Crear cotización">
+                <i class="large material-icons">add</i>
+              </a>
+            </div>
+          </div>
+          
+          <!-- Panel de creación de cotización de proyectos -->
+          <div id="pnlCreateQuotation" style="display:none;">
+            <h1 id="lblTitleForm">Crear cotización</h1>
+            <p>Los campos con asterisco (<span class="md-asterisk">*</span>) son obligatorios</p>
+            
+            <div class="row ctn__options-collapsible" style="text-align: right;">
+              <div><a href="javascript:void(0)" class="waves-effect waves-light btn-small btn-collapsible" id="btnExpand"><i class="material-icons left">fullscreen</i>Expandir todo</a></div>
+              <div><a href="javascript:void(0)" class="waves-effect waves-light btn-small btn-collapsible" id="btnCollapsible"><i class="material-icons left">fullscreen_exit</i>Colapsar todo</a></div>
+            </div>
+            
+            <!-- Se define el formulario para la creación de una solicitud -->
+            <form id="frmCreateQuotation" autocomplete="off">
+            
+              <!-- Panel de Plazos -->
+              <ul class="panel-collapsible collapsible" data-reference="#txtIssue">
+                <li>
+                  <div class="panel-collapsible-header collapsible-header">
+                    Plazos  
+                    <span class="spnDetailsCollapsible right"></span>
+                  </div>
+                  <div class="panel-collapsible-body collapsible-body">
+                    <div class="row">
+                      <div class="col s12 m4 xl4 input-field">
+                        <i class="material-icons prefix">calendar_today</i>
+                        <input id="txtIssue" type="text" class="datepicker" readonly="true" required>
+                        <label for="txtIssue">Emisión <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <input id="txtValidity" type="number" min="0" required>
+                        <label for="txtValidity">Vigencia (Días)<span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <input id="txtExecution" type="number" min="0" required>
+                        <label for="txtExecution">Ejecución (Días) <span class="md-asterisk">*</span></label>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              
+              <!-- Razon social del solicitante -->
+              <ul class="panel-collapsible collapsible" data-reference="#txtClient">
+                <li>
+                  <div class="panel-collapsible-header collapsible-header">
+                    Razon social del solicitante
+                    <span class="spnDetailsCollapsible right"></span>
+                  </div>
+                  <div class="panel-collapsible-body collapsible-body">
+                    <div class="row">
+                      <div class="col s12 m4 xl4 input-field">
+                        <input id="txtClient" type="text" class="autocomplete" autocomplete="off" required>
+                        <label for="txtClient">Nombre <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <input id="txtFederalRecod" type="text">
+                        <label for="txtFederalRecod">Registro federal de contribuyentes</label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <input id="txtAgent" type="text" required>
+                        <label for="txtAgent">Representante <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <input id="txtFiscalResidence" type="text">
+                        <label for="txtFiscalResidence">Domicilio fiscal</label>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              
+              <!-- Ubicación del proyecto -->
+              <ul class="panel-collapsible collapsible" data-reference="#sltMunicipality,#sltLocation">
+                <li>
+                  <div class="panel-collapsible-header collapsible-header">
+                    Ubicación del proyecto
+                    <span class="spnDetailsCollapsible right"></span>
+                  </div>
+                  <div class="panel-collapsible-body collapsible-body">
+                    <div class="row">
+                      <div class="col s12 m4 xl4 input-field">
+                        <select id="sltState" required>
+                        </select>
+                        <label for="sltState">Estado <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <select id="sltMunicipality" required>
+                          <option value="">-- Seleccione una opción --</option>
+                        </select>
+                        <label for="sltMunicipality">Municipio <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <select id="sltLocation" required>
+                          <option value="">-- Seleccione una opción --</option>
+                        </select>
+                        <label for="sltLocation">Localidad <span class="md-asterisk">*</span></label>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              
+              <!-- Georeferencia -->
+              <ul class="panel-collapsible collapsible">
+                <li>
+                  <div class="panel-collapsible-header collapsible-header">
+                    Georeferencia
+                  </div>
+                  <div class="panel-collapsible-body collapsible-body">
+                    <div class="row">
+                      <div class="col s12 m4 xl4 input-field">
+                        <input id="txtLatitude" type="text" placeholder="XX°XX'XX&quot;" required>
+                        <label for="txtLatitude">Latitud <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <input id="txtLongitude" type="text" placeholder="XX°XX'XX&quot;" required>
+                        <label for="txtLongitude">Longitud <span class="md-asterisk">*</span></label>
+                      </div>
+                      
+                      <div class="col s12 m4 xl4 input-field" style="margin-top: 25px;">
+                        <a href="http://maps.google.com/" target="_blank" class="btn waves-effect waves-light btn-secundary"><i class="material-icons left">place</i> Abrir Google Maps</a>
+                      </div>
+                      
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              
+              <!-- Nombre del proyecto -->
+              <ul class="panel-collapsible collapsible" data-reference="#sltFormEmission">
+                <li>
+                  <div class="panel-collapsible-header collapsible-header">
+                    Nombre del proyecto
+                    <span class="spnDetailsCollapsible right"></span>
+                  </div>
+                  <div class="panel-collapsible-body collapsible-body">
+                    <div class="row">
+                      <div class="col s12 m4 xl4 input-field">
+                        <select id="sltComunNameNew" required>
+                          <option value="">-- Seleccione una opción --</option>
+                        </select>
+                        <label for="sltComunNameNew">Nombre común <span class="md-asterisk">*</span></label>
+                      </div>
+                      <!--<div class="col s12 m4 xl4 input-field">
+                        <select id="sltSystemClasification" required>
+                          <option value="">-- Seleccione una opción --</option>
+                        </select>
+                        <label for="sltSystemClasification">Clasificación del sistema <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <select id="sltSystemType" required>
+                          <option value="">-- Seleccione una opción --</option>
+                        </select>
+                        <label for="sltSystemType">Tipo de sistema de riego <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <select id="sltFormEmission" required>
+                          <option value="">-- Seleccione una opción --</option>
+                        </select>
+                        <label for="sltFormEmission">Forma de emisión <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <select id="sltFeauture">
+                          <option value="">-- Seleccione una opción --</option>
+                        </select>
+                        <label for="sltFeauture">Características del emisor</label>
+                      </div>-->
+                      <div class="col s12 m4 xl4 input-field">
+                        <select id="sltCultivation" required>
+                          <option value="">-- Seleccione una opción --</option>
+                        </select>
+                        <label for="sltCultivation">Cultivo <span class="md-asterisk">*</span></label>
+                      </div>
+                      <div class="col s12 m4 xl4 input-field">
+                        <input id="txtSurface" type="text" required>
+                        <label for="txtSurface">Superficie (has)<span class="md-asterisk">*</span></label>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              
+              <!-- Panel de selección de carpeta -->
+              <!-- <ul class="panel-collapsible collapsible">
+                <li>
+                  <div class="panel-collapsible-header collapsible-header">
+                    Selección de carpeta
+                  </div>
+                  <div class="panel-collapsible-body collapsible-body">
+                    <p>A continuación debes seleccionar la carpeta donde desea guardar la cotización que se desea generar.</p>
+                    <div class="row" style="margin: 0px;">
+                      <div class="col s12 m4 xl4 input-field" style="margin-top: 25px;">
+                        <button id="btnSelectedFolder" type="button" class="btn waves-effect waves-light btn-secundary"><i class="material-icons left">folder</i> Seleccione la carpeta</button>
+                      </div>
+                      <div class="col s12 m8 xl8 input-field" id="ctnLink">
+                      </div>
+                    </div>
+                  </div>
+                <li>
+              </ul> -->
+              
+              <!-- Generación de presupuesto -->
+              <ul class="panel-collapsible collapsible" data-reference="#allOrderTotal">
+                <li>
+                  <div class="panel-collapsible-header collapsible-header">
+                    Generación de presupuesto
+                    <span class="spnDetailsCollapsible right"></span>
+                  </div>
+                  <div class="panel-collapsible-body collapsible-body">
+                    <div class="row" id="ctnVersion">
+                      <div class="col s8 m4 xl4 input-field">
+                        <select id="sltVersion" required>
+                          <option value="">-- Seleccione una opción --</option>
+                          <option value="Proyecto">Proyecto</option>
+                        </select>
+                        <label for="sltVersion">Versión <span class="md-asterisk">*</span></label>
+                      </div>
+                      
+                      <div class="col s4">
+                        <span class="suffix-button">
+                          <a href="javascript:void(0)" class="btn waves-effect waves-light btn-primary" id="btnDuplicateTab" title="Duplicar la pestaña seleccionada">
+                            <i class="material-icons">add</i>  
+                          </a>
+                        </span>
+                        <span class="suffix-button">
+                          <a href="javascript:void(0)" class="tooltipped btn #424242 grey darken-3 waves-effect waves-light" id="btnDuplicateTabBlank" title="Crear cotización sin conceptos">
+                            <i class="material-icons">note_add</i>  
+                          </a>
+                        </span>
+                        <span class="suffix-button">
+                          <a href="javascript:void(0)" class="tooltipped btn #b71c1c red darken-4 waves-effect waves-light" id="btnDeleteVersion" title="Eliminar Versión">
+                            <i class="material-icons">delete_forever</i>  
+                          </a>
+                        </span>
+                      </div>
+                      
+                    </div>
+                    <div class="row">
+                      <div class="col s12 m4 xl4 input-field">
+                        <select id="sltProyectClass" required>
+                          <option value="">-- Seleccione una opción --</option>
+                        </select>
+                        <label for="sltProyectClass">Clase del proyecto <span class="md-asterisk">*</span></label>
+                      </div>
+                    </div>
+                    <div class="row hidden">
+                      <p style="font-weight: bold;">Orden del proyecto</p>
+                      <br>
+                      <p id="ctnOrders"></p>
+                    </div>
+                    <!--<div class="row" style="text-align: right;">
+                      <a href="javascript:void(0)" class="waves-effect waves-light btn-small btn-collapsible" id="btnExpand"><i class="material-icons left">fullscreen</i>Expandir todo</a>
+                      <a href="javascript:void(0)" class="waves-effect waves-light btn-small btn-collapsible" id="btnCollapsible"><i class="material-icons left">fullscreen_exit</i>Colapsar todo</a>
+                    </div>-->
+                    <div class="row">
+                      <!--<p style="font-weight: bold;">Líneas de productos</p>
+                        <br>-->
+                      <ul class="collapsible" id="ctnOrdersPanels">
+                      </ul>
+                    </div>
+                    <div id="ctnAllOrderTotal" class="row">
+                      <div class="col s12 text-right">
+                        <b>Total: </b><span id="allOrderTotal">0</span>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              
+              <div class="row">
+                <div class="col s12 text-right">
+                  <a href="!#" id="btnOpenFile" target="_blank" class="waves-effect waves-light btn green" style="float: left;display:none;">Abrir cotización</a>
+                  <a href="javascript:void(0)" id="btnCreateFederal" target="_blank" class="waves-effect waves-light btn #424242 grey darken-3" style="float: left;margin-left: 4px;">Estatal</a>
+                  <!--<a href="javascript:void(0)" id="btnFederalCot" class="waves-effect waves-light btn blue-gray" style="float: left;display:none;margin-left: 4px;" title="Crear cotización de federal"><i class="material-icons">insert_drive_file</i></a>-->
+                  <a href="javascript:void(0)" id="btnStatalCot" class="waves-effect waves-light btn blue-gray" style="float: left;display:none;margin-left: 4px;" title="Crear cotización estatal"><i class="material-icons">insert_drive_file</i></a>
+                  <a href="javascript:void(0)" id="btnCatalog" class="waves-effect waves-light btn #01579b light-blue darken-4" style="float: left;margin-left: 4px;">Catálogo</a>
+                  
+                  <button id="btnCancelCreate" type="button" class="waves-effect waves-light btn btn-cancel-confirm">Cancelar</button>
+                  <button id="btnManagerQuotation" type="submit" class="btn btn-primary waves-effect waves-light">Crear cotización</button>
+                </div>
+              </div>
+              
+            </form>
+               
+          </div>
+        </div>
+        
+        <div id="ctn-renovation" class="hidden"> <!-- Inicio del contenedor de refacciones -->
+        
+          <!-- Agregamos el contenedor del panel de refaciones -->
+          <?!= includeHtmlFile("Html_Renovation", false, false) ?>
+          
+        </div> <!-- Fin del contenedor de refacciones -->
+        
+        
+        <!-- Agregamos el contenedor del panel de catálogo -->
+        <?!= includeHtmlFile("Html_Catalog", false, true) ?>
+        
+        
+      </div>
+      <!-- Modal: Búsqueda de especies -->
+      <div id="mdlSearchConcepts" class="modal modal-fixed-footer modal-fixed-header">
+      
+        <div class="modal-header">
+          <div class="row">
+            <div class="col s12 m12 xl12 content__header-modal" id="ctnTitleSearchConcepts">
+            	<h4>Búsqueda de especies</h4>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-content">
+          <div id="mdlPanelSearch">
+            <form id="frmSearchConcept" autocomplete="off">
+              <div class="row" style="margin-bottom: 0px;">
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" id="btnDepartmentSearch">account_circle</i>
+                  <input id="txtDepartmentSearch" type="text" style="text-transform: uppercase;">
+                  <label for="txtDepartmentSearch">Departamento</label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" id="btnFamilySearch">account_circle</i>
+                  <input id="txtFamilySearch" type="text" style="text-transform: uppercase;">
+                  <label for="txtFamilySearch">Familia</label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" id="btnKeywordSearch">account_circle</i>
+                  <input id="txtKeywordSearch" type="text" style="text-transform: uppercase;">
+                  <label for="txtKeywordSearch">Palabra clave</label>
+                </div>
+              </div>
+              
+              <div class="row" style="margin-bottom: 0px;">
+                <div class="col s12 input-field">
+                  <input id="txtSpecieSearch" type="text" style="text-transform: uppercase;">
+                  <label for="txtSpecieSearch">Especie</label>
+                </div>
+              </div>
+              
+              <div class="row" style="display:none;">
+                <div class="col s12 m12 xl12 input-field" id="pnlGenderSearch">
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col s12 text-right">
+                  <button id="btnUpdateConceptList" title="Actualizar lista de especies" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons">refresh</i></button>
+                  <button id="btnOpenAddConcept" type="button" class="waves-effect waves-light btn btn-primary">Crear especie</button>
+                  <button id="btnSearchConcept" type="submit" class="btn waves-effect waves-light btn-secundary">Buscar</button>
+                </div>
+              </div>
+            </form>
+            
+            <div class="row">
+              <table id="tblConceptList" class="responsive-table">
+                <thead style="background: #e8e8e8;">
+                  <tr>
+                    <th>Departamento</th>
+                    <th>Especie</th>
+                    <th>Familia</th>
+                    <th>Palabra clave</th>
+                    <th>Precio</th>
+                    <th class="center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="info-message">
+                    <td colspan="6">No hay especies para mostrar.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="row">
+              <div class="col s12 ctn-pagination" style="text-align: right;">
+                <span class="left spnTotalPagination"></span>
+                <ul class="pagination pager" id="ulConceptPagination"></ul>
+              </div>
+            </div>
+          
+          </div><!-- Fin contenedor del panel de búsqueda-->
+          
+          <!-- Panel: de creación de nueva especie-->
+          <div id="mdlPanelConceptSearch" class="container__card-species" style="display:none;">
+            <div class="row"id="contentPanelConcept">
+            </div>
+          </div><!-- Fin contenedor del panel de creación de una especie nueva-->
+          
+          <!-- Panel: de creación de nueva especie basado en otra-->
+          <div id="mdlPanelAddConceptMirror" style="display:none;">
+            <h5>Creación de nueva especie</h5>
+            <div class="panel-primary-header " style="display:none;">
+              <div class="row">
+                <div class="col s12 m4 ">
+                  Nombre clave
+                </div>
+                <div class="col s12 m8 text-right">
+                  <strong id="structureName-Mirror">-----</strong>
+                </div>
+              </div>
+            </div>
+            <form id="frmAddConceptMirror" autocomplete="off">
+              <div class="row">
+                <div class="col s12 m12 xl12">
+                  <div class="input-field">
+                    <input id="txtName-Mirror" type="text">
+                    <label for="txtName-Mirror">Nombre </label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltDepartment-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltDepartment-Mirror">Departamento</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltFamily-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltFamily-Mirror">Familia</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltMaterial-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltMaterial-Mirror">Material</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltKeyword-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltKeyword-Mirror">Palabra clave</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltUnitSpecie-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltUnitSpecie-Mirror">Unidad</label>
+                  </div>
+                </div>
+                  <div class="col s12 m4 xl4">
+                    <div class="input-field">
+                    <input id="txtPriceSpecie-Mirror" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$">
+                    <label for="txtPriceSpecie-Mirror">Precio sugerido <span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltCurrencySpecie-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltCurrencySpecie-Mirror">Moneda<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4">
+                  <div class="input-field">
+                    <input placeholder="Costo refacción" id="txtSpareCostSpecie-Mirror" pattern="^(\d|-)?(\d|,)*\.?\d*$" type="text">
+                    <label for="txtSpareCostSpecie-Mirror">Costo refacción<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltGender-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltGender-Mirror">Genero<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltNominalDiameterInput-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltNominalDiameterInput-Mirror">Diámetro nominal (Entrada)<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltNominalDiameterOutput-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltNominalDiameterOutput-Mirror">Diámetro nominal (Salida)<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltPieceLength-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltPieceLength-Mirror">Longitud de la pieza<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltConnectionTypeInput-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltConnectionTypeInput-Mirror">Tipo de conexión (Entrada)<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltConnectionTypeOutput-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltConnectionTypeOutput-Mirror">Tipo de conexion de (Salida)<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltHeight-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltHeight-Mirror">Altura</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltSizeOrCapacity-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltSizeOrCapacity-Mirror">Tamaño o capacidad<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltWidth-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltWidth-Mirror">Ancho<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltCaliber-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltCaliber-Mirror">Calibre<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col s12 text-right">
+                  <button id="btnMdlback-Mirror" type="button" class="waves-effect waves-light btn btn-cancel-confirm">Regresar</button>
+                  <button id="btnAddConcept-Mirror" type="submit" class="btn waves-effect waves-light btn-secundary">Registrar</button>
+                </div>
+              </div>
+            </form>
+          
+          </div><!-- Fin contenedor del panel de creación de una especie nueva-->
+          
+          <!-- Panel: de creación de nueva especie-->
+          <div id="mdlPanelAddConcept" style="display:none;">
+            <h5>Creación de nueva especie</h5>
+            <form id="frmAddConcept" autocomplete="off">
+              <div class="row">
+                <!--<div class="col s12 m4 xl4 input-field">
+                  <input id="txtDepartmentAdd" type="text" required>
+                  <label for="txtDepartmentAdd">Departamento <span class="md-asterisk">*</span></label>
+                </div>-->
+                <div class="col s12 m4 xl4 input-field">
+                  <input id="txtSpecieAdd" type="text" required>
+                  <label for="txtSpecieAdd">Especie <span class="md-asterisk">*</span></label>
+                </div>
+               
+                <div class="col s12 m4 xl4 input-field">
+                  <input id="txtUnitAdd" type="text" required>
+                  <label for="txtUnitAdd">Unidad <span class="md-asterisk">*</span></label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <input id="txtPriceAdd" type="text" pattern="^[0-9]+(?:\.[0-9]{1,2}){0,1}$" required>
+                  <label for="txtPriceAdd">Precio sugerido <span class="md-asterisk">*</span></label>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col s12 text-right">
+                  <button id="btnMdlback" type="button" class="waves-effect waves-light btn btn-cancel-confirm">Regresar</button>
+                  <button id="btnAddConcept" type="submit" class="btn waves-effect waves-light btn-secundary">Registrar</button>
+                </div>
+              </div>
+            </form>
+          
+          </div><!-- Fin contenedor del panel de creación de una especie nueva-->
+          
+        </div>
+        <div class="modal-footer">
+          <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+        </div>
+      
+      </div> <!-- Final del contenedor de proyectos -->
+      
+      <!-- Modal: creación de grupos-->
+      <div id="mdlAddNowGroups" class="modal modal-fixed-footer modal-fixed-header">
+        <form id="frmAddGroup" autocomplete="off" novalidate>
+          <div class="modal-header">
+            <div class="row">
+              <div class="col s12 m12 xl3">
+                <h4 id="txtModalTitle">Creación de nuevo grupo</h4>
+              </div>
+              <div class="col s12 m12 xl9 lst-items-tag">
+                <div class="item-tag item-tag-required" data-index="1" data-only="true" data-required="true" draggable="true" id="itemGroup1">(Pza Entrada)</div>
+                <div class="item-tag item-tag-required" data-index="2" data-only="true" data-required="true" draggable="true" id="itemGroup2">(Pza Salida)</div>
+                <div class="item-tag item-tag-required" data-index="3" data-required="true" draggable="true" id="itemGroup3">(Trancisión Interior)</div>
+                <div class="item-tag item-tag-required" data-index="4" data-required="true" draggable="true" id="itemGroup4">(Unión Exterior)</div>
+                <div class="item-tag" data-index="5" draggable="true" id="itemGroup5">(Protección)</div>
+                <div class="item-tag" data-index="6" draggable="true" id="itemGroup6">(Medición)</div>
+                <div class="item-tag" data-index="7" draggable="true" id="itemGroup7">(Derivación)</div>
+                <div class="item-tag" data-index="8" draggable="true" id="itemGroup8">(Adhesivos)</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="modal-content">
+            <div>
+              <div class="row">
+                <ul class="collapsible" id="ulFormCollapsible">
+                  
+                  <li class="active">
+                    <div class="collapsible-header"><i class="material-icons">settings</i>Administrar atributos</div>
+                    <div class="collapsible-body">
+                      
+                      <div class="row text-right">
+                        <button class="btn waves-effect waves-light btn-primary" id="btnAddConceptToGroup" type="button">
+                          <i class="material-icons left" style="margin-right: 0px;">add</i>Especie
+                        </button>
+                      </div>
+                      
+                      <div class="row ctn-table-responsive">
+                        <table id="tblAddNewGroup" class="centered">
+                          <thead>
+                            <tr style="background: aquamarine;">
+                              <th>#</th>
+                              <th>Prioridad</th>
+                              <th>Productos</th>
+                              <th>Unidad</th>
+                              <th>Cantidad</th>
+                              <th>Alias</th>
+                              <th id="thAttributes" class="center">Atributos</th>
+                            </tr>
+                            <tr id="trInputs">
+                              <th colspan="6"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr class="info-message">
+                              <td colspan="6">No hay especies para mostrar.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      <div class="row">
+                        <div class="col s12 ctn-pagination" style="text-align: right;">
+                          <span class="left spnTotalPagination"></span>
+                          <ul class="pagination" id="ulAddGroupPagination"></ul>
+                        </div>
+                      </div>
+                      
+                      <div class="row">
+                        <div class="col s12 divGroupName">
+                        </div>
+                      </div>
+                    
+                    </div>
+                  </li>
+                  
+                  <li>
+                    <div class="collapsible-header"><i class="material-icons">add</i>Finalizar creación del grupo</div>
+                    <div class="collapsible-body">
+                        <div class="row">
+                          <div class="col s12 m4 xl4 input-field">
+                            <input id="txtPrefix-group" type="text" required>
+                            <label for="txtPrefix-group">Prefijo <span class="md-asterisk">*</span></label>
+                          </div>
+                          <div class="col s12 m4 xl4 input-field">
+                            <input id="txtGender-group" type="text" disabled>
+                            <label for="txtGender-group">Género del primer producto</label>
+                          </div>
+                          <div class="col s12 m4 xl4 input-field">
+                            <input id="txtAlias-group" type="text" disabled>
+                            <label for="txtAlias-group">Alias</label>
+                          </div>
+                          <div class="col s12 m4 xl4 input-field">
+                            <input id="txtAttr-group" type="text" required disabled>
+                            <label for="txtAttr-group">Atributos <span class="md-asterisk">*</span></label>
+                          </div>
+                          <div class="col s12 m4 xl4 input-field">
+                            <input id="txtSuffix-group" type="text">
+                            <label for="txtSuffix-group">Sufijo</label>
+                          </div>
+                          <div class="col s12 m4 xl4 input-field">
+                            <select id="sltConectionInput-group" required></select>
+                            <label for="sltConectionInput-group">Tipo de conexión de entrada <span class="md-asterisk">*</span></label>
+                          </div>
+                          <div class="col s12 m4 xl4 input-field">
+                            <select id="sltConectionOutput-group" required></select>
+                            <label for="sltConectionOutput-group">Tipo de conexión de salida</label>
+                          </div>
+                        </div>
+                        
+                        <div class="row">
+                          <div class="col s12 divGroupName">
+                          </div>
+                        </div>
+                      
+                    </div>
+                  </li>
+                  
+                </ul>
+              </div>
+              <br>
+              
+            </div><!-- Fin contenedor del panel de búsqueda-->
+            
+          </div>
+          
+          <div class="modal-footer">
+            <a id="btnCloseMdlNewGroup" href="javascript:void(0)" class="waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button id="btnAddGroup" type="submit" class="btn waves-effect waves-light btn-secundary">Guardar</button>
+          </div>
+        </form>
+      </div> <!-- Final del modal de grupos -->
+      
+      <!-- Modal: Crear copia de una cotización pero en blanco-->
+      <div id="mdlCopyTabBlank" class="modal modal-fixed-footer_not">
+        <div class="modal-content">
+        
+          <div>
+            <h5>Crear copia en blanco</h5>
+            <div class="row" style="margin-bottom: 0px;">
+              
+              <p>A continuación debes elegir la ubicación de donde desea almacenar la cotización que se va a generar apartir de la seleccionada.</p>
+              <br>
+              
+              <form id="frmNewTabBlank" autocomplete="off">
+                <div class="row">
+                  <div class="col s12 m6 xl6 input-field">
+                  	<select id="sltComunNameNewModal" required>
+                      <option value="">-- Seleccione una opción --</option>
+                    </select>
+                    <label for="sltComunNameNewModal">Nombre común <span class="md-asterisk">*</span></label>
+                  </div>
+                  <div class="col s12 m6 xl6 input-field">
+                    <select id="sltCultivationModal" required>
+                      <option value="">-- Seleccione una opción --</option>
+                    </select>
+                    <label for="sltCultivationModal">Cultivo <span class="md-asterisk">*</span></label>
+                  </div>
+                  <div class="col s12 m6 xl6 input-field">
+                    <input id="txtSurfaceModal" type="text" required>
+                    <label for="txtSurfaceModal">Superficie (has) <span class="md-asterisk">*</span></label>
+                  </div>
+                  <div class="col s12 m6 xl6 input-field">
+                    <input id="txtObservationModal" type="text">
+                    <label for="txtObservationModal">Observación (opcional)</label>
+                  </div>
+                </div>
+              </form>
+              
+            </div>
+            <br>
+            
+          </div><!-- Fin contenedor del panel de búsqueda-->
+          
+        </div>
+        
+        <div class="modal-footer">
+          <a href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+          <a id="btnDuplicateTabSelectedBlank" form="frmNewTabBlank" href="javascript:void(0)" class="waves-effect waves-light btn btn-primary">Crear versión en blanco</a>
+        </div>
+      
+      </div> <!-- Crear copia de una cotización pero en blanco -->
+      
+      <!-- Modal: Crear cotización a partir de otra -->
+      <div id="mdlDuplicateQuotation" class="modal modal-fixed-footer_not">
+        <div class="modal-content">
+        
+          <div>
+            <h5>Creación de cotización a partir de otra</h5>
+            <div class="row" style="margin-bottom: 0px;">
+              <p>A continuación debes elegir la ubicación de donde desea almacenar la cotización que se va a generar apartir de la seleccionada.</p>
+              <br>
+              <div class="row" style="margin: 0px;">
+                <div class="col s12 m6 xl6 input-field">
+                  <button id="btnSelectedFolderModal" type="button" class="btn waves-effect waves-light btn-secundary"><i class="material-icons left">folder</i> Seleccione la carpeta</button>
+                </div>
+                <div class="col s12 m6 xl6 input-field" id="ctnLinkModal">
+                </div>
+              </div>
+              <p style="margin-top: 15px;">
+                <b style="font-weight: 500;">¿Esta seguro(a) que desea crear la cotización  a partir de la que se encuentra seleccionada?</b>
+              </p>
+            </div>
+            <br>
+            
+          </div><!-- Fin contenedor del panel de búsqueda-->
+          
+        </div>
+        
+        <div class="modal-footer">
+          <a id="btnCloseMdlDuplicateQuotation" href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+          <a id="btnCreateMdlDuplicateQuotation" href="javascript:void(0)" class="waves-effect waves-light btn btn-primary">Crear cotización</a>
+        </div>
+      
+      </div> <!-- Final del modal de crear cotización a partir de otra -->
+      
+      <!-- Modal: Crear cotización a partir de otra en la parte de refacciones -->
+      <div id="mdlDuplicateRenovation" class="modal modal-fixed-footer_not">
+        <div class="modal-content">
+        
+          <div>
+            <h5>Creación de cotización de refacción a partir de otra</h5>
+            <div class="row"  style="margin-bottom: 0px;">
+              <p>A continuación debes elegir la ubicación de donde desea almacenar la cotización que se va a generar apartir de la seleccionada.</p>
+              <br>
+              <div class="row" style="margin: 0px;">
+                <div class="col s12 m6 xl6 input-field">
+                  <button id="btnSelectedFolderModalRenovation" type="button" class="btn waves-effect waves-light btn-secundary"><i class="material-icons left">folder</i> Seleccione la carpeta</button>
+                </div>
+                <div class="col s12 m6 xl6 input-field" id="ctnLinkModalRenovation">
+                </div>                
+              </div>
+              <div class="row" style="margin: 0px;">
+                <div class="col s12 m6 xl6 input-field">
+                  <button id="btnSelectedTemplateModalRenovation" type="button" class="btn waves-effect waves-light"><i class="material-icons left">insert_drive_file</i> Seleccione la plantilla</button>
+                </div>
+                <div class="col s12 m6 xl6 input-field" id="ctnTemplateModalRenovation">
+                </div>                
+              </div>
+              <p style="margin-top: 15px;">
+                <b style="font-weight: 500;">¿Esta seguro(a) que desea crear la cotización de refacción a partir de la que se encuentra seleccionada?</b>
+              </p>
+            </div>
+            <br>
+            
+          </div><!-- Fin contenedor del panel de búsqueda-->
+          
+        </div>
+        
+        <div class="modal-footer">
+          <a href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+          <a id="btnCreateMdlDuplicateRenovation" href="javascript:void(0)" class="waves-effect waves-light btn btn-primary">Crear cotización</a>
+        </div>
+      
+      </div> <!-- Final del modal de crear cotización a partir de otra -->
+      
+      
+      <!-- Modal: Búsqueda de grupos-->
+      <div id="mdlSearchingGroups" class="modal modal-fixed-footer modal-fixed-header">
+        <div class="modal-header">
+          <h4>Lista de grupos</h4>
+        </div>
+        <div class="modal-content">
+          <div class="row">
+            <div class="col s6 offset-s6">
+              <div class="input-field">
+                <i class="material-icons prefix">search</i>
+                <input id="txtSearchGroup" type="text" class="validate" autocomplete="off">
+                <label for="txtSearchGroup">Buscar</label>
+              </div>
+            </div> 
+          </div>
+          <div class="row">
+            <table id="tblSearchingGroups" class="responsive-table">
+              <thead>
+                <tr>
+                  <th>Nombre de Grupo</th>
+                  <th>Importe</th>
+                  <th>ø Ent (mm)</th>
+                  <th>ø &#60;&#62; (“)</th>
+                  <th>ø Sal (mm)</th>
+                  <th>Protección</th>
+                  <th class="center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>  
+                <tr class="info-message">
+                  <td colspan="7">No hay grupos para mostrar.</td>
+                </tr>
+              </tbody>
+            </table>      
+          </div>  
+            
+          <div class="row">
+            <div class="col s12 ctn-pagination" style="text-align: right;">
+              <span class="left spnTotalPagination"></span>
+              <ul class="pagination" id="ulSearchingGroupsPagination"></ul>
+            </div>
+          </div>
+          
+        </div>
+        
+        <div class="modal-footer">
+          <a href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+        </div>
+      
+      </div> <!-- Final del modal de crear cotización a partir de otra -->
+      
+      <!-- Modal: Especies similares -->
+      <div id="mdlSimilarConcepts" class="modal modal-fixed-footer modal-fixed-header" >
+        
+        <div class="modal-header">
+          <div class="row">
+            <div class="col s12 m12 xl12 content__header-modal" id="ctnTitleSimilarConcepts">
+            	<h4>Búsqueda de especies</h4>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-content">
+        <!-- Panel: de creación de nueva especie-->
+          <div id="mdlPanelConceptSearchMirror" class="container__card-species" style="display:none;">
+            <div class="row"id="contentPanelConceptMirror">
+            </div>
+          </div><!-- Fin contenedor del panel de creación de una especie nueva-->
+          
+          <div  id="ctnSimilarSpecie">
+            <div class="row text-right">
+              <!-- Cambios por dirtic@hidro.expert -->
+              <form id="frmSearchConceptReplace" autocomplete="off">
+                
+                <div class="row" style="margin-bottom: 0px;">
+                  <div class="col s12 input-field">
+                    <input id="txtSpecieSearchReplace" type="text" style="text-transform: uppercase;">
+                    <label for="txtSpecieSearchReplace">Especie</label>
+                  </div>
+                </div>
+                
+              </form>
+              <button class="btn waves-effect waves-light btn-primary" id="btnSearhOtherSpecie" type="button">
+                <i class="material-icons left" style="margin-right: 5px;">add</i>
+                Especie
+              </button>
+              
+            </div>
+         
+            <div class="row">
+              <table id="tblSimilarConcepts" class="responsive-table">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th>Unidad</th>
+                    <th>Género</th>
+                    <th>Material</th>
+                    <th>Variedad</th>
+                    <th>Cédula</th>
+                    <th>ø Nominal (“)</th>
+                    <th>Conexión entrada</th>
+                    <th>Conexión salida</th>
+                    <th class="center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>  
+                  <tr class="info-message">
+                    <td colspan="10">No hay especies para mostrar.</td>
+                  </tr>
+                </tbody>
+              </table>      
+            </div>  
+              
+            <div class="row">
+              <div class="col s12 ctn-pagination" style="text-align: right;">
+                <span class="left spnTotalPagination"></span>
+                <ul class="pagination" id="ulSimilarConcepts"></ul>
+              </div>
+            </div>
+          
+          </div>
+          
+          
+          <div  id="ctnOtherSpecie" style="display:none;">
+          
+             <div class="row text-right">
+           
+              <button class="btn waves-effect waves-light #6d4c41 brown darken-1" id="btnBackSearhOtherSpecie" type="button">
+                <i class="material-icons left" style="margin-right: 5px;">arrow_back</i>
+                Volver
+              </button>
+              <form id="frmSearchSpecieOther" autocomplete="off">
+              <div class="row">
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" style="text-align: center;" id="btnDepartmentSearchOther">account_circle</i>
+                  <input id="txtDepartmentSearchOther" type="text">
+                  <label for="txtDepartmentSearchOther">Departamento</label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" style="text-align: center;" id="btnFamilySearchOther">account_circle</i>
+                  <input id="txtFamilySearchOther" type="text">
+                  <label for="txtFamilySearchOther">Familia</label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" style="text-align: center;" id="btnKeywordSearchOther">account_circle</i>
+                  <input id="txtKeywordSearchOther" type="text">
+                  <label for="txtKeywordSearchOther">Palabra clave</label>
+                </div>
+                <div class="col s12 m12 xl12 input-field">
+                  <input id="txtSpecieSearchOther" type="text">
+                  <label for="txtSpecieSearchOther">Especie</label>
+                </div>
+              </div>
+              
+              <div class="row" style="display:none;">
+                <div class="col s12 m12 xl12 input-field" id="pnlGenderSearchOther">
+                </div>
+              </div>
+              <div class="row">
+                <div class="col s12 text-right">
+                  <button id="btnUpdateConceptListOther" title="Actualizar lista de especies" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons">refresh</i></button>
+                  <button id="btnSearchConceptOther" type="submit" class="btn waves-effect waves-light btn-secundary">Buscar</button>
+                </div>
+              </div>
+            </form>
+            
+            <div class="row">
+              <table id="tblConceptListOther" class="responsive-table">
+                <thead>
+                  <tr>
+                    <th>Departamento</th>
+                    <th>Especie</th>
+                    <th>Familia</th>
+                    <th>Palabra clave</th>
+                    <th class="center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="info-message">
+                    <td colspan="5">No hay especies para mostrar.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="row">
+              <div class="col s12 ctn-pagination" style="text-align: right;">
+                <span class="left spnTotalPagination"></span>
+                <ul class="pagination pager" id="ulConceptPaginationOther"></ul>
+              </div>
+            </div>
+              
+            </div>
+          </div>
+          
+        </div>
+        
+        <div class="modal-footer">
+          <a href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+        </div>
+      
+      </div> <!-- Final del modal de ver especies similares -->
+      
+      <!-- Modal para esteblecer los datos de la creación del catálogo  "encabezado"-->
+      <div id="mdlCatalogData" class="modal modal-fixed-footer modal-fixed-header">
+        <form id="frmCreateCatalog">
+          
+          <div class="modal-header">
+            <h4>Datos para el catálogo</h4>
+          </div>
+        
+          <div class="modal-content">
+         
+                <div class="row">
+                
+                  <div class="col s12 m6 xl6 input-field">
+                    <input id="txtName-Catalog" type="text" required>
+                    <label for="txtName-Catalog">Nombre o razón social: </label>
+                  </div>
+                  
+                  <div class="col s12 m6 xl6 input-field">
+                    <input id="txtSurface-Catalog" type="text" required>
+                    <label for="txtSurface-Catalog">Superficie:</label>
+                  </div>
+                  
+                  <div class="col s12 m6 xl6 input-field">
+                    <input id="txtLocation-Catalog" type="text" required>
+                    <label for="txtLocation-Catalog">Localidad, municipio y estado:</label>
+                  </div>
+                  
+                  <div class="col s12 m6 xl6 input-field">
+                    <input id="txtConcessionTitleNumber-Catalog" type="text" required>
+                    <label for="txtConcessionTitleNumber-Catalog">Número de título de concesión:</label>
+                  </div>
+                  
+                  <div class="col s12 m12 xl12 input-field">
+                    <input id="txtNameHydraulicWork-Catalog" type="text" required>
+                    <label for="txtNameHydraulicWork-Catalog">Nombre de obra hidráulica:</label>
+                  </div>
+                  
+                </div>
+            
+          </div>
+          
+          <div class="modal-footer">
+            <a id="btnCloseMdlCatalogData" href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button id="btnCreateCatalogData" type="submit" class="btn btn-primary waves-effect waves-light">Crear catálogo</button>
+            
+          </div>
+        </form>
+        
+      </div> <!-- Final del modal de crear cotización a partir de otra -->
+
+      <!-- Modal para esteblecer la pestaña de estatal con encabezado-->
+      <div id="mdlGenerateStateTab" class="modal modal-fixed-footer modal-fixed-header" style="max-width: 650px;">
+        <form id="frmGenerateStateTab">
+          
+          <div class="modal-header">
+            <h4>Generar hoja estatal</h4>
+          </div>
+        
+          <div class="modal-content">
+            <div class="alert card amber lighten-4 brown-text alert__state-info">
+              <div class="card-content">
+                <p>
+                  <i class="material-icons">report_problem</i><span>Advertencia</span>
+                  <div>Este proyecto tiene una superficie de <b class="alert__number-ref">45 hectáreas</b>, lo que significa que supera las <b>5 hectáreas</b> recomendadas.</div>
+                </p>
+              </div>
+            </div>
+
+            <div class="row">
+            
+              <div class="col s12 input-field">
+                <p>Por favor, seleccione el tipo de proyecto antes de continuar. Esta selección es fundamental, ya que el tipo de proyecto determinará el valor estatal base que se tomará en cuenta para la planificación y ejecución.</p>
+                <h6><b>Tipo de proyecto:</b></h6>
+                <p>
+                  <label>
+                    <input class="with-gap" name="radFilterStateTab" type="radio" value="Nuevo" required="true"/>
+                    <span>Nuevo</span>
+                  </label>
+                </p>
+                <p>
+                  <label>
+                    <input class="with-gap" name="radFilterStateTab" value="Rehabilitación" type="radio" required="true"/>
+                    <span>Rehabilitación</span>
+                  </label>
+                </p>
+              </div>
+            </div>
+            
+          </div>
+          
+          <div class="modal-footer">
+            <a href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button id="btnGenerateStateTab" type="submit" class="btn btn-primary waves-effect waves-light">Crear hoja</button>            
+          </div>
+        </form>
+        
+      </div> <!-- Final del modal de crear cotización a partir de otra -->
+      
+       <!-- Contenedor para permitir que se permita realizar scrioll sobre todas las especies  -->
+      <div id="ctnScroll">
+      </div>
+      
+      
+      
+    </div>
+    <!-- Agregamos modal para el manejo de sidebar -->
+    <?!= includeHtmlFile("Interface/Cruises", false, false) ?>
+    <?!= includeHtmlFile("Interface/Emitter", false, false) ?>
+
+    <!-- Libreria de propia del producto -->
+    <?!= includeHtmlFile("Js_Functions", false, true, {userRole: userRole}) ?>
+    
+    <!-- Libreria para el selector de archivos
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script> -->
+  </body>
+</html>

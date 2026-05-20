@@ -1,0 +1,1333 @@
+<script>
+
+/*
+* Funcion que permite habilitar un modad para agregar una especie al grupo   {panelId: panelId}, openModalSearchConcept
+*/
+function addConceptToGroup(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos los datos de la especie seleccionado
+  var conceptData = e.data.conceptData;
+  
+  // referenciamos la tabla
+  var $table = $("#tblAddNewGroup");
+  
+  // Obtenemos los datos de la columnas que no se deben insertar 
+  var notColumns = $table.data("notColumns");
+  
+  // referenciamos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+  
+  // OBtenemos las filas 
+  var $rows = $tBody.find("tr.isValid");
+  
+  // Numero de fila que se va a insertar 
+  var rowIndex = $rows.length + 1;       
+  
+  // Verificamos de que se pueda agregar la especie 
+  var stateVerificateConcept = verificateConcept(conceptData[1], $rows);
+  
+  //validamos si no esta la especie para agregarlo 
+  if(stateVerificateConcept){
+    
+    // adicionamos la fila
+    addRowInManageGroupTable($table, $tBody, conceptData, rowIndex, notColumns, null, null);
+    
+    // iniciaizamos el paginador
+    SnvaJsApi.initPaginationByTable($table, "ulAddGroupPagination", 5);
+    
+  }else{
+     
+    // mostramos el respectivo mensaje
+    SnvaJsApi.showAlert("Lo sentimos la especie ya existe.");
+  }
+ 
+}
+
+/*
+* Función que permtie verificar si ya esta la especie en la tabla
+*/
+function verificateConcept(nameConcept, $rows){
+  
+  // Estado para la validación de la especie suponemos de que no esta
+  var stateValidate = true;
+   
+  // Validamos de vengan filas   
+  if($rows && $rows.length > 0){
+    
+    // para los datos de al especie
+    var conceptData = null;
+    
+    // Recorremo cada uno de las filas 
+    $rows.each(function(){
+      
+      // Obtenmos los datos de la especie
+      conceptData = $(this).data("conceptData");
+      
+      // Validamos por el nombre de la especie
+      if(nameConcept == conceptData[1]){
+       
+        // Cambiamos de el estado a que si esta la especie
+        stateValidate = false;
+        
+        // Forzamos la salida del ciclo
+        return false;
+      }
+    });
+  }
+  
+  // Retornamos el estado de validación 
+  return stateValidate;
+}
+
+/*
+* Función que permite insertar los grupos ya creados 
+* @param {array-Object} groupData datos de los grupos creados  
+*/
+function insertGroupTable(groupData){
+
+  // referenciamos la tabla de grupos
+  var $table = $("#tblSearchingGroups");
+  
+  // obtenemos el cuerpo de la tabla   
+  var $tBody = $table.find("tbody");
+  
+  // se referncia el modal
+  var $modal = $("#mdlSearchConcepts");
+  
+  // obtenemos el id del panel donde se va agregar la especie
+  var mainPanelId = $modal.data("panelId");
+  
+  // restablecemos el contenido
+  $tBody.html('<tr class="info-message" style="display: none;"><td class="text-center" colspan="7">No hay grupos para mostrar.</td></tr>');
+      
+  // variable para almacenar la referencia de la fila creada
+  var $row = null, 
+      $button = null,
+      arrayDataGroup = [];
+
+  // Validamos de que venga la propiedad y existan registros
+  if(groupData && groupData.length > 0){
+       
+    // recorremos cada uno de los datos
+    for(var i = 0; i < groupData.length; i++){
+    
+     arrayDataGroup = ["",groupData[i].groupName,"","","GRUPO",groupData[i]["aditionalData"].currentPrice];
+     
+      // Validamos si existe la propiedad de "" y lo dejamos como un valor numerico manipulable
+      if(groupData[i].aditionalData.currentPrice){
+        
+        // convertimos en y eliminamos las comas
+        groupData[i].aditionalData.currentPrice = Number(String(groupData[i].aditionalData.currentPrice).replace(/\$|\,/g, ""));
+        
+      }
+      // creamos una nueva fila y agregamos los datos 
+      $row = $("<tr>").attr({class: "isValid"});
+          
+      // agregamos la fila al cuerpo de la tabla
+      $tBody.append($row);
+         
+      // creamos la fila de: Nombre del grupo
+      $row.append(
+        $("<td>").text(groupData[i].groupName)
+      );
+           
+      // creamos la fila de: Importe
+      $row.append(
+        $("<td>").text(groupData[i].aditionalData.currentPrice ? SnvaJsApi.roundDecimal(groupData[i].aditionalData.currentPrice, 4) : "-")
+      );
+      
+      // creamos la fila de: ø Ent (mm)
+      $row.append(
+        $("<td>").text(groupData[i].aditionalData.diameterInput ? groupData[i].aditionalData.diameterInput: "-")
+      ); 
+      
+      // creamos la fila de: ø <> (“)
+      $row.append(
+        $("<td>").text(groupData[i].aditionalData.diameterInput ? groupData[i].aditionalData.diameterInternal: "-")
+      );
+      
+      // creamos la fila de: ø Sal (mm)
+      $row.append(
+        $("<td>").text(groupData[i].aditionalData.diameterOutput ? groupData[i].aditionalData.diameterOutput: "-")
+      );
+  
+      // creamos la fila de: Protección
+      $row.append(
+        $("<td>").text(groupData[i].aditionalData.protection ? groupData[i].aditionalData.protection: "-")
+      );
+  
+      // creamos la fila de: acciones mas la opc
+      $row.append(
+        $("<td>").attr({class: "text-center", style:"min-width: 118px;"}).append(
+          $("<a>").attr({title: "Editar grupo", href: "javascript:void(0)", class: "btn btn-icon-concept btn-edit-group"}).append(
+            $("<i>").attr("class", "material-icons").text("edit")
+          ).click({groupObjectData: groupData[i], type: "edit"}, editGroupData)
+          
+        ).append(
+        
+         $("<a>").attr({title: "Duplicar grupo", href: "javascript:void(0)", class: "btn btn-icon-concept btn-edit-duplicate"}).append(
+            $("<i>").attr("class", "material-icons").text("control_point_duplicate")
+          ).click({groupObjectData: groupData[i], type: "duplicate"}, editGroupData)
+        ).append(
+          $("<a>").attr({title: "Agregar grupo", href: "javascript:void(0)", class: "btn btn-icon-concept btn-add-group"}).append(
+            $("<i>").attr("class", "material-icons").text("add").click({mainPanelId: mainPanelId, conceptData: arrayDataGroup}, addConceptSelected)
+          )
+        )
+      );
+    }
+  }
+  
+  // inicializamos el paginador
+  SnvaJsApi.initPaginationByTable($table, "ulSearchingGroupsPagination", 10);
+              
+}
+
+
+/*
+* Función que permite habilitar el panel de edición de un grupo e insertar los datos del mismo
+*/
+function editGroupData(e){
+
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // Obtenemos los datos del grupo 
+  var groupObjectData = e.data.groupObjectData;
+  
+  // Obtenemos el tipo con el cual se va a trabajar el grupo 
+  var type = e.data.type;
+  
+  // Referenciamos el titulo del modal 
+  var $txtModalTitle = $("#txtModalTitle");
+  
+  // Referenciamos el boton guardar en el formulario 
+  var $btnAddGroup = $("#btnAddGroup");
+  
+  // Referenciamos el formulario de grupos 
+  var $form = $("#frmAddGroup");
+  
+  // Validamos que tipo acción se va a trabajar sobre el grupo 
+  if(type && type == "edit"){
+    
+    // Cambiamos el titulo del modal 
+    $txtModalTitle.html("Edición de grupo.");  
+    
+    // Cambiamos el nombre del botón
+    $btnAddGroup.text("Editar grupo");
+    
+    // Agregamos la propiedad al formulario que es editar
+    $form.data({"type": "edit", "oldDataGroup": groupObjectData});
+    
+  }else{
+    
+    // Cambiamos el titulo del modal 
+    $txtModalTitle.html("Creación de grupo.");
+    
+    // Cambiamos el nombre del botón
+    $btnAddGroup.text("Crear grupo");
+    
+    // Agregamos la propiedad al formulario que es editar
+    $form.data({"type": "duplicate"});
+  }
+  
+  // validamos si existe la referencia del grupo
+  if(groupObjectData != null && groupObjectData.groupObj && groupObjectData.groupObj.length > 0){
+    
+    // obtenemos solo los datos de grupos
+    var onlyGroupArray = groupObjectData.groupObj;    
+    
+    // variable para almacenar las especies
+    var conceptArray = [];
+    
+    // recorremos cada uno de los datos
+    for(var i = 0; i < onlyGroupArray.length; i++){
+      
+      // Agregamos los datos de al especie
+      conceptArray.push(onlyGroupArray[i].conceptData);
+    
+    }
+  
+    // llamammos la función que inserta los datos
+    insertGroupDataByModify(conceptArray, onlyGroupArray, groupObjectData, type);
+    
+  } else {
+  
+    // mostramos el respectivo mensaje
+    SnvaJsApi.showAlert("Lo sentimos la información del grupo no existe, por favor intenta nuevamente o comunicate con el administrador.");
+  }
+  
+}
+
+/*
+* Fnción que permite insertar los datos a los selects al formulario de creación 
+*/
+function insertDataSelectConceptsMirror(validationsListObj){
+  
+  // Validamos de que se tengan datos
+  if(validationsListObj){
+    
+    // Referenciamos el campo de departamento
+    var $department = $("#sltDepartment-Mirror");
+    
+    // Referenciamos el campo de familia
+    var $family = $("#sltFamily-Mirror");
+    
+    //Referenciamos el campo de genero 
+    var $gender = $("#sltGender-Mirror");
+    
+    // Referenciamos al campo de material
+    var $material = $("#sltMaterial-Mirror");
+    
+    // agregamos los items de departamentos
+    SnvaJsApi.insertOptionToSelect($department, validationsListObj.department, 1, 1, "departmentData", true);
+    
+    // agregamos los items de familia
+    SnvaJsApi.insertOptionToSelect($family, validationsListObj.family, 1, 1, "familyData", true);
+    
+    // Agregamos los items de unidad
+    SnvaJsApi.insertOptionToSelect($gender, validationsListObj.unit, 0, 0, "unitData", true);
+    
+    // Agregamos los items de unidad
+    SnvaJsApi.insertOptionToSelect($("#sltUnitSpecie-Mirror"), validationsListObj.unit, 0, 0, "unitData", true);
+    
+    // agregamos los items de generos
+    SnvaJsApi.insertOptionToSelect($("#sltGender-Mirror"), validationsListObj.gender, 0, 0, "genderData", true);
+    
+    // agregamos los items de materiales
+    SnvaJsApi.insertOptionToSelect($material, validationsListObj.material, 1, 1, "materialData", true);
+    
+    // Agregamos los items de moneda
+    SnvaJsApi.insertOptionToSelect($("#sltCurrencySpecie-Mirror"), validationsListObj.currencySpecie, 0, 0, "currencySpecieData", true);
+
+    // Agregamos los items de la longitud de la pieza 
+    SnvaJsApi.insertOptionToSelect($("#sltPieceLength-Mirror"), validationsListObj.pieceLength, 0, 0, "pieceLengthData", true);
+    
+    // agregamos los items de tipo de conexión (Entrada)
+    SnvaJsApi.insertOptionToSelect($("#sltConnectionTypeInput-Mirror"), validationsListObj.connectionType, 1, 1, "connectionTypeInputData", true);
+    
+    // agregamos los items de tipo de conexión (Salida)
+    SnvaJsApi.insertOptionToSelect($("#sltConnectionTypeOutput-Mirror"), validationsListObj.connectionType, 1, 1, "connectionTypeOutputData", true);
+    
+    // Agregamos los items de altura 
+    SnvaJsApi.insertOptionToSelect($("#sltHeight-Mirror"), validationsListObj.height, 0, 1, "heightData", true);
+    
+    // Agregamos los items de tamaño o capacidad
+    SnvaJsApi.insertOptionToSelect($("#sltSizeOrCapacity-Mirror"), validationsListObj.sizeOrCapacity, 1, 1, "sizeOrCapacityData", true);
+    
+    // Agregamos los items de Ancho
+    SnvaJsApi.insertOptionToSelect($("#sltWidth-Mirror"), validationsListObj.width, 1, 1, "widthData", true);
+    
+    // Agregamos los items de Calibre
+    SnvaJsApi.insertOptionToSelect($("#sltCaliber-Mirror"), validationsListObj.caliber, 1, 1, "caliberData", true);
+    
+    // Evento cuando cambiamos de departamento
+    $department.on("change", changeDepartmentMirror);
+    
+    // Evento para cuando se selecciona una familia
+    $family.on("change", {"keywordData": validationsListObj.keyword}, changeFamilyMirror);
+    
+    // Evento para cuando se cambia de genero 
+    $gender.on("change", { "nominalDiameterData": validationsListObj.nominalDiameter }, changeGenderMirror);
+  }
+  
+  // inicializamos los selects
+  $("#frmAddConceptMirror select").formSelect();
+}
+/*****************************************************************************************************************************
+************************************* FUNCIONES PARA BÚSQUEDA DE ESPECIES ***************************************************
+*****************************************************************************************************************************/
+/*
+* Función que permite realizar la busqueda de especies
+*/
+function runSearchConcepts(e){
+  
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos el nombre de la especie
+  var specieValue = String($("#txtSpecieSearch").val()).trim(), currValueSpecie = "";
+  
+  // obtenemos el index desde donde empieza el ptimer comodin
+  var startIndex = specieValue.indexOf("${");
+  
+  // Se valida si existe comodines
+  if(startIndex != -1){
+  
+    // eliminamos texto de comodines
+    currValueSpecie = specieValue.substring(0, startIndex).replace(/\*$/g, "").trim();
+  } else {
+    currValueSpecie = specieValue.replace(/\*$/g, "").trim();
+  }
+  
+  // Reemplazamos el ultimo astetisco si existe
+  specieValue = specieValue.replace(/\*$/g, "").trim();
+  
+  // definimos el objeto actual de grupos o comodines
+  var currOptions = getCommodinsObject(specieValue);
+
+  // variable para obtener los valores de búsqueda
+  var objectValues = {
+    departament: String($("#txtDepartmentSearch").val()),
+    specie: currValueSpecie,
+    family: String($("#txtFamilySearch").val()),
+    keyword: String($("#txtKeywordSearch").val()),
+    gender: $("#pnlGenderSearch").data("genderData") || []
+  };
+  
+  // configuramos el objeto de valores a un texto que despues se puede crear como expresión regular
+  objectValues.specie = (objectValues.specie ? (SnvaJsApi.removeLatinSymbols(objectValues.specie).replace(/[|\/\\{}()[\]^$+*?.-]/g, '\\$&')) : "");
+  
+  // se referncia el modal
+  var $modal = $("#mdlSearchConcepts");
+  
+  // obtenemos los datos de busqueda que estan almacenados en el modal
+  var arrayData = $modal.data("arrayData");
+  
+  // obtenemos el id del panel donde se va agregar la especie
+  var mainPanelId = $modal.data("panelId");
+  
+  // variable para almacenar los registros filtrados
+  var filterArray = [],
+      recordState = true;
+  
+  // Definimso las propiedade y columna de cada una de ellas
+  var properties = getPropertiesComodin();
+  
+  // verificamos si trae los valores de $row y currentData y table
+  var $selectedRow = $modal.data("row");
+  var $currentData = $modal.data("currentData");
+  var $table = $modal.data("table");
+      
+  // recorremos cada uno de los registros
+  for(var i = 0; i < arrayData.length; i++){
+    
+    // definimos por defecto verdadero
+    recordState = true;
+    
+    // validamos si ya existe algun grupo
+    if(isComodinValue(arrayData[i], currOptions, properties) == false){
+      
+      // cambiamos a falso
+      recordState = false;
+      
+    // validamos si existe valor de deparatamento y no pertenece al registro actual
+    } else if(objectValues.departament && objectValues.departament != String(arrayData[i][0])){
+      
+      // cambiamos a falso
+      recordState = false;
+      
+    }  else if(objectValues.specie && new RegExp(objectValues.specie, "gi").test(SnvaJsApi.removeLatinSymbols(String(arrayData[i][1]))) == false){  // validamos si existe valor de especie y no pertenece al registro actual
+       
+      // cambiamos a falso
+      recordState = false;
+      
+    } else if(objectValues.family && objectValues.family != String(arrayData[i][2])){ // validamos si existe valor de familia y no pertenece al registro actual
+      
+      // cambiamos a falso
+      recordState = false;
+      
+    } else if(objectValues.keyword && objectValues.keyword != String(arrayData[i][3])){ // validamos si existe valor de palabra clave y no pertenece al registro actual
+      
+      // cambiamos a falso
+      recordState = false;
+    } else if(objectValues.gender && objectValues.gender.length > 0 && (objectValues.gender).indexOf(String(arrayData[i][8])) == -1){ // validamos si existe valor de genero y no pertenece al registro actual
+      
+      // cambiamos a falso
+      recordState = false;
+    }
+    
+    // validamos si el estado es verdadero
+    if(recordState && arrayData[i][1]){
+      
+      // agregamos el registro en los datos filtrados
+      filterArray.push(arrayData[i]);
+      
+    }
+  }   
+  
+  // se procede a ordenar por departamento, famili, palabra clave y luego diametro
+  filterArray = sortResultByDiameter(filterArray);
+
+  if (mainPanelId=="replaceConcept"){
+    // insertamos los datos a la tabla
+    insertConceptFromTableforReplace(filterArray, $selectedRow, $currentData, $table);
+  }else{
+    // insertamos los datos a la tabla
+    insertConceptFromTable(filterArray, mainPanelId);
+  }
+  
+}
+
+/**
+ * Permite obtener la lista de conceptos por diametro
+**/
+function sortResultByDiameter(filterArray){
+  
+  // variable para agrupar por lso primeros 2 parametros
+  var groups = {}, arrayOrder = [], propertyTemp = "", mainArray = [];
+  
+  // recorermos cada uno de los items
+  for(var i = 0; i < filterArray.length > 0; i++){
+    
+    // obtenemos la propiedad actual
+    propertyTemp = filterArray[i][0] + filterArray[i][2] + filterArray[i][3];
+    
+    // se valida si aun no existe la propiedad
+    if(!groups[propertyTemp]){
+      
+      // Inicializamos el objeto
+      groups[propertyTemp] = []
+      
+      arrayOrder.push(propertyTemp);
+      
+    }
+    
+    // agregamos el registro
+    groups[propertyTemp].push(filterArray[i]);
+    
+  }
+  
+  // recorremos cada una de las propiedades existentes
+  for(var j = 0; j < arrayOrder.length; j++){
+    
+    // agregamos cada grupo en el array principal
+    mainArray = mainArray.concat(groups[arrayOrder[j]].sort(function(a, b){
+      var x = (Number(String(a[13]).replace(/[^\.\d\n]/gi, "")) || 0);
+      var y = (Number(String(b[13]).replace(/[^\.\d\n]/gi, "")) || 0);
+      if (x < y) {return -1;}
+      if (x > y) {return 1;}
+      return 0;
+    }));
+    
+  }
+  
+  // Se retorna actualizada el orden a mostrar
+  return mainArray;
+}
+
+/*
+* Función que permite insertar una especie a una determinada tabla
+*/
+function insertConceptFromTable(filterArray, mainPanelId) {
+
+  // referenciamos la tabla de lista de cotizaciones
+  var $table = $("#tblConceptList");
+  
+  // obtenemos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+  
+  // Cambiamos el nombre de la modal   
+  $("#ctnTitleSearchConcepts, #ctnTitleSimilarConcepts").html('<h4>Búsqueda de especies</h4>');
+  
+  // restablecemos el contenido
+  $tBody.html('<tr class="info-message" style="display: none;"><td colspan="6">No hay especies para mostrar.</td></tr>');
+  
+  // variable para almacenar la referencia de la fila creada
+  var $row = null, 
+      $button = null,
+      $buttonHtml = null,
+      $buttonEdit = null,
+      $buttonEditHtml = null,
+      $buttonMirror = null,
+      $buttonMirrorHtml = null,
+      $refactionSection = false;
+  
+  if($('#ctn-renovation #pnlCreateRenovation').is(":visible")){
+    $refactionSection = true;
+  }  
+ 
+  var $htmlToAdd = null;
+  
+  // recorremos cada uno de los datos
+  for(var i = 0; i < filterArray.length; i++){
+  
+    var $currentRow = null;
+    var $rowEntity = null;
+  
+    // Validamos si el panel es para agregar una especia a un grupo para que no se agregen los grupo en el panel de edición del grupo 
+    if((mainPanelId != "addConceptoToGroup") || (mainPanelId == "addConceptoToGroup" && String(filterArray[i][4]).trim().toUpperCase() != "GRUPO")){
+    
+      // creamos la etiqueta para la marca @ dirtic@hidro.expert
+      var $marcaLabel = "";
+      if (filterArray[i][24]!=""){
+        $marcaLabel = "<div class='item-tag fliver-color'>"+filterArray[i][24]+"</div>";
+      }
+      
+      // creamos la etiqueta para el material @ dirtic@hidro.expert
+      var $materialLabel = "";
+      $materialLabel = "<div class='item-tag orange-color'>"+filterArray[i][9]+"</div>";
+    
+      // Verificamos si estamos en la pantalla de refacciones para mostrar el otro precio  @ dirtic@hidro.expert
+      var $priceToShow = "";
+      if($refactionSection){
+        $priceToShow = "<b>$ "+(filterArray[i][7] ? filterArray[i][7] : "-")+"</b> x "+filterArray[i][4];
+      } else {
+        $priceToShow = "<b>$ "+(filterArray[i][5] ? filterArray[i][5] : "-")+"</b> x "+filterArray[i][4];
+      }
+      
+      // Construir el row hasta donde vamos actualmente.      
+      $currentRow = '<tr class="isValid" style=""><td class="lst-items-tag left-tag">'+filterArray[i][0]+'<br>'+$marcaLabel+'</td><td class="lst-items-tag left-tag">'+filterArray[i][1]+" "+$materialLabel+'</td><td>'+filterArray[i][2]+'</td><td>'+filterArray[i][3]+'</td><td>'+$priceToShow+'</td></tr>';
+      
+      // Obtén el objeto de html de la construcción de la variable anterior
+      $rowEntity = $($currentRow);
+      
+      // validamos si existe el panel
+      if(mainPanelId){
+       
+        // Validamos si el panel es para agregar una especie a un grupo 
+        if(mainPanelId == "addConceptoToGroup"){
+           // creamos la el boton con el evento normal de agregar especie a una linea de producto
+           $button = $("<a>").attr({title: "Agregar especie", href: "javascript:void(0)", class: "btn btn-icon-concept"}).append(
+           $("<i>").attr("class", "material-icons").text("add")
+           ).click({mainPanelId: mainPanelId, conceptData: filterArray[i]}, addConceptToGroup);
+           
+        }else{
+          // creamos la el boton con el evento normal de agregar especie a una linea de producto
+          $button = $("<a>").attr({title: "Agregar especie", href: "javascript:void(0)", class: "btn btn-icon-concept"}).append(
+            $("<i>").attr("class", "material-icons").text("add")
+          ).click({mainPanelId: mainPanelId, conceptData: filterArray[i]}, addConceptSelected);
+        }
+       
+      } else {        
+        // creamos la el boton con el evento de agregar la refacción
+        $button = $("<a>").attr({title: "Agregar especie", href: "javascript:void(0)", class: "btn btn-icon-concept"}).append(
+          $("<i>").attr("class", "material-icons").text("add")
+        ).click({conceptData: filterArray[i]}, addConceptByRenovation);  
+      }
+      
+      // creamos el botón con el evento de duplicar
+      $buttonMirror =  $("<a>").attr({title: "Duplicar", style: "margin-left: 3px;", href: "javascript:void(0)", class: "btn btn-icon-concept btn-edit-duplicate"}).append(
+        $("<i>").attr("class", "material-icons").text("control_point_duplicate").click({conceptData: filterArray[i], mainPanelId: mainPanelId}, showModalAddConceptMirror)
+      )
+
+      // se valida si la unidad es "GRUPO"
+      if(String(filterArray[i][4]).trim().toUpperCase() == "GRUPO" && userRole != "sales"){
+        // creamos la fila de: acciones mas la opc
+        $rowEntity.append(
+          $("<td>").attr({class: "text-center"}).append(
+            $("<a>").attr({title: "Editar grupo", href: "javascript:void(0)", class: "btn btn-icon-concept btn-edit-group"}).append(
+              $("<i>").attr("class", "material-icons").text("edit")
+            ).click({conceptData: filterArray[i], type: "edit"}, editGroup)
+          ).append($button)
+        ); 
+      } else {      
+        // creamos la fila de: acciones mas la opción
+        $rowEntity.append(
+          $("<td>").attr({class: "text-center"}).append($button).append($buttonMirror)
+        );
+      }
+      
+      // Agregamos la fila al body
+      $tBody.append($rowEntity);
+      
+      /*  MODIFICACIÓN MAYOR PARA OPTIMIZACIÓN DE CARGA @ dirtic@hidro.expert*/
+    }
+  }
+
+  // iniciaizamos el paginador
+  SnvaJsApi.initPaginationByTable($table, "ulConceptPagination", 10);
+  
+  // se referebncia el paginador
+  var $pagination = $("#ulConceptPagination");
+  
+  // se valida si existe un parametro ara colocar la página temporal
+  if($pagination.data("pageNumberTemp")){
+  
+    // Simulamos el click en la pagina       
+    $pagination.find("li:eq(" + Number($pagination.data("pageNumberTemp")) + ") a").trigger("click");
+    
+    // Eliminamos el data
+    $pagination.removeData("pageNumberTemp");
+    
+  }
+  
+}
+
+/*
+* Función que permite insertar una especie a una determinada tabla para reemplazo
+*/
+function insertConceptFromTableforReplace(filterArray, $selectedRow, $currentData, $table) {
+
+  // referenciamos la tabla de lista de cotizaciones
+  var $table = $("#tblConceptList");
+  
+  // obtenemos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+  
+  // restablecemos el contenido
+  $tBody.html('<tr class="info-message" style="display: none;"><td colspan="6">No hay especies para mostrar.</td></tr>');
+  
+  // variable para almacenar la referencia de la fila creada
+  var $row = null, 
+      $button = null,
+      $buttonHtml = null,
+      $buttonEdit = null,
+      $buttonEditHtml = null,
+      $buttonMirror = null,
+      $buttonMirrorHtml = null,
+      $refactionSection = false;
+  
+  if($('#ctn-renovation #pnlCreateRenovation').is(":visible")){
+    $refactionSection = true;
+  }
+
+  // referenciamos los datos de la tabla
+  var $tableOrigin = $table;
+  
+  // obtenemos los datos como nombre, genero y material
+  var name = $currentData[1],
+      gender = $currentData[8],
+      material = $currentData[9];
+      
+
+  // Cambiamos el nombre de la modal   
+  $("#ctnTitleSearchConcepts, #ctnTitleSimilarConcepts").html('<h4>Búsqueda de especies para reemplazo de: '+name+'</h4>');
+      
+  // Modificación para ordenado de dirtic@hidro.expert
+  filterArray.sort(function (x, y) {
+    let a = x[1].toUpperCase(),
+        b = y[1].toUpperCase();
+    return a == b ? 0 : a > b ? 1 : -1;
+  });
+  
+  var $htmlToAdd = null;
+  
+  // recorremos cada uno de los datos
+  for(var i = 0; i < filterArray.length; i++){
+  
+    var $currentRow = null;
+    var $rowEntity = null;
+  
+    // Validamos si el panel es para agregar una especia a un grupo para que no se agregen los grupo en el panel de edición del grupo 
+    //if((mainPanelId != "addConceptoToGroup") || (mainPanelId == "addConceptoToGroup" && String(filterArray[i][4]).trim().toUpperCase() != "GRUPO")){
+    
+      // se valida que la especies sea diferente al actual y que tenga el mismo genero y material
+      if(filterArray[i][1] != name && filterArray[i][8] == gender && filterArray[i][9] == material){
+    
+        // creamos la etiqueta para la marca @ dirtic@hidro.expert
+        var $marcaLabel = "";
+        if (filterArray[i][24]!=""){
+          $marcaLabel = "<div class='item-tag fliver-color'>"+filterArray[i][24]+"</div>";
+        }
+        
+        // creamos la etiqueta para el material @ dirtic@hidro.expert
+        var $materialLabel = "";
+        $materialLabel = "<div class='item-tag orange-color'>"+filterArray[i][9]+"</div>";
+      
+        // Verificamos si estamos en la pantalla de refacciones para mostrar el otro precio  @ dirtic@hidro.expert
+        var $priceToShow = "";
+        if($refactionSection){
+          $priceToShow = "<b>$ "+(filterArray[i][7] ? filterArray[i][7] : "-")+"</b> x "+filterArray[i][4];
+        } else {
+          $priceToShow = "<b>$ "+(filterArray[i][5] ? filterArray[i][5] : "-")+"</b> x "+filterArray[i][4];
+        }
+        
+        // Construir el row hasta donde vamos actualmente.      
+        $currentRow = '<tr class="isValid" style=""><td class="lst-items-tag left-tag">'+filterArray[i][0]+'<br>'+$marcaLabel+'</td><td class="lst-items-tag left-tag">'+filterArray[i][1]+" "+$materialLabel+'</td><td>'+filterArray[i][2]+'</td><td>'+filterArray[i][3]+'</td><td>'+$priceToShow+'</td></tr>';
+        
+        // Obtén el objeto de html de la construcción de la variable anterior
+        $rowEntity = $($currentRow);
+        
+        // validamos si se debe obtener 
+        if($tableOrigin){
+          // agregamos la opción para agregar una especie
+          $rowEntity.append(
+            $("<td>").attr({class: "text-center", "style": "min-width: 90px;"}).append(
+              $("<a>").attr({title: "Agregar especie", href: "javascript:void(0)", class: "btn-icon-primary btn-floating orange waves-effect"}).append(
+                $("<i>").attr("class", "material-icons").text("add").click({"$row": $selectedRow, "currentData": filterArray[i], tableOrigin:$tableOrigin}, replaceGenerateConceptForOther)
+              )
+            )
+          );
+          
+          // Agregamos los datos al modal para insertar el concepto
+          //$("#mdlSimilarConcepts").removeData().data("currentConcept", {"$row": $row, "currentData": arrayData[i], tableOrigin:$tableOrigin});
+          
+        }else{
+        
+          // agregamos la opción para agregar una especie
+          $rowEntity.append(
+            $("<td>").attr({class: "text-center", "style": "min-width: 90px;"}).append(
+              $("<a>").attr({title: "Agregar especie", href: "javascript:void(0)", class: "btn-icon-primary btn-floating orange waves-effect"}).append(
+                $("<i>").attr("class", "material-icons").text("add").click({"$row": $selectedRow, "currentData": filterArray[i]}, replaceConceptForOther)
+              )
+            )
+          );
+        }
+        
+        // Agregamos la fila al body
+        $tBody.append($rowEntity);
+        
+      }
+    //}
+  }
+
+  // iniciaizamos el paginador
+  SnvaJsApi.initPaginationByTable($table, "ulConceptPagination", 10);
+  
+  // se referebncia el paginador
+  var $pagination = $("#ulConceptPagination");
+  
+  // se valida si existe un parametro ara colocar la página temporal
+  if($pagination.data("pageNumberTemp")){
+  
+    // Simulamos el click en la pagina       
+    $pagination.find("li:eq(" + Number($pagination.data("pageNumberTemp")) + ") a").trigger("click");
+    
+    // Eliminamos el data
+    $pagination.removeData("pageNumberTemp");
+    
+  }
+  
+}
+
+/*
+* Función que realiza la apertura del modal
+*/
+function showModalAddConceptMirror(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos los datos de la especie seleccionada
+  var conceptData = e.data.conceptData;
+  
+  // obtenemos los datos de la especie seleccionada
+  var mainPanelId = e.data.mainPanelId;
+  
+  // reseteamos el formulario
+  $("#frmAddConceptMirror")[0].reset();
+  
+  // mostramos el panel de creación de especie
+  $("#mdlPanelAddConceptMirror").data({"conceptData":conceptData,"mainPanelId":mainPanelId}).show();
+    
+  // cargamos los datos al panel
+  loadMirrorData(conceptData);
+  
+  // ocultamos el panel de búsqueda de especies
+  $("#mdlPanelSearch, #mdlPanelAddConcept").hide();
+}
+
+/*
+* Función encargada de cargar todos los datos de la especie anterior para duplicarla
+*/
+function loadMirrorData(conceptData){
+  
+  // Insertamos los datos desabilitados del formulario y validamos si exite cada uno de ellos
+  $("#sltDepartment-Mirror").val(conceptData[0]).formSelect().change(); // Departamento
+  $("#txtName-Mirror").val(conceptData[1]); // Nombre
+  
+  $("#txtPriceSpecie-Mirror").val(String(conceptData[5]).trim().replace(/\,|\$/g, "")).change(); //Precio sugerido
+  $("#txtSpareCostSpecie-Mirror").val(String(conceptData[7]).trim().replace(/\,|\$/g, "")).change();// Costo refacción
+  
+  if(conceptData[2]){
+    $("#sltFamily-Mirror").closest(".input-field").show();
+    $("#sltFamily-Mirror").val(conceptData[2]).formSelect().change(); //Familia
+  }else{
+    $("#sltFamily-Mirror").closest(".input-field").hide();
+  }
+  
+  if(conceptData[3]){
+    $("#sltKeyword-Mirror").closest(".input-field").show();
+    $("#sltKeyword-Mirror").val(conceptData[3]).formSelect(); // Palabra clave
+  }else{
+    $("#sltKeyword-Mirror").closest(".input-field").hide();
+  }
+  
+  if(conceptData[4]){
+    $("#sltUnitSpecie-Mirror").closest(".input-field").show();
+    $("#sltUnitSpecie-Mirror").val(conceptData[4]).formSelect(); // Unidad
+  }else{
+    $("#sltUnitSpecie-Mirror").closest(".input-field").hide();
+  } 
+  
+  if(conceptData[6]){
+    $("#sltCurrencySpecie-Mirror").closest(".input-field").show();
+    $("#sltCurrencySpecie-Mirror").val(conceptData[6]).formSelect(); // Moneda
+  }else{
+    $("#sltCurrencySpecie-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[8]){
+    $("#sltGender-Mirror").closest(".input-field").show();
+    $("#sltGender-Mirror").val(conceptData[8]).formSelect().change(); // Genero
+  }else{
+    $("#sltGender-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[9]){
+    $("#sltMaterial-Mirror").closest(".input-field").show();
+    $("#sltMaterial-Mirror").val(conceptData[9]).formSelect().change();  // material
+  }else{
+    $("#sltMaterial-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[10]){
+    $("#sltVariety-Mirror").closest(".input-field").show();
+    $("#sltVariety-Mirror").val(conceptData[10]).formSelect();  //Variedad
+  }else{
+    $("#sltVariety-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[11]){
+    $("#sltDocumentRD-Mirror").closest(".input-field").show();
+    $("#sltDocumentRD-Mirror").val(conceptData[11]).formSelect(); // Cedula RD/espesor 
+  }else{
+    $("#sltDocumentRD-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[13] || conceptData[15]){
+    $("#sltNominalDiameterInput-Mirror").closest(".input-field").show();
+    $("#sltNominalDiameterInput-Mirror").val(conceptData[13]).formSelect();  // Diametro nominal (Entrada)
+  
+    $("#sltNominalDiameterOutput-Mirror").closest(".input-field").show();
+    $("#sltNominalDiameterOutput-Mirror").val(conceptData[15]).formSelect();  // Diametro nominal (Salida)
+  }else{
+  
+    $("#sltNominalDiameterInput-Mirror").closest(".input-field").hide();
+    $("#sltNominalDiameterOutput-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[17]){
+    $("#sltPieceLength-Mirror").closest(".input-field").show();
+    $("#sltPieceLength-Mirror").val(conceptData[17]).formSelect();  // Longitud de la pieza
+  }else{
+    $("#sltPieceLength-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[19]){
+    $("#sltConnectionTypeInput-Mirror").closest(".input-field").show();
+    $("#sltConnectionTypeInput-Mirror").val(conceptData[19]).formSelect();   // Tipo de conexxión (Entrada)
+  }else{
+    $("#sltConnectionTypeInput-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[20]){
+    $("#sltConnectionTypeOutput-Mirror").closest(".input-field").show();
+    $("#sltConnectionTypeOutput-Mirror").val(conceptData[20]).formSelect();   // Tipo de conexion de (Salida)
+  }else{
+    $("#sltConnectionTypeOutput-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[21]){
+    $("#sltHeight-Mirror").closest(".input-field").show();
+    $("#sltHeight-Mirror").val(conceptData[21]).formSelect();  // Altura
+  }else{
+    $("#sltHeight-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[23]){
+    $("#sltAdjustmentType-Mirror").closest(".input-field").show();
+    $("#sltAdjustmentType-Mirror").val(conceptData[23]).formSelect();  // Tipo de ajuste
+  }else{
+    $("#sltAdjustmentType-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[24]){
+    $("#txtMake-Mirror").closest(".input-field").show();
+    $("#txtMake-Mirror").val(conceptData[24]); // Marca
+  }else{
+    $("#txtMake-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[25]){
+    $("#sltSizeOrCapacity-Mirror").closest(".input-field").show();
+    $("#sltSizeOrCapacity-Mirror").val(conceptData[25]).formSelect();  // Tamaño o capacidad
+  }else{
+    $("#sltSizeOrCapacity-Mirror").closest(".input-field").hide();
+  }  
+  
+  if(conceptData[26]){
+    $("#sltWidth-Mirror").closest(".input-field").show();
+    $("#sltWidth-Mirror").val(conceptData[26]).formSelect();  // Ancho
+  }else{
+    $("#sltWidth-Mirror").closest(".input-field").hide();
+  } 
+  
+  if(conceptData[28]){
+    $("#sltCaliber-Mirror").closest(".input-field").show();
+    $("#sltCaliber-Mirror").val(conceptData[28]).formSelect();  // Calibre 
+  }else{
+    $("#sltCaliber-Mirror").closest(".input-field").hide();
+  }   
+  
+  if(conceptData[29]){
+    $("#sltModel-Mirror").closest(".input-field").show();
+    $("#sltModel-Mirror").val(conceptData[29]).formSelect();  // Modelo
+  }else{
+    $("#sltModel-Mirror").closest(".input-field").hide();
+  }   
+  
+  if(conceptData[30]){
+    $("#sltFlow-Mirror").closest(".input-field").show();
+    $("#sltFlow-Mirror").val(conceptData[30]).formSelect();  // Caudal
+  }else{
+    $("#sltFlow-Mirror").closest(".input-field").hide();
+  }   
+  
+  if(conceptData[32]){
+    $("#sltSeparation-Mirror").closest(".input-field").show();
+    $("#sltSeparation-Mirror").val(conceptData[32]).formSelect();  // Separación
+  }else{
+    $("#sltSeparation-Mirror").closest(".input-field").hide();
+  }
+  
+  // refrescamos todos los selects
+  M.updateTextFields();
+}
+
+/*
+* función que permite establecer la estructura del nombre 
+*/
+function changeDepartmentMirror(){
+  
+  // Validamos de que se tenga una opción diferente a selecione
+  if($("#sltDepartment-Mirror").val()){
+    // Obtenemos los datos seleccionados
+    var data = $("#sltDepartment-Mirror option:selected").data("departmentData");
+    // establemcemos el nombre de la propuesta 
+    $("#structureName-Mirror").text(data[2] ? data[2] : "--Sin definir propuesta--");
+    
+  }else{
+    // establemcemos el nombre de la propuesta 
+    $("#structureName-Mirror").text("--Sin definir propuesta--");
+  }
+}
+
+/*
+* Función para listar las palabraas claves respecto a la familia seleecionada
+*/
+function changeFamilyMirror(e){
+
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  //Referenciamos el campo de family
+  var $keyword = $("#sltKeyword-Mirror");
+  
+  // Estado para deshabilitar los campos 
+  var state = true;
+  
+  // Validamos de que se tenga una opción diferente a selecione
+  if($("#sltFamily-Mirror").val()){
+    
+    // Obtenemos la opcion seleccionada
+    var dataSelected = $("#sltFamily-Mirror option:selected").data("familyData");
+    
+    // obtenemos los datos 
+    var keywordData = e.data.keywordData;
+    
+    // Obtenemos los datos para insertar
+    var arrayData = keywordData[dataSelected[1]];
+    
+    //Validamos de se tengan datos
+    if(arrayData){
+      
+      // Habilitamos el campo de seleecion
+      $keyword.attr({ disabled: false });
+      
+      // agregamos los items de palabra clave
+      SnvaJsApi.insertOptionToSelect($keyword, arrayData, 0, 0, "keywordData", true, true);
+      
+       // Validamos si se debe deshabilitar el campo y sus opciones
+      state = false;
+    }
+    
+  }
+  
+  // Validamos si se debe deshabilitar el campo y sus opciones
+  if(state){
+  
+      // reseteamos el select y desactivamos el campo 
+     $keyword.html('<option value="">--Seleccione --</option>').attr({disabled:true}).formSelect();
+  }
+}
+
+/*
+* Función que permite listar los diametros dependiento de  genero seleccionado
+*/
+function changeGenderMirror(e){
+   
+    // prevenimos el evento por defecto
+    e.preventDefault();
+    
+   // Referenciamos el campo de Diametro nominal de entrada
+   var $nominalDiameterInput = $("#sltNominalDiameterInput-Mirror");
+   
+   // Referenciamos el campo de Diametro nominal de salida
+   var $nominalDiameterOutput = $("#sltNominalDiameterOutput-Mirror");
+   
+   // Estado para deshabilitar los campos 
+   var state = true;
+   
+   // Validamos de que se tenga una opción diferente a selecione
+   if($("#sltGender-Mirror").val()){
+     
+     // Obtenemos los datos de los diametros
+     var nominalDiameterData = e.data.nominalDiameterData;
+     
+     // Obtenemos la opcion seleccionada
+     var dataSelected = $("#sltGender-Mirror option:selected").data("genderData");
+     
+     // Obtenemos los datos para insertar
+     var arrayData = nominalDiameterData[dataSelected[0]];
+     
+     //Validamos de se tengan datos
+     if(arrayData){
+       
+       // Habilitamos el campo de seleecion
+       $nominalDiameterInput.attr({ disabled: false });
+       
+       // Habilitamos el campo de seleecion
+       $nominalDiameterOutput.attr({ disabled: false });
+       
+       // agregamos los items de diametro nominal de entrada
+       SnvaJsApi.insertOptionToSelect($nominalDiameterInput, arrayData, 0, 0, "nominalDiameterInputData", true, true);
+       
+       // agregamos los items de diametro nominal de salida
+       SnvaJsApi.insertOptionToSelect($nominalDiameterOutput, arrayData, 0, 0, "nominalDiameterOutputData", true, true);
+       
+       // cambiamos el estado a que se insertaron elementos y no se debe deshabilitar
+       state = false;
+     }
+   }
+   
+   // Validamos si se debe deshabilitar el campo y sus opciones
+   if(state){
+   
+     // reseteamos el select y desactivamos el campo 
+     $nominalDiameterInput.html('<option value="">--Seleccione--</option>').attr({disabled:true}).formSelect();
+     
+     // reseteamos el select y desactivamos el campo 
+     $nominalDiameterOutput.html('<option value="">--Seleccione--</option>').attr({disabled:true}).formSelect();
+   
+   }
+}
+
+
+/**
+ * Función que permite agregar un nuevo especies
+**/
+function addMirrorConcept(e){
+  
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // Establecmeos el mensaje por defecto de crear especie
+  var messageObj = {
+    confim: "¿Seguro que desea crear una nueva nueva especie?",
+    loading: "Registrando la nueva especie...",
+    result: "Especie creada exitosamente."  
+  };
+  
+  // Obtenemos el diamtro nominal de entrada
+  var nominalDiameterInput = $("#sltNominalDiameterInput-Mirror option:selected").data("nominalDiameterInputData");
+  
+  // Obtenemos el diamtro nominal de salida
+  var nominalDiameterInput = $("#sltNominalDiameterOutput-Mirror option:selected").data("nominalDiameterOutputData");
+  
+  // Obtenemos los datos de la longitud de la pieza
+  var pieceLength = $("#sltPieceLength-Mirror option:selected").data("pieceLengthData");
+  
+  // Obtenemos los datos de la altura
+  var heightData = $("#sltHeight-Mirror option:selected").data("heightData");
+  
+  // Obtenemos los datos de ancho 
+  var width = $("#sltWidth-Mirror option:selected").data("widthData");
+  
+  var conceptData = $("#mdlPanelAddConceptMirror").data("conceptData");
+  var mainPanelId = $("#mdlPanelAddConceptMirror").data("mainPanelId");
+    
+  // Obtenemos los datos del formulario 
+  var startSpecieFormData = [
+    (conceptData[0] || ""),  // Departamento
+    ($("#txtName-Mirror").val() || ""), // Nombre
+    (conceptData[2] || ""), //Familia
+    (conceptData[3] || ""), // Palabra clave 
+    (conceptData[4] || ""), // Unidad
+    ($("#txtPriceSpecie-Mirror").val().replace(/\,/g, "") || ""), // Precio sugerido
+    ($("#sltCurrencySpecie-Mirror").val() || ""), // Moneda
+    ($("#txtSpareCostSpecie-Mirror").val().replace(/\,/g, "") || ""), // Costos de refacción
+    ($("#sltGender-Mirror").val() || ""), // Genero
+    
+    ($("#sltMaterial-Mirror").val() || ""), // material
+    ($("#sltVariety-Mirror").val() || ""), //Variadad
+    ($("#sltDocumentRD-Mirror").val() || ""), // Cedula RD/espesor
+    ("Espesor" || ""),
+    
+    ((nominalDiameterInput && nominalDiameterInput[0]) || ""),// Diametro nominal (Entrada) MM
+    ((nominalDiameterInput && nominalDiameterInput[1]) || ""),// Diametro nominal (Entrada) PULG
+    ((nominalDiameterInput && nominalDiameterInput[0]) || ""),// Diametro nominal (Salida) MM
+    ((nominalDiameterInput && nominalDiameterInput[1]) || ""),// Diametro nominal (Salida) PULG
+    ((pieceLength && pieceLength[0]) || ""),// Longitud de la pieza P
+    ((pieceLength && pieceLength[1]) || ""),// Longitud de la pieza PIES
+    ($("#sltConnectionTypeInput-Mirror option:selected").val() || ""),  // Tipo de conexxión (Entrada)
+    ($("#sltConnectionTypeOutput-Mirror option:selected").val() || ""),  // Tipo de conexion de (Salida)
+    ((heightData && heightData[0]) || ""), // Altura
+    ((heightData && heightData[1]) || ""), // Altura Unidad
+    
+    ( $("#sltAdjustmentType-Mirror").val() || ""), // Tipo de ajuste
+    ("" || ""), // Marca
+    
+    ($("#sltSizeOrCapacity-Mirror").val() || ""), // Tamaño o capacidad
+    ((width && width[1]) || ""),// Ancho m
+    ((width && width[2]) || ""), // Ancho ft
+    ($("#sltCaliber-Mirror").val() || ""), // Calibre 
+    ($("#sltModel-Mirror").val() || ""), // Modelo
+    ("" || ""),// Caudal gph
+    ("" || ""),// Caudal lph
+    ("" || "") // Separación
+  ];
+    
+  // obtenemos los datos finales
+  var endSpecieFormData = [
+      "", // Codigo
+      "",// Descripción
+      "" // Campos para los ids de las imágenes
+  ];
+  
+  // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+  SnvaJsApi.confirm(messageObj.confim, function(){
+    
+    // mostramos el loading
+    SnvaJsApi.manageLoading("block", messageObj.loading);
+    
+    // obtenemos los datos de fabricantes
+    google.script.run.withSuccessHandler(function(){
+       
+      // Mostramos el mensaje de confirmación 
+      SnvaJsApi.showAlert(messageObj.result);
+      
+      addConceptSelected({data:{mainPanelId: mainPanelId, conceptData: startSpecieFormData}});
+    
+      // Simuladmos un clic para Actualizar el listado de especies
+      $("#btnUpdateConceptList").click();
+      
+      // ocultamos el panel de creación de una nueva especie
+      $("#mdlPanelSearch").show();
+      
+      // mostramos el panel de búsqueda de especie
+      $("#mdlPanelAddConceptMirror").hide();
+      
+    }).withFailureHandler(SnvaJsApi.onFailure).createNewSpecie(startSpecieFormData, endSpecieFormData, [], false);
+  });
+}
+
+/*
+* Función que permite establecer el nombre de la especie
+*/
+function generateNameSpecieMirror(e){
+  
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // referenciamos el select
+  var $select = $("#sltDepartment-Mirror");
+  
+  // validamos si existe un departamento seleccionado
+  if($select.val()){
+    
+    // obtenemos los datos base del departamento
+    var departmentData = $select.find("option:selected").data("departmentData");
+
+    // definimos el id del campo donde debe consultar el valor segun el atributo
+    var referenceFields = {
+      "3": {regexp: /\{1\}/g, id: "sltGender-Mirror"},
+      "4": {regexp: /\{2\}/g, id: "sltMaterial-Mirror"},
+      "5": {regexp: /\{3\}/g, id: "sltVariety-Mirror"},
+      "6": {regexp: /\{4\[1\]\}/g, id: "sltDocumentRD-Mirror", index: 0, property: "documentRdData"},
+      "7": {regexp: /\{4\[2\]\}/g, id: "sltDocumentRD-Mirror", index: 1, property: "documentRdData"},
+      "8": {regexp: /\{5\[1\]\}/g, id: "sltNominalDiameterInput-Mirror", index: 0, property: "nominalDiameterInputData"},
+      "9": {regexp: /\{5\[2\]\}/g, id: "sltNominalDiameterInput-Mirror", index: 1, property: "nominalDiameterInputData"},
+      "10": {regexp: /\{6\[1\]\}/g, id: "sltNominalDiameterOutput-Mirror", index: 0, property: "nominalDiameterOutputData"},
+      "11": {regexp: /\{6\[2\]\}/g, id: "sltNominalDiameterOutput-Mirror", index: 1, property: "nominalDiameterOutputData"},
+      "12": {regexp: /\{7\[1\]\}/g, id: "sltPieceLength-Mirror", index: 0, property: "pieceLengthData"},
+      "13": {regexp: /\{7\[2\]\}/g, id: "sltPieceLength-Mirror", index: 1, property: "pieceLengthData"},
+      "14": {regexp: /\{8\[1\]\}/g, id: "sltConnectionTypeInput-Mirror"},
+      "15": {regexp: /\{8\[2\]\}/g, id: "sltConnectionTypeOutput-Mirror"},
+      "16": {regexp: /\{9\[1\]\}/g, id: "sltHeight-Mirror", index: 0, property: "heightData"},
+      "17": {regexp: /\{9\[2\]\}/g, id: "sltHeight-Mirror", index: 1, property: "heightData"},
+      "18": {regexp: /\{10\}/g, id: "sltAdjustmentType-Mirror"},
+      "19": {regexp: /\{11\}/g, id: "txtMake-Mirror"},
+      "20": {regexp: /\{12\}/g, id: "sltSizeOrCapacity-Mirror"},
+      "21": {regexp: /\{13\[1\]\}/g, id: "sltWidth-Mirror", index: 1, property: "widthData"},
+      "22": {regexp: /\{13\[2\]\}/g, id: "sltWidth-Mirror", index: 2, property: "widthData"},
+      "23": {regexp: /\{14\}/g, id: "sltCaliber-Mirror"},
+      "24": {regexp: /\{15\}/g, id: "sltModel-Mirror"}
+//      "25": {regexp: /\{16\[1\]\}/g, id: "sltFlow", index: 1, property: "flowData"},
+//      "26": {regexp: /\{16\[2\]\}/g, id: "sltFlow", index: 2, property: "flowData"},
+//      "27": {regexp: /\{16\}/g, id: "sltSeparation"}
+    };
+    
+    // validamos si existen datos en la descrioción
+    if(departmentData && departmentData.length > 3){
+      
+      // variable para obtener los atributos
+      var options = {},
+          currentValue = "",
+          regexp = "",
+          $field = null,
+          propertyValues = [];
+          
+      // definimos el nombre de la especie
+      var specieName = "";
+      
+      // recorremos los atributos
+      for(var i = 3; i < departmentData.length; i++){
+        
+        // se referencia el valor actual
+        currentValue = String(departmentData[i]).trim();
+        
+        // obtenemos las opciones
+        options = referenceFields[i];
+        
+        // se valida que exista un valor
+        if(currentValue && options){
+          
+          // validamos si el texto actual contiene un valor a reemplazar
+          if(options.regexp.test(currentValue)){
+            
+            // referenciamos el campo
+            $field = $("#" + options.id);
+            
+            // validamos si existe un valor seleccionado
+            if($field.val()){
+            
+              // validamos si el atributo solo debe obtener el valor actual seleccionado
+              if(!options.index){
+                
+                // agregamos el valor actual al nombre
+                specieName += currentValue.replace(options.regexp, String($field.val() || "").trim()) + " ";
+                
+              } else {
+                
+                // obtenemos la propiedad
+                propertyValues = $field.find("option:selected").data(options.property);
+                
+                // se valida que exista valores en la propiedad
+                if(propertyValues && propertyValues[options.index]){
+                
+                  // agregamos el valor actual al nombre
+                  specieName += currentValue.replace(options.regexp, propertyValues[options.index]) + " ";
+                }
+              }
+            }
+            
+          } else {
+            
+            // agregamos el valor actual al nombre
+            specieName += currentValue + " ";
+            
+          }
+        }
+      }
+      
+      // actualizamos el nombre
+      $("#txtName-Mirror").val(specieName.trim());
+      M.updateTextFields();
+    }
+  }  
+}
+</script>

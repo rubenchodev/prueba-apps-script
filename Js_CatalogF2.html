@@ -1,0 +1,1570 @@
+<script>
+
+$(document).on("click",function(e) {
+  
+  // Referenciamos el contenedor
+  var $container = $("#ctnDropdownGroups");
+  
+  // Referenciamos el elemento
+  var element = e.target;
+  
+  // Obtenemos la lista de clases
+  var classList = [];
+  
+  // se valida si existe existe clases en el elemento
+  if(element.className){
+    
+    // convertimos la lista de clases en un array
+    classList = element.className.split(" ");
+    
+  }
+  
+  // validamos si se debe ocultar el panel 
+  if (classList.indexOf("spn-group-lading") == -1 && !$container.is(element) && $container.has(element).length === 0) { 
+    
+    // Ocultamos el panel de selección de grupos 
+    hiddenPanelGroupLanding();          
+  }
+});
+
+
+
+/**
+ * Permite Obtener los datos de los fletes  
+**/
+function updateListLadingInTable(){
+  
+  // variable para guardar la lista de items de fletes
+  var itemList = {
+    "materialData": {},
+    "manpowerData": {},
+    "transportData": {},
+  };
+  
+  // Obtenemos la información almacenada de los fletes de los materiales
+  getListLadingFromTable("tableMaterialItems", itemList.materialData, "Materiales");
+  
+  // obtenemos la información almacenada de los fletes de la mano de obra
+  getListLadingFromTable("tableManpowerItems", itemList.manpowerData, "Mano de obra");
+  
+   // obtenemos la información almacenada de los fletes de los equipos
+  getListLadingFromTableEquipment("tableEquipmentItems", itemList.transportData);
+  
+  // referenciamos la table de fletes
+  var $tableTransport = $("#tableTransportItems");
+  
+  // Array de los vehiculos 
+  var arrayVehicles = [], arrayVehiclesName = [], typeData = "", rowIndex = 0, middle = "";
+  
+  // Borramos los datos actuales de fletes
+  $tableTransport.find("tbody tr td:not(:first-child)").html("");
+  
+  // recorremos cada uno de los medios
+  for(var middleKey in itemList){
+    
+    // recorremos cada uno de los fletes 
+    for(var ladingKey in itemList[middleKey]){
+      
+      // Recorremos cada una de las descripciones
+      for(var descriptionKey in itemList[middleKey][ladingKey].descriptions){
+      
+        // Obtenemos los datos de los flejes
+        typeData = itemList[middleKey][ladingKey].typeData;
+        
+        // Obtenemos el array de los vehiculos
+        arrayVehicles =  itemList[middleKey][ladingKey].descriptions[descriptionKey].vehicles;
+        
+        // Obtenemos los nombres de los vehiculos
+        arrayVehiclesName = itemList[middleKey][ladingKey].descriptions[descriptionKey].arrayVehiclesName;
+        
+        // Nombre del medio
+        middle = itemList[middleKey][ladingKey].descriptions[descriptionKey].middle;
+        
+        // Validamos de que se tenga vehiculos 
+        if(arrayVehicles && arrayVehicles.length > 0){
+          
+          // insertamos los registros de fletes en la respectiva tabla
+          insertRowDataFromCatalogLading($tableTransport, arrayVehicles, typeData, middleKey, arrayVehiclesName, middle, descriptionKey, rowIndex);
+          
+          // Aumentamos el numeral de la fila
+          rowIndex++; 
+        }
+      }
+    }
+  }
+}
+
+/*
+* Permite guardar las repetiones 
+*/
+function saveRepetitions(e){
+
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // mostramos la ventana de confirmación al momento de almacenar la información de las repeticiones de un flete 
+  SnvaJsApi.confirm("¿Seguro desea registrar los datos de las repeticiones para el flete?", function(){
+    
+    // Mostramos el loading
+    SnvaJsApi.manageLoading("block", "Almacenando información de los fletes, espera un momento por favor...");
+    
+    // Obtenemos los datos generales 
+    var objectData = {
+      unit: $("#txtUnitMeasureModel").val(),
+      length: $("#txtLength").val()
+    }
+    
+    // Guardamos los datos en la tabla 
+    $("#tableTransportItems").data("generalDataRepetition", objectData); 
+    
+    // Actualizamos los datos de los fletes
+    updateRowsLading(objectData.unit);
+    
+    // Actualiamos los datos de las repeticiones 
+    updateDataRepetition(); 
+    
+    // cambiamos el estado para mostrar el mensajes si no se guardan los datos
+    changeStateSaving();
+    
+    // Calculamos el total de fletes
+    calculateCurrentTotal($("#tableTransportItems tbody tr:first-child"), "ctnTransportItems");
+    
+    // referenciamos la instancia del modal
+    var instanceModal = M.Modal.getInstance($("#mdlRepetitions"));
+    
+    // se valida que exista la instancia
+    if(instanceModal){
+      
+      // Cerramos  el modal
+      instanceModal.close();
+    }
+    
+    // Ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+    
+    // mostramos mensaje
+    SnvaJsApi.showAlert("Datos almacenados exitosamente.");
+    
+  });
+ 
+}
+
+
+/*
+* Permite realizar la actualización de las repeticiones 
+*/
+function updateDataRepetition(){
+  
+  // Referenciamos la tabla de fletes
+  var $tableTransportItems = $("#tableTransportItems");
+  
+  // Obtenemos la propiedad de los todos los datos
+  var allDataRepetition = $tableTransportItems.data("allDataRepetition");
+  
+  // Validamos si no existe la prpiedad 
+  if(!allDataRepetition){
+    
+    // Creamos el objeto de la propiedad 
+    allDataRepetition = {}
+  }
+ 
+  // Obtenemos los datos de la tabla de lista de vehiculos 
+  var $rowsVehicles = $("#tblLadingData tbody tr");
+  
+  // variable para obtener la información del objeto
+  var $rowVechicle ="", // Referencia a la fila 
+      ladingName = "", // Nombre del flete 
+      middle = "", // Medio
+      description = "", // Descripción 
+      vehicle = "", // Vehiculo
+      inversion = "", // Inversion (litros)
+      totalITE = $("#spnKUnit").data("totalITE") || 0, // Total ITE
+      totalKUnit = $("#spnKUnit").data("totalKUnit") || 0 ; // Total k Unitario
+      
+  // Rrecorremos caad una de las filas 
+  $rowsVehicles.each(function(rowIndex, element){
+   
+    // Referenciamos a la fila 
+    $rowVechicle = $(this);
+    
+    // Obtenemos cada uno de los datos de la fila de la tabla 
+    ladingName = $rowVechicle.find("td:nth-child(1)").text(); // Nombre del flete 
+    middle = $rowVechicle.find("td:nth-child(2)").text(); // Medio
+    description = $rowVechicle.find("td:nth-child(3)").text(); // Descripción
+    vehicle = $rowVechicle.find("td:nth-child(4)").text();//Vehiculo 
+    inversion = $rowVechicle.find("td:nth-child(6) input").val(); // Inversion (litros) 
+    
+    //validamos si la propiedad del nombre del felte existe
+    if(!allDataRepetition[ladingName]){
+    
+      // Creamos el flete 
+      allDataRepetition[ladingName] = {};
+    }
+    
+    // validamos si existe  el medio detro del objeto del flete 
+    if(!allDataRepetition[ladingName][middle]){
+    
+      // Creamos el medio 
+      allDataRepetition[ladingName][middle] = {};
+    }
+    
+    // validamos si existe  la descripción detro del objeto del medio 
+    if(!allDataRepetition[ladingName][middle][description]){
+    
+      // Creamosla descripción 
+      allDataRepetition[ladingName][middle][description] = {};
+    }
+    
+    // validamos si no existe el vehiculo registrado
+    if(!allDataRepetition[ladingName][middle][description][vehicle]){
+    
+      // Creamos el vehiculo y le asignamos la inversión 
+      allDataRepetition[ladingName][middle][description][vehicle] = { 
+        inversion: inversion,
+        repetitions: $("#txtRepetitions").val(),
+        totalITE: totalITE,
+        totalKUnit: totalKUnit
+      };
+      
+    } else {
+      
+      // validamos si el elemento es el primero
+      if(rowIndex == 0){
+        
+        // Inciializamos la propiedad de "Inversión"
+        allDataRepetition[ladingName][middle][description][vehicle].inversion = String(inversion);
+        
+      } else {
+      
+        // agregamos a la lista la inversión respectiva
+        allDataRepetition[ladingName][middle][description][vehicle].inversion = String(allDataRepetition[ladingName][middle][description][vehicle].inversion) + "|" + inversion;
+      }
+    }
+                                                                     
+  });
+  
+  // Referenciamos el modal
+  var rowIndex = $("#mdlRepetitions").data("rowIndex");
+  
+    // referenciamos la fila
+  var $row = $tableTransportItems.find("tbody tr:eq(" + rowIndex + ")");
+  
+  // Obtenemos los datos del concepto
+  var conceptObj = $("#ctnConceptsList tr.tr-selected").addClass("tr-selected").data("conceptObj");
+ 
+  // Obtenemos la cantidad 
+  var quantity =  (Number(totalITE) || 0) / (Number(String(conceptObj.conceptData[5]).replace(/\$|\,/g, "")) || 0);
+  
+  // Obtenmos el importe 
+  var importe = quantity * (Number(totalKUnit) || 0);
+
+  // agregamos el Cantidad
+  $row.find("td:nth-child(6)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(quantity, 6)));
+  
+  // agregamos el costo unitario
+  $row.find("td:nth-child(7)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(totalKUnit, 6)));
+  
+  // agregamos el importe
+  $row.find("td:nth-child(8)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(importe, 6)));
+  
+  // Agregamos los datos 
+  $("#tableTransportItems").data("allDataRepetition", allDataRepetition);
+}
+
+/*
+* permite actualizar las filas de los fletes 
+*/
+function updateRowsLading(unit){
+  
+  // Obtenemos las filas 
+  var $rows = $("#tableTransportItems tbody tr");
+  
+  // referencia a la fila 
+  var $row = "";
+  
+  // Recorremos cada uno de las filas 
+  $rows.each(function(){
+    
+    // Refenciamos la filas 
+    $row = $(this);
+    
+    // Validamos si la fila tiene datos 
+    if($row.find("td:nth-child(3)").text()){
+     
+      // Nos pocisionamos en la columana y asignamos el valor de la columna 
+      $row.find("td:nth-child(4)").text(unit);
+    }
+    
+  });
+}
+
+
+/*
+* permite insertar una nueva fila en fletes
+*/
+function insertRowDataFromCatalogLading($tableTransport, arrayVehicles, typeData, middleKey, arrayVehiclesName, middle, descriptionKey, rowIndex){
+ 
+  // referenciamos la fila
+  var $row = $tableTransport.find("tbody tr:eq(" + rowIndex + ")");
+  
+  // Obtenemos los datos generarles
+  var generalDataRepetition = $("#tableTransportItems").data("generalDataRepetition");
+  
+  // Adicinamos los datos a la fila 
+  $row.find("td:nth-child(2)").text(typeData.key); // agregamos la clave
+  $row.find("td:nth-child(3)").text(typeData.description + " para " + middle + " con vehículo " + SnvaJsApi.uniqueArray(arrayVehiclesName).toString().replace(/\,/g, " & "));// agregamos la descripción
+  
+  // validamos de que se encuentre los datos
+  if(generalDataRepetition && generalDataRepetition.unit){
+     
+     $row.find("td:nth-child(4)").append(generalDataRepetition.unit); // Unidad 
+  }else{
+  
+    $row.find("td:nth-child(4)").append(); // Unidad 
+  }
+  
+  // Agregamos las repeticiones
+  $row.find("td:nth-child(5)").attr({class: "text-center"}).append(
+    $("<a>").attr({href:"javascript:void(0)", class:"btn-icon-flight", title:"Repeticiones"}).append(
+      $("<i>").attr({class:"material-icons"}).html("line_style")
+    ).click({
+      "vehiclesData": {
+        "arrayVehicles": arrayVehicles,
+        "typeData": typeData,
+        "middle": middle,
+        "description": descriptionKey,
+        "rowIndex": rowIndex
+       }
+    }, showMdlRepetitions)
+  )
+  
+  // Obtenemos la propiedad de los todos los datos
+  var allDataRepetition = $("#tableTransportItems").data("allDataRepetition");
+ 
+  // Variables para los caculos
+  var quantity = 0, //cantidad 
+      costUnit = 0, // Costo unitario 
+      importe = 0, // Importe  
+      totalKUnit = 0; // Total de k unitario 
+  
+  // validamos de que se encuentre el texto 
+  if(allDataRepetition && allDataRepetition[typeData.description] && allDataRepetition[typeData.description][middle] &&
+     allDataRepetition[typeData.description][middle][descriptionKey]  && allDataRepetition[typeData.description][middle][descriptionKey][arrayVehicles[0].carDetails]){
+  
+    // Obtenemos la inversión
+    var totalITE = allDataRepetition[typeData.description][middle][descriptionKey][arrayVehicles[0].carDetails].totalITE;
+    
+    // Obtenemos las repeticiones 
+    totalKUnit = allDataRepetition[typeData.description][middle][descriptionKey][arrayVehicles[0].carDetails].totalKUnit; 
+    
+    // Obtenemos los datos del concepto
+    var conceptObj = $("#ctnConceptsList tr.tr-selected").addClass("tr-selected").data("conceptObj");
+    
+    // Obtenemos la cantidad 
+    quantity =  SnvaJsApi.roundDecimal(Number(totalITE) / (Number(String(conceptObj.conceptData[5]).replace(/\$|\,/g, "")) || 0), 6);
+    
+    // Obtenemos el costo unitario 
+    costUnit =  totalKUnit || 0;
+    
+    // Obtenmos el importe 
+    importe = Number(quantity) * Number(costUnit);
+    
+  }
+  
+  // agregamos el Cantidad
+  $row.find("td:nth-child(6)").text(SnvaJsApi.formatValue(quantity));
+//  $row.find("td:nth-child(6)").text(SnvaJsApi.roundDecimal(quantity.replace(/\$|\,/g, ""), 6));
+//  $row.find("td:nth-child(6)").text(SnvaJsApi.formatValue(String(SnvaJsApi.roundDecimal(String(quantity).replace(/\$|\,/g, ""), 6).replace(/\$|\,/g, ""))));
+    
+  // agregamos el costo unitario
+  $row.find("td:nth-child(7)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(totalKUnit, 6)));
+  
+  // agregamos el importe
+  $row.find("td:nth-child(8)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(importe, 6)));
+  
+}
+
+/*
+* permite realizar los calculos cuando se modifica la longitud
+*/
+function calculationsRepetitions(){
+
+  // Obtenemos la longitud 
+  var length = $("#txtLength").val();
+  
+  // Obtenemos todas las filas de lso calculo s
+  var $rows = $("#tblRepetitionsCalculations tbody tr");
+  
+  // Declaración de variable para los calculos
+  var totalITE = 0, // Total del ite
+    totalKUnit = 0, // Total de K unitario 
+    $rowCalculation = "", // Referencia a la fila
+    arrayVehicleData = "", // Datos de la fila 
+    quantity = 0, // Cantidad UMl
+    ite = 0, //Inversión total Equivalente [ITE]
+    kUnit = 0; // K. Unitario (K.U)
+  
+  // Obtnemos el valor de la costantes
+  var unitListUME = $("#mdlRepetitions").data("unitListUME");
+  
+  // Recorremos las filas 
+  $rows.each(function(){
+    
+    // Obtenemos la fila 
+    $rowCalculation = $(this);
+    
+    // Obtenemos el array de los vehiculos
+    arrayVehicleData = $(this).data("arrayVehicleData");
+      
+      // Validamos si vienen los datos de la longitud y el progreso
+      if(length && arrayVehicleData && arrayVehicleData.tight){
+
+        // Asignamos la cantidad 
+        quantity = SnvaJsApi.roundDecimal(Number(length) / Number(arrayVehicleData.tight), 6);
+        
+        // Asignamos la inversión total equivalente 
+        ite = 1 / Number(arrayVehicleData.tight);
+        
+        // validamos de que la constante se encuentre
+        if(unitListUME && unitListUME[arrayVehicleData.fuel]){
+          
+          // Obtenemos los datos de la constante
+          var dataFuel = unitListUME[arrayVehicleData.fuel];
+          
+          // Validamos de que se tenga el valor de la kmul
+          if(dataFuel.kuml){
+            kUnit = Number(dataFuel.kuml) * Number(ite);
+          }
+        }
+      }
+      
+      // Agregamos los datos de la fila 
+      $rowCalculation.find("td:nth-child(1)").text(SnvaJsApi.formatValue(quantity));// Cantidad UML [CUML]
+      $rowCalculation.find("td:nth-child(2)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(ite, 6)));// Inversión total Equivalente [ITE]
+      $rowCalculation.find("td:nth-child(6)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(kUnit, 6)));// K. Unitario (K.U)
+      
+      // referecniamos la columna de Inversión total y obtenemos el valor 
+      totalITE = totalITE + ite;
+      
+      // referecniamos la columna de K. Unitario (K.U) y obtenemos el valor
+      totalKUnit = totalKUnit + kUnit;
+      
+  });
+  
+  // Establecemos el K unitario en los calculos 
+  $("#spnKUnit").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal((totalKUnit || "0"), 6))).data({"totalITE": totalITE,"totalKUnit": totalKUnit });
+
+}
+
+/*
+* opermite mostrar el modal de las repeticiones 
+*/
+function showMdlRepetitions(e){
+   
+   // Prevenimos el evento por defecto
+   e.preventDefault();
+   
+   // Obtenemos el array de los vehiculos 
+   var vehiclesData =  e.data.vehiclesData;
+   
+   // Validamos de que existen los datos de los vehiculos 
+   if(vehiclesData){
+     
+     // Insertamos los datos a la tabla de lista de vehiculos 
+     insertVehiclesDataTable(vehiclesData);
+   }
+   
+   //Obtenmos los datos generales
+   var generalDataRepetition = $("#tableTransportItems").data("generalDataRepetition");
+
+   // Validamos de que se tengan los datos  
+   if(generalDataRepetition && generalDataRepetition.unit && generalDataRepetition.length){
+     
+     // Insertamos los datos de unidad
+     $("#txtUnitMeasureModel").val(generalDataRepetition.unit).change();
+     
+     // Unisertamos el dato de longitud
+     $("#txtLength").val(generalDataRepetition.length).change();
+     
+     // Actualizamos los campos de texto
+     M.updateTextFields();
+     
+   }
+   
+   // Referenciamos el modal
+   var $mdlRepetitions = $("#mdlRepetitions");
+   
+   // Agrergamos el dato de la fila
+   $mdlRepetitions.data("rowIndex", vehiclesData.rowIndex);
+   
+   // referenciamos la instancia del modal
+   var instanceModal = M.Modal.getInstance( $mdlRepetitions);
+   
+   // se valida que exista la instancia
+   if(instanceModal){
+     
+     // mostramos el modal
+     instanceModal.open();
+   } 
+}
+
+
+/*
+* Permite insertar los datos a la tabla de la lista de vehiculos 
+*/
+function insertVehiclesDataTable(vehiclesData){
+  
+  // Referenciamos al cuerpo de la tabla 
+  var $tBodyVehicle = $("#tblLadingData tbody");
+  
+  // Limpiamos el contenido de la tabla 
+  $tBodyVehicle.html("");
+  
+  // Variable para la fila de la tabla 
+  var $row = "";
+  
+  // Obtenemos el valor de la longitud de ida y vuelta 
+  var length = $("#txtLength").val();
+  
+  // Obtnemos el valor de la costantes
+  var unitListUME = $("#mdlRepetitions").data("unitListUME");
+  
+  // Referenciamos al cuerpo de la tabla de los calculos 
+  var $tBodyCalculation = $("#tblRepetitionsCalculations tbody");
+  
+  //Limpiamos la tabla
+  $tBodyCalculation.html("");
+  
+  // Obtenemos la propiedad de los todos los datos
+  var allDataRepetition = $("#tableTransportItems").data("allDataRepetition");
+  
+  // Inversion en litros de cada uno de los vehiculos
+  var inversion = [1], repetitions = 1;
+  
+  // Recorremos cada uno de los vehiculos
+  for( var i = 0; i < vehiclesData.arrayVehicles.length; i++){
+  
+    // Referencia a la nueva fila  
+    $row = $("<tr>").attr({class: "isValid"});
+    
+    // agregamos la fila al cuerpo de la tabla
+    $tBodyVehicle.append($row);
+    
+    // Agregamos los datos de la fila 
+    $row.append($("<td>").append(vehiclesData.typeData.description));// Tipo de flete
+    $row.append($("<td>").append(vehiclesData.middle));// Medio
+    $row.append($("<td>").append(vehiclesData.description));// Descripción
+    $row.append($("<td>").append(vehiclesData.arrayVehicles[i].carDetails));// Vehiculo
+    $row.append($("<td>").append(vehiclesData.arrayVehicles[i].tight));// Progreso UML
+    
+    // validamos de que se encuentre el texto 
+    if(allDataRepetition && allDataRepetition[vehiclesData.typeData.description] && allDataRepetition[vehiclesData.typeData.description][vehiclesData.middle] && allDataRepetition[vehiclesData.typeData.description][vehiclesData.middle][vehiclesData.description]  && allDataRepetition[vehiclesData.typeData.description][vehiclesData.middle][vehiclesData.description][vehiclesData.arrayVehicles[i].carDetails]){
+      
+      // Obtenemos la inversión
+      inversion = allDataRepetition[vehiclesData.typeData.description][vehiclesData.middle][vehiclesData.description][vehiclesData.arrayVehicles[i].carDetails].inversion;
+      
+      // convertimos en array el string()
+      inversion = String(inversion).split("|");
+      
+      // Obtenemos las repeticiones 
+      repetitions = allDataRepetition[vehiclesData.typeData.description][vehiclesData.middle][vehiclesData.description][vehiclesData.arrayVehicles[i].carDetails].repetitions; 
+    }
+    
+    $row.append(
+      $("<td>").append(
+        $("<input>").attr({class: "text-center", type: "text",}).val(inversion[i] || 1) // Por defecto 1
+      )
+    );//Inversión [Li] (Litros)
+    
+    // Insertamos la fila en la tabla de los calculo
+    insertDataCalculations(vehiclesData.arrayVehicles[i], length, unitListUME, $tBodyCalculation); 
+  }
+  
+  // Establecmeos las repeticiones
+  $("#txtRepetitions").val(repetitions);
+      
+  // Establecmeos el medio 
+  $("#spnMiddle").text(vehiclesData.middle);
+  
+  // Obtenemos todas las filas de lso calculo s
+  var $rows = $("#tblRepetitionsCalculations tbody tr");
+  
+  // variables para los totales 
+  var totalITE = 0; 
+  var totalKUnit = 0;
+  var $rowCalculation = ""; 
+  
+  // Recorremos las filas 
+  $rows.each(function(){
+     
+     // Obtenemos la fila 
+     $rowCalculation = $(this);
+     
+     // referecniamos la columna de Inversión total y obtenemos el valor 
+     totalITE = totalITE + Number($rowCalculation.find("td:nth-child(2)").text());
+     
+     // referecniamos la columna de K. Unitario (K.U) y obtenemos el valor
+     totalKUnit = totalKUnit + Number($rowCalculation.find("td:nth-child(6)").text())
+  
+  });
+  
+  // Establecemos el K unitario en los calculos 
+  $("#spnKUnit").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal((totalKUnit || "0"), 6))).data({"totalITE": totalITE,"totalKUnit": totalKUnit });
+  
+}
+
+
+/*
+* Permite insertar una nueva fila en la tabla de los calculos 
+*/
+function insertDataCalculations(arrayVehicleData, length, unitListUME, $tBodyCalculation){
+  
+  // Variable para la fila de la tabla 
+  var $row = $("<tr>").attr({class: "isValid"}).data("arrayVehicleData", arrayVehicleData);
+  
+  // agregamos la fila al cuerpo de la tabla
+  $tBodyCalculation.append($row);
+  
+  // Declaración de variable para los calculos
+  var quantity = 0, // Cantidad UMl
+      ite = 0, //Inversión total Equivalente [ITE]
+      kuml = 0, // kmul
+      kUnit = 0; // K. Unitario (K.U)
+      
+  // Validamos si vienen los datos de la longitud y el progreso
+  if(length && arrayVehicleData && arrayVehicleData.tight){
+    
+    // Asignamos la cantidad 
+    quantity = Number(length) / Number(arrayVehicleData.tight);
+    
+    // Asignamos la inversión totla equivalente 
+    ite = 1 / Number(arrayVehicleData.tight);
+    
+    // validamos de que la constante se encuentre
+    if(unitListUME && unitListUME[arrayVehicleData.fuel]){
+      
+      // Obtenemos los datos de la constante
+      var dataFuel = unitListUME[arrayVehicleData.fuel];
+      
+      // Validamos de que se tenga el valor de la kmul
+      if(dataFuel.kuml){
+        
+        // Realizamos las operaciones 
+        kuml = dataFuel.kuml;
+        kUnit = Number(dataFuel.kuml) * Number(ite);
+      }
+    }
+    
+  }
+  
+  // Agregamos los datos de la fila 
+  $row.append($("<td>").append(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(quantity, 6))));// Cantidad UML [CUML]
+  $row.append($("<td>").append(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(ite, 6)) ));// Inversión total Equivalente [ITE]
+  $row.append($("<td>").append("l/km"));// Unidad de Medida de la Estimación [UME]
+  $row.append($("<td>").append(arrayVehicleData.fuel || "--"));// Combustible
+  
+  $row.append($("<td>").append(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(kuml, 6))));// KUML
+  $row.append($("<td>").append(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(kUnit, 6)) ));// K. Unitario (K.U)
+
+}
+
+
+
+
+/**
+ * Permite obtener los registros de fletes registrados en una determinada tabla 
+**/
+function getListLadingFromTable(tableId, itemList, itemName){
+  
+  // se referencia la tabla
+  var $table = $("#" + tableId);
+  
+  // obtenemos la propiedad "arrayLading"
+  var arrayLading = $table.data("arrayLading");
+  
+  // Obtenemos los itemes
+  itemList = getItemsLading(itemList, arrayLading, itemName);
+  
+  // Se retorna la lista actualizada
+  return itemList;  
+  
+}
+
+
+/*
+* Permite obtener los fletes y organizarlos segun la estructura requerida 
+*/
+function getListLadingFromTableEquipment(tableId, itemList){
+  
+  // obtenemos cada una de las filas
+  var $rows = $("#" + tableId + " tbody tr"),
+  $row = null,
+  arrayLading = [];
+  
+  // recorremos cada una de las filas
+  $rows.each(function(){
+    
+    // referenciamos la fila actual
+    $row = $(this);
+    
+    // obtenemos los datos de fletes
+    arrayLading = $row.data("arrayLading");
+    
+    // Obtenemos los items ordenados 
+    itemList = getItemsLading(itemList, arrayLading, "Equipos");
+    
+  });
+ 
+  // Retornamos el array con los items 
+  return itemList;
+  
+}
+
+/*
+* permite obtener los items de los fletes apartir de una array 
+*/
+function getItemsLading(itemList, arrayLading, itemName){
+  
+  // validamos si existe la propiedad
+  if(arrayLading){
+    
+    // recorremos cada uno del listado
+    for(var i = 0; i < arrayLading.length; i++){
+      
+      // Validamos si no existe la propiedad del tipo de flete 
+      if(arrayLading[i].typeData && arrayLading[i].typeData.description && !itemList[arrayLading[i].typeData.description]){
+      
+        // Creamos el tipo de flete 
+        itemList[arrayLading[i].typeData.description] = {
+          descriptions: {}, // Cada una de las descripciones que tiene el flete 
+          typeData: arrayLading[i].typeData // Datos del flete
+        }
+      }
+      
+      // Validamos de que se no se tiene la descripción 
+      if(arrayLading[i].description && !itemList[arrayLading[i].typeData.description].descriptions[arrayLading[i].description] ){
+        
+        // Creamos la descripción 
+        itemList[arrayLading[i].typeData.description].descriptions[arrayLading[i].description] = {
+           vehicles:[],// Array de los vehiculos 
+           arrayVehiclesName:[],
+           middle: itemName,
+        } 
+      
+      }
+      // Adicionamos los datos del vehiculo 
+      itemList[arrayLading[i].typeData.description].descriptions[arrayLading[i].description].vehicles.push(arrayLading[i].vehicle);
+      
+      // Adicionamos El nombre del vehiculo 
+      itemList[arrayLading[i].typeData.description].descriptions[arrayLading[i].description].arrayVehiclesName.push(arrayLading[i].vehicle.carDetails);
+      
+    }
+    
+    // Retornamos los items
+    return itemList;
+    
+  }
+}
+
+
+
+/**
+ * Función que permite seleccionar un grupo al que pertenece
+**/
+function selectedGroupLanding(e){
+  
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // se referencia el elemento
+  var $element = $(this);
+  
+  // obtenemos la información del grupo seleccionado
+  var groupDataSelected = $element.data("groupData"); 
+  
+  // Obtenemos la información de la posición del elemento
+  var position = getDocumentOffsetPosition($element[0]);
+  
+  // obtenemos la lista de grupos
+  var groupList = getGroupList();
+  
+  // definimos el contenedor
+  var $content = $("#ctnDropdownGroups ul").data({"groupList": groupList, element: $element});
+  
+  // Eliminamos el contenido actual
+  $content.html("");
+  
+  // Definimos la variable de opciones para cada opción
+  var options = {};
+  
+  // recorremos cada uno de los grupos
+  for(var key in groupList){
+    
+    // definimos las opciones
+    options = {class: "with-gap", name: "radGroupLading", type: "radio", value: key};
+    
+    // validamos si el valor actual
+    if(key == groupDataSelected.name){
+      
+      // Definimos la opción de checkeo
+      options.checked = true;
+      
+    }
+   
+    // Agregamos la opción del grupo respectivo
+    $content.append(
+      $("<li>").append(
+        $("<label>").append(
+          $("<input>").attr(options).click({groupData: groupList[key], element: $element}, markedGroupInPanel)
+        ).append(
+          $("<span>").attr({class: "spn-input-text"}).text(key)
+        )
+      )
+    );
+    
+  }
+  
+  // Mostramos el panel al momento
+  showPanelGroupLanding(position.left, position.top);
+}
+
+/**
+ * Función que permite seleccionar una opción del panel de grupos
+**/
+function markedGroupInPanel(e){
+  
+  // Referenciamos el elemento del grupo
+  var $element = e.data.element;
+  
+  // obtenemos los datos del grupo
+  var groupData = e.data.groupData;
+  
+  // referenciamos el radio buton seleccionado
+  var $radElement = $(this);
+  
+  // definimos la clase al elemento
+  $element.attr({class: ("spn-group-lading " + groupData.className), title: groupData.name});
+  
+  // actualizamos la información del elemento
+  $element.text(groupData.name).data("groupData", groupData);
+  
+  // Borramos el texto del campo
+  $("#txtNewGroupLading").val("");
+  
+  // Ocultamos el panel de selección de grupos 
+  hiddenPanelGroupLanding();
+}
+
+/**
+ * Función que permite crear un nuevo grupo de la lista
+**/
+function createNewGroupLading(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos el valor del campo de grupo
+  var groupName = $("#txtNewGroupLading").val().trim();
+  
+  // Obtenemos el nombre del grupo sin ecentos y en minuscula
+  var groupNameProperty = SnvaJsApi.clearString(groupName);
+  
+  // Validamos si el campo tiene algun datos
+  if(groupNameProperty){
+    
+    // Referenciamos el contenedor
+    var $content = $("#ctnDropdownGroups ul");
+    
+    // Obtenemos la lista de grupos actuales
+    var groupList = $content.data("groupList");
+    
+    // referenciamos el campo actual
+    var $element = $content.data("element");
+    
+    // validamos si el nombre no existe en el listado de grupos
+    if(!groupList[groupNameProperty]){
+      
+      // se define el objeto con la información del grupo
+      var groupData = {
+        name: groupName,
+        className: ramdonClassName()
+      };
+      
+      // Creamos el nuevo campo
+      var $field = $("<input>").attr({class: "with-gap", name: "radGroupLading", type: "radio", value: groupName}).click({"groupData": groupData, element: $element}, markedGroupInPanel);
+      
+      // Agregamos la opción del grupo respectivo
+      $content.append(
+        $("<li>").append(
+          $("<label>").append($field).append(
+            $("<span>").attr({class: "spn-input-text"}).text(groupName)
+          )
+        )
+      );
+      
+      // Emulamos el clic del campo
+      $field.trigger("click");
+      
+      // Borramos el texto del campo
+      $("#txtNewGroupLading").val("");
+      
+    } else {
+      
+      // Mostramos el mensaje respectivo
+      M.toast({html: "El grupo ya existe.", classes: "red"});
+      
+    }
+    
+  } else {
+    
+    // Mostramos el mensaje respectivo
+    M.toast({html: "Debe agregar el nombre del nuevo grupo.", classes: "red"});
+    
+  }
+}
+
+/**
+ * Permite calcular la clase por defecto para el grupo
+**/
+function ramdonClassName(){
+  
+  // Definimos el array de colores
+  var arrayColors = [
+    "bg-purple",
+    "bg-fuchsia",
+    "bg-navy",
+    "bg-blue",
+    "bg-teal",
+    "bg-aqua",
+    "bg-green",
+    "bg-lime",
+    "bg-olive",
+    "bg-yellow",
+    "bg-maroon",
+    "bg-red",
+    "bg-black",
+    "bg-gray",
+    "bg-silver"
+  ];
+  
+  //Obtenemos la posición
+  var position = Math.floor(Math.random() * 15);
+  
+  // Retornamos el color de la clase
+  return arrayColors[position - 1];
+  
+}
+
+/**
+ * Permite obtener los grupos que se deben mostrar en la lista
+**/
+function getGroupList(){
+  
+  // Variable para guardar los diferentes grupos
+  var groupList = {
+    "Sin grupo": {
+      name: "Sin grupo",
+      className: "bg-default"
+    } 
+  };
+  
+  // Variable para referenciar los datos del grupo actual
+  var currentGroupData = null,
+      groupName = "";
+  
+  // recorremos
+  $("#tblLading span.spn-group-lading").each(function(){
+    
+    // obtenemos el dato del grupo
+    currentGroupData = $(this).data("groupData");
+    
+    // validamos si existe la propiedad
+    if(currentGroupData){
+      
+      // obtenemos el nombre del grupo sin acento y en minuscula
+      groupName = SnvaJsApi.clearString(currentGroupData.name);
+      
+      // se valida si aun no existe los datos del grupo
+      if(!groupList[groupName]){
+      
+        // Agregamos el item en la lista
+        groupList[currentGroupData.name] = currentGroupData;
+      }
+      
+    }
+    
+  });
+  
+  // Retornamos la lista
+  return groupList;
+  
+}
+
+/**
+ *
+ * @param {HTMLElement} el
+ * @return {{top: number, left: number}}
+ */
+function getDocumentOffsetPosition(el) {
+  
+  // Obtenemos la información del elemento
+  var rect = el.getBoundingClientRect(),
+  scrollLeft = window.pageXOffset || document.documentElement.scrollLeft,
+  scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  
+  //Obtenemos la altura de la pagina
+  var windowHeight = $(window).height();
+  
+  // obtenemos el tamaño de altura del contenedor
+  var contentHeight = $("#ctnDropdownGroups").height();
+
+  // obtenemos la posición top maxima para mostrar el panel
+  var topMax = (windowHeight - contentHeight) - 5;
+
+  // definimos las propiedades de posición a retornar
+  var positionData = {
+    top: (rect.top),
+    left: (rect.left + rect.width)
+  };
+ 
+  // validamos si el top supera el max de top
+  if(positionData.top > topMax){
+    
+    // definimos que la posición top sea la maxima definida
+    positionData.top = topMax;
+    
+  }
+  
+  // validamos si el top es menor que cero se establece cero
+  if(positionData.top < 0) positionData.top = 0;
+
+  // Retornamos la información de posición del elemento
+  return positionData;
+}
+
+/**
+ * Función que permite mostrar el selector de grupos de fletes
+**/
+function showPanelGroupLanding(left, top){
+  
+  // cambiamos los estilos del contenedor
+  $("#ctnDropdownGroups").css({opacity: 1, display: "block", left: left, top: top});
+  
+}
+
+/**
+ * Función que permite ocultar el selector de grupos de fletes
+**/
+function hiddenPanelGroupLanding(){
+  
+  // cambiamos los estilos del contenedor
+  $("#ctnDropdownGroups").css({opacity: 0, display: "none"});
+  
+}
+
+/*
+* Permite agregar el avance de partificación de cada agente 
+*/
+function showMdlParticipation(e){
+  
+  // prevenimos el evento por defecto 
+  e.preventDefault();
+  
+  // obtenemos el ID de la tabla respectiva
+  var tableId = e.data.tableId,
+      $modal = null,
+      quantity = e.data.quantity,
+      unit = (e.data.unit || "");
+  
+  // obtenemos la fila actual
+  var $currentRow = $(this).closest("tr");
+
+  // obtenemos la propiedad de datos de avance
+  var avanceData = $currentRow.data("avanceData");
+
+  // validamos si la tabla es materiasles, mano de obra o equipos 
+  if(tableId == "tableMaterialItems" || tableId == "tableEquipmentItems" ){
+    
+    // actualizamos el texto del modal de participación
+    $("#spnHelpParticipation").text('"' + quantity + ' ' + unit + ' ES EQUIVALENTE A:"');    
+    
+    // Obtenemos los datos de unidades de medidad UME
+    var resultArrayData = $("#sltUnitUME-Catalog").data("resultArrayData");
+    
+    // Validamos de que se tengan los datos para el campo de unidades de medidad UME
+    if(resultArrayData){
+    
+      // insertamso los valores de la s unidades de medidad UME
+      insertOptionUnit(resultArrayData, "sltUnitUME-Catalog", true, (tableId == "tableEquipmentItems" ? 2 : 1), tableId);
+    }
+    
+    // referenciamos el modal
+    $modal = $("#mdlParticipation");
+    
+    // agregamos la propiedad de cantidad
+    $modal.data({"quantity": quantity, "rowTable": $currentRow});
+    
+    // reseteamos el formulario
+    resetMdlParticipation(tableId);
+    
+    // se valida que existan datos guardados
+    if(avanceData){
+      
+      // Insertamos la respectiva información
+      insertAvanceDataInModal(avanceData);
+      
+    }
+    
+  } else {
+    
+    // referenciamos el modal
+    $modal = $("#mdlParticipationWorkforce");
+    
+    // obtenemos los datos de la mano de obra actual
+    var currentItem = $currentRow.data("currentItem");
+    
+    // agregamos el nombre de la mano de obra
+    $("#spnHelpParticipationWorkforce").text((currentItem && currentItem.description) ? currentItem.description : "");
+
+    // Participación total
+    var fullParticipation = 0;
+    
+    // se valida si existe información de mano de obra
+    if(currentItem && currentItem.participation){
+      
+      // agregamos la información de la participación actual de la mano de obra
+      fullParticipation = (Number(currentItem.participation) || 0)
+      
+    }
+    
+    // agregamos la propiedad de cantidad
+    $modal.data({"quantity": quantity, "rowTable": $currentRow});
+    
+    // reseteamos el formulario
+    resetMdlParticipationWorkforce(fullParticipation);
+    
+    // se valida que existan datos guardados
+    if(avanceData){
+      
+      // Insertamos la respectiva información
+      insertAvanceWorkforceDataInModal(avanceData);
+      
+    }
+    
+  }
+  
+  // referenciamos la instancia del modal
+  var instanceModal = M.Modal.getInstance($modal);
+  
+  // se valida que exista la instancia
+  if(instanceModal){
+  
+    // mostramos el modal
+    instanceModal.open();
+  }
+  
+}
+
+/**
+ * Permite guardar temporalmente los datos de participación de mano de obra
+**/
+function saveTemporalParticipationWorkforce(){
+  
+  //mostramos la ventana de confirmación al momento de almacenar la información del catálogo para la especie actual
+  SnvaJsApi.confirm("¿Seguro(a) desea guardar los datos de avance de mano de obra?", function(){
+    
+    // referenciamos el modal
+    var $modal = $("#mdlParticipationWorkforce");
+    
+    // obtenemos el valor de cantidad
+    var $row = $modal.data("rowTable");
+    
+    // se valida que exista una fila
+    if($row){
+     
+     // Valor de la participación 
+     var participation = $("#txtParticipationPerLine-Catalog").val(); 
+     
+      // creamos el objeto con los datos actuales del formulario
+      var avanceData = {
+        unitNumber: $("#txtUnitNumber-Catalog").val(),
+        participationPerLine: participation
+      };
+      
+      // guardamos en la fila el respectivo dato
+      $row.data("avanceData", avanceData);
+      
+      // Obtenemos los datos de la fila 
+      var currentItem = $row.data("currentItem");
+      
+      // Validamos de que vengan los datos de la fila 
+      if(currentItem && currentItem.participation){
+      
+        // Agregamos el valor de la participacion 
+        currentItem.participation = participation;
+        
+      }
+      
+    }
+    // cambiamos el estado para mostrar el mensaje para guardar los datos s
+    changeStateSaving();
+    
+    // referenciamos la instancia del modal
+    var instanceModal = M.Modal.getInstance($modal);
+    
+    // se valida que exista la instancia
+    if(instanceModal){
+    
+      // Cerramos el modal
+      instanceModal.close();
+    }
+    
+    // mostramos mensaje
+    SnvaJsApi.showAlert("Datos de avance de mano de obra almacenados exitosamente.");
+    
+  });
+  
+}
+
+/**
+ * Permite guardar temporalmente los datos de participación
+**/
+function saveTemporalParticipation(e){
+  
+  // Se previene por defecto
+  e.preventDefault();
+  
+  //mostramos la ventana de confirmación al momento de almacenar la información del catálogo para la especie actual
+  SnvaJsApi.confirm("¿Seguro(a) desea guardar los datos de avance?", function(){
+    
+    // referenciamos el modal
+    var $modal = $("#mdlParticipation");
+    
+    // obtenemos el valor de cantidad
+    var $row = $modal.data("rowTable");
+    
+    // se valida que exista una fila
+    if($row){
+      
+      // creamos el objeto con los datos actuales del formulario
+      var avanceData = {
+        unitMeasure: $("#sltUnitMeasureModel-Catalog").val(),
+        unitUME: $("#sltUnitUME-Catalog").val(),
+        equivalentAmount: $("#txtEquivalentAmount-Catalog").val(),
+        umlProgress: $("#txtUmlProgress-Catalog").val(),
+        investmentTime: $("#txtInvestmentTime-Catalog").val()
+      };
+      
+      // guardamos en la fila el respectivo dato
+      $row.data("avanceData", avanceData);
+      
+    }
+    
+    // Cambiamos el estado por mostrar el mensaje que no se han guardado los datos 
+    changeStateSaving();
+    
+    // referenciamos la instancia del modal
+    var instanceModal = M.Modal.getInstance($modal);
+    
+    // se valida que exista la instancia
+    if(instanceModal){
+    
+      // Cerramos el modal
+      instanceModal.close();
+    }
+    
+    // mostramos mensaje
+    SnvaJsApi.showAlert("Datos de avance almacenados exitosamente.");
+    
+  });
+  
+}
+
+/*
+* Permite agregar los datos al modal de avance de participación y calcular los datos
+*/
+function insertAvanceDataInModal(avanceData){
+  
+  // agregamos el valor del select de unidad de medida
+  $("#sltUnitMeasureModel-Catalog").val(avanceData.unitMeasure).formSelect();
+  
+  // agregamos el valor del select de unidad de medida UME
+  $("#sltUnitUME-Catalog").val(avanceData.unitUME).formSelect();
+  
+  // agregamos el valor de Cantidad equivalente [CML]
+  $("#txtEquivalentAmount-Catalog").val(avanceData.equivalentAmount);
+  
+  // agregamos el valor de Progreso UML [PUL]
+  $("#txtUmlProgress-Catalog").val(avanceData.umlProgress);
+  
+  // agregamos el valor de Tiempo de inversión [ti](horas)
+  $("#txtInvestmentTime-Catalog").val(avanceData.investmentTime).trigger("keyup");
+  
+  // actualizamos los campos
+  M.updateTextFields();
+}
+
+/**
+ * Permite resetear los campos y los calculos del modal
+**/
+function resetMdlParticipation(tableId){
+  
+  $("#txtInvestmentTime-Catalog").val("");
+  
+  // Establecemos manos de obra por defecto 
+  $("#sltUnitUME-Catalog").val((tableId == "tableEquipmentItems" ? 2 : 1)).formSelect();
+  
+  // borramso el contenido a los campos de numero
+  $("#txtEquivalentAmount-Catalog, #txtUmlProgress-Catalog").val("");  
+  
+  // borramos los valores de los calculos
+  $("#spnQuantityUML, #spnInvertionITE, #spnQuantityCME, #spnResult").text("");
+  
+  // Validamos si la tabla es de materiales 
+  if(tableId == "tableMaterialItems"){
+    
+    // inicializamos el vacio los siguientes campos
+    $("#sltUnitMeasureModel-Catalog").val("").formSelect();
+    
+    // Establecemos el valor por defecto 
+    $("#txtInvestmentTime-Catalog").val("8").change();
+  } else {
+    
+    // inicializamos el vacio los siguientes campos
+    $("#sltUnitMeasureModel-Catalog").val("Tramo").formSelect();
+    
+    // Establecemos el valor por defecto 
+    $("#txtEquivalentAmount-Catalog").val("1").change();
+    
+  }
+  
+  // actualizamos los campos
+  M.updateTextFields();
+  
+}
+
+/*
+* Permite agregar los datos al modal de avance de participación de mano de obra y calcular los datos
+*/
+function insertAvanceWorkforceDataInModal(avanceData){
+  
+  // borramos los valores de los calculos
+  $("#spnGlobalParticipation, #spnWeightedParticipation").text("");
+  
+  // agregamos el valor de #Individuos - unidades
+  $("#txtUnitNumber-Catalog").val(avanceData.unitNumber);
+  
+  // agregamos el valor de Participación por linea
+  $("#txtParticipationPerLine-Catalog").val(avanceData.participationPerLine).trigger("change");
+  
+  // actualizamos los campos
+  M.updateTextFields();
+}
+
+/**
+ * Permite resetear los campos y los calculos del modal de participación de mano de obra
+**/
+function resetMdlParticipationWorkforce(fullParticipation){
+  
+  // borramos los valores de los calculos
+  $("#spnGlobalParticipation, #spnWeightedParticipation").text("");
+  
+  // borramso el contenido a los campos de numero
+  $("#txtUnitNumber-Catalog").val("");
+  
+  // Cargamos el valor por defecto y simulamos el evento para realizar los calculos 
+  $("#txtParticipationPerLine-Catalog").val(fullParticipation).trigger("change");
+  
+  // actualizamos los campos
+  M.updateTextFields();
+  
+}
+
+/*
+* Permite generar los calculos de participación para los materiales y equipos
+*/
+function calculationsParticipation(){
+  
+  // referenciamos el modal
+  var $modal = $(this).closest("div.modal");
+  
+  // obtenemos el valor de cantidad
+  var quantity = $modal.data("quantity") || 0;
+  
+  // obtenemos los valores de cantidad equivalente
+  var equivalentAmount = (Number($("#txtEquivalentAmount-Catalog").val()) || 0);
+  
+  // obtenemos los valores de progreso
+  var umlProgress = (Number($("#txtUmlProgress-Catalog").val()) || 0);
+  
+  // obtenemos los valores de Tiempo de inversión
+  var investmentTime = (Number($("#txtInvestmentTime-Catalog").val()) || 0);
+  
+  // Obtenmos la medida de la estimación 
+  var estimateMeasureData = $("#sltUnitUME-Catalog option:selected").data("dataUnit");
+  
+  // validamos de que existan los valores para establecer la cantidad de UML
+  if(quantity && equivalentAmount){
+  
+    // Obtenemos la cantidad de UML
+    var quantityUML = quantity / equivalentAmount;
+    
+    // Estableccemos la cantidad UML
+    $("#spnQuantityUML").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(quantityUML, 6)));
+    
+    // validamos de que existan los valores para la inversión total equivalente
+    if(umlProgress && investmentTime && quantityUML){
+    
+      // Obtenemos la inversión total equivalente 
+      var totalEquivalentInvestment = (quantityUML * investmentTime) / umlProgress;
+      
+      // Establecemos la inversión total equivalente
+      $("#spnInvertionITE").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(totalEquivalentInvestment, 6)));
+    }
+    
+    // validamos de que existan los valores para establecerlos la cantidad de estimación 
+    if(totalEquivalentInvestment && estimateMeasureData && estimateMeasureData.kuml){
+      
+      // Obtenemos la cantidad de estimación 
+      var quantityEstimate = totalEquivalentInvestment / estimateMeasureData.kuml;
+      
+      // Obtenemos el resultado de las operaciones 
+      var result = quantityEstimate / quantity;
+      
+      // Establecemos la cantidad de estimación 
+      $("#spnQuantityCME").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(quantityEstimate, 6)));
+      
+      // Establecemos el resultado
+      $("#spnResult").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(result, 6)));
+    }
+    
+  }
+}
+
+/*
+* Permite realizar los calculos de participación en mano de obra
+*/
+function calculationsParticipationMO(){
+   
+   // referenciamos el modal
+   var $modal = $(this).closest("div.modal");
+   
+   // agregamos la propiedad de cantidad
+   var $currentRow = $modal.data("rowTable");
+   
+   // Obtenemos el numero de individuos 
+   var unitNumberCatalog = $("#txtUnitNumber-Catalog").val();
+   
+   // Obtenemos la participación por linea 
+   var participationPerLine =  ($("#txtParticipationPerLine-Catalog").val() || 0);
+   
+   // Referenciamos los campo sde participación globarl y el de ponderada
+   var $spnGlobalParticipation = $("#spnGlobalParticipation");
+   var $spnWeightedParticipation = $("#spnWeightedParticipation");
+   
+   // Validamos de que se tengan los dos datos para realizar las operaciones 
+   if(participationPerLine){
+     
+     // obtenemos la participación total
+     var totalParticipationPerLine = getParticipationTotal($currentRow, participationPerLine);
+     
+     // Obtenemos la participación global 
+     var globalParticipation = totalParticipationPerLine ? (participationPerLine / totalParticipationPerLine) : 0;
+     
+     // Establecemos el valor de la participación global
+     $spnGlobalParticipation.text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(globalParticipation, 6)));
+     
+     // Obtenemos la Participación Ponderada
+     var weightedParticipation = participationPerLine * globalParticipation;
+     
+     // Validamos de que se obtenga un resultado en la participación pondera
+     if(weightedParticipation){
+     
+       // establecemos la participación ponderada
+       $spnWeightedParticipation.text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(weightedParticipation, 6)));
+     }else{
+     
+       // establecemos la participación ponderada en vacio por si no se encuentran los datos 
+       $spnWeightedParticipation.text("");
+     }
+     
+   } else {
+   
+     // Establecemos la participación global en vacio por si ni estn los datos 
+     $spnGlobalParticipation.text("");
+     
+     // establecemos la participación ponderada en vacio por si no se encuentran los datos 
+     $spnWeightedParticipation.text("");
+   }
+  
+}
+
+/**
+ * Función que permite obtener la participación total de todas las manos de obra
+**/
+function getParticipationTotal($rowSelected, participationPerLine){
+  
+  // Obtenemos la filas de la tabla de mano de obra 
+  var $rows = $("#tableManpowerItems tbody tr");
+  
+  // obtenemos el index de la fila seleccionada
+  var indexSelected = $rowSelected.index();
+ 
+  // Datos de la fila 
+  var rowData = "",
+      $row = null,
+      participation = null;
+  
+  //  Total de particiáción por linea (sima de cada item)
+  var totalParticipationPerLine = 0;
+  
+  // Recorremos cada una de las filas 
+  $rows.each(function(){
+    
+    // Se referencia la fila
+    $row = $(this);
+    
+    // Se valida que el index sea diferente al seleccionado
+    if(indexSelected != $row.index()){
+      
+      // obtenemos los datos de la fila
+      rowData = $row.data("currentItem");
+      
+      // Validamos si existen los datos 
+      if(rowData && rowData.participation){
+      
+        // Obtenemos la participación
+        participation = String(rowData.participation).replace(/\,/g, "");//.replace(/\,/g, ".");
+      
+        // adicinamos la participación 
+        totalParticipationPerLine = totalParticipationPerLine + Number(participation);
+      }
+      
+    } else {
+      
+      // Validamos de que exista el valor de la participación para concatenarlo
+      if(participationPerLine){
+      
+        // adicinamos la participación 
+        totalParticipationPerLine = totalParticipationPerLine + Number(String(participationPerLine).replace(/\,/g, ""));
+      
+      }
+    }
+    
+  });
+  
+  // retornamos el valor de total
+  return totalParticipationPerLine; // precisionRound(totalParticipationPerLine, 1);
+  
+}
+
+/*
+* Permite redondear el numero para mantener la cantidad de decimales 
+*/
+function precisionRound(number, precision) {
+ var factor = Math.pow(10, precision);
+ return Math.round(number * factor) / factor;
+}
+
+
+</script>

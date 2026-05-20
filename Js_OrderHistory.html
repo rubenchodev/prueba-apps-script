@@ -1,0 +1,333 @@
+
+<script>
+
+// se llama la función de inicializar el módulo
+initModuleOrdersHistory();
+
+
+/*
+* Función que se permite inicializar el módulo de 
+**/
+function initModuleOrdersHistory(){
+  
+  // Obtenemos las ordenes de compra y las listamos
+  getOrdersHistory();
+  
+  // Evento para actualizar el listado de historial de ordenes de compra
+  $("#btnUpdateHistoryData").click(function(){
+  
+    // actualizamos el listadod e ordenes de compra
+    getOrdersHistory("Actualizando el listado de ordenes...");
+    
+    // Ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+   
+  });
+  
+}  
+
+/*
+* Función que permite obtener las ordenes de compra
+*/
+function getOrdersHistory(message){
+  
+  // Validamos si vienes definido mensaje para mostrarlo si es actualización
+  if(message){
+    // Mostramos el loading
+    SnvaJsApi.manageLoading("block", message);
+  }
+  
+  // obtenemos los datos del historial de ordenes
+  google.script.run.withSuccessHandler(function(ordersData){
+   
+   // Insertamos la ordenes de compra en la tabla
+   insertOrdersHistory(ordersData);
+   
+  }).withFailureHandler(SnvaJsApi.onFailure).getOrdersHistory();
+  
+}
+
+
+/*
+* Función que permite insertar el instorial del ordenes de compra
+*/
+function insertOrdersHistory(ordersData){
+  
+  // referenciamos a la tabla de historial de ordenes
+  var $table = $("#tblHistoryData");
+  
+  // obtenemos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+  
+  // restablecemos el contenido
+  $tBody.html('<tr class="info-message" style="display: none;"><td colspan="7">No hay ordenes para mostrar</td></tr>');
+  
+  // variable para almacenar la referencia de la fila creada
+  var $row = null, $button = null, $tdPopover_ = null;
+  
+  // Variable a mostrar
+  var orderIdList_ = [];
+  var manufacturerList_ = [];
+  var allImporte_ = 0;
+  
+  // recorremos cada uno de la las ordenes
+  for(var i = 0; i < ordersData.length; i++){
+    
+    // creamos una nueva fila
+    $row = $("<tr>").attr({class: "isValid"});
+    
+    // agregamos la fila al cuerpo de la tabla
+    $tBody.append($row);
+
+    // Agregamos a la lista de id de orden
+    if(ordersData[i].orderId){
+      orderIdList_.push(ordersData[i].orderId);
+    }
+
+    // Agregamos a la listael fabricante
+    if(ordersData[i].manufacturerName && manufacturerList_.indexOf(ordersData[i].manufacturerName) == -1){
+      manufacturerList_.push(ordersData[i].manufacturerName);
+    }
+    
+    // creamos la fila de: id de la orden
+    $row.append(
+      $("<td>").text(ordersData[i].orderId)
+    );
+
+    // creamos la etiqueta para el nombre del fabricante
+    $tdPopover_ = $("<span>").text(ordersData[i].manufacturerName);
+
+    // Obtenemos el importe
+    var currImporte_ = SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(ordersData[i].importe, 6));
+    allImporte_ += ordersData[i].importe;
+
+    // Permite almacenar el importe
+    $row.data("importe", (ordersData[i].importe || 0));
+
+    // Se valida si existe datos de productos
+    if(ordersData[i].productData){
+
+      // Agregamos la propiedad
+      $row.data("productData", ordersData[i].productData);
+
+      // Agregamos la clase para indicar que es un texto clickeable
+      $tdPopover_.addClass("span__clickeable");
+
+      // Mostramos el popover
+      $tdPopover_.popover({
+        title: ('Detalles de la orden: ' + ordersData[i].orderId),
+        trigger: 'click',
+        placement: 'right',
+        content: createPopoverOrderHistory_(ordersData[i].productData, currImporte_)
+      });
+    }
+    
+    // creamos la fila de: Nombre del fabricante
+    $row.append(
+      $("<td>").append($tdPopover_)
+    );
+    
+    // creamos la fila de: Correo del fabricante
+    $row.append(
+      $("<td>").text(ordersData[i].manufacturerEmail)
+    );
+    
+    // creamos la fila de: Fecha de creación
+    $row.append(
+      $("<td>").text(ordersData[i].createDate)
+    );
+    
+    // creamos la fila de: importe
+    $row.append(
+      $("<td>").text(currImporte_)
+    );
+    
+    // creamos la fila de: estado de la orden
+    $row.append(
+      $("<td>").text(ordersData[i].state)
+    );
+    
+    // creamos la ultima columna 
+    var $lastColumn = $("<td>").attr({class: "text-center"});
+    
+    // agregamos la columna en la fila
+    $row.append($lastColumn);
+    
+    // agregamos la opción de eliminar la cotización
+    $lastColumn.append(
+      $("<a>").attr({title: "Eliminar orden", class: "btn-icon-table btn-floating waves-effect red"}).append(
+        $("<i>").attr("class", "material-icons").text("delete")
+      ).click({orderData: ordersData[i]}, deleteHistoryOrder)
+    );
+    
+    // agregamos la opción de editar a orden
+    $lastColumn.append(
+      $("<a>").attr({title: "Editar", href: ordersData[i].url, target:"_blank", class: "btn-icon-table btn-floating waves-effect #01579b light-blue darken-4"}).append(
+        $("<i>").attr("class", "material-icons").text("edit")
+      )
+    );
+    
+    if(ordersData[i].state == "Generada"){
+      
+      // creamos la fila de: acciones
+      $lastColumn.append(
+        $("<a>").attr({title: "Enviar", href: "javascript:void(0)", class: "btn-icon-table btn-floating waves-effect #e53935 red darken-1"}).append(
+           $("<i>").attr("class", "material-icons").text("email")
+        ).click({orderData: ordersData[i]}, sendOrder)
+      );
+       
+    // Validamos el tipo de acción que se debe crear para la orden   
+    }
+  }
+
+  // Actualizamos la lista de fabricantes y ID de orden
+  updateFilterSelect_("#sltFilterOrderId", orderIdList_);
+  updateFilterSelect_("#sltFilterOrderManufacturer", manufacturerList_);
+
+  // Actualizamos el valor del importe
+  $(".th__importe-order").html(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(allImporte_, 6)));
+  
+  // iniciaizamos el paginador
+  SnvaJsApi.initPaginationByTable($table, "ulPaginationHistoryData", 10);
+  
+}
+
+/**
+  * Permite mostrar una tabla con el valor de los conceptos
+ */
+ function createPopoverOrderHistory_(products_, importe_){
+ 
+   // definimos la variable para obtener la estructura de conceptos
+   var contenthtml = "";
+
+   // Se valida si es diferente de null
+   if(products_){
+     
+     // agregamos la cabecera
+     contenthtml += '<div class="content__table-info"><table><thead><tr><th>Concepto</th><th>Moneda</th><th>Cantidad</th><th>Importe</th></tr></thead><tbody>';
+     
+     // Variable que vamos a usar
+     var total = 0, price = 0, totalComplete = 0;
+     
+     // Recorremos la lista de conceptos
+     for(var i = 0; i < products_.length; i++){
+       
+       // Agregamos la fila
+       contenthtml += '<tr><td>' + products_[i].name + '</td>' +
+       '<td>' + products_[i].currencyType + '</td>' +
+       '<td>' + products_[i].quantity + '</td>' +
+       '<td>' + SnvaJsApi.formatValue(products_[i].cost) + '</td></tr>';       
+     }
+     
+     // Agregamos el cierre del cuerpo y la tabla
+     contenthtml += '</tbody><tfoot><tr><th style="padding: 4px 5px;text-align: right;" colspan="3">Total MX:</th><td>' + importe_ + '</td></tr></tfoot></table></div>';
+     
+   }
+   
+   // se retorna el HTML
+   return contenthtml;   
+ }
+
+/**
+ * Función que permite cambiar el estado
+**/
+function updateFilterSelect_(targetSelect_, arrayList_){
+
+  // agregamos los items en el select de unidades en el modal del catalogo
+  var $select = $(targetSelect_);
+  
+  // reseteamos el select
+  $select.html('');
+  
+  // recorremos cada uno de los valores a ingresar en los selects
+  for(var i = 0; i < arrayList_.length; i++){
+    
+    // agregamos cada una de las opciones
+    $select.append(
+      $("<option>").attr("value", arrayList_[i]).text(arrayList_[i])
+    );
+  }
+  
+  // inicializamos los selects
+  initMultiSelect_($select);
+}
+
+/**
+ * Permite inicializar los selects
+*/
+function initMultiSelect_($select){
+
+  // inicializamos los selects
+  $select.formSelect();
+  M.SelectSearch.init($select[0]);
+}
+
+/**
+ * Función que permite cambiar el estado
+**/
+function deleteHistoryOrder(e){
+  
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+  // Obtenermos los datos de la orden 
+  var orderData = e.data.orderData;
+  
+  // mostramos mensaje de confirmación antes de enviar la orden de compra
+  SnvaJsApi.confirm("¿Seguro desea eliminar la orden de compra?", function(){
+  
+    // Mostramos el loading
+    SnvaJsApi.manageLoading("block", "Eliminando orden de compra, espera un momento por favor...");
+    
+    // Enviamos la orden de compra al fabricantte
+    google.script.run.withSuccessHandler(function(ordersData){
+    
+      // Insertamos la ordenes de compra a la tabla actualizadas
+      insertOrdersHistory(ordersData);
+      
+      // Ocultamos el loading
+      SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+      
+      // mostramos el respectivo mensaje
+      SnvaJsApi.showAlert("La orden de compra eliminada con éxito.");
+    
+    }).withFailureHandler(SnvaJsApi.onFailure).deleteHistoryOrder(orderData);
+  
+  });
+}
+
+/*
+* función que permite enviar las orden de compra
+*/
+function sendOrder(e){
+  
+  // Obtenermos los datos de la orden 
+  var orderData = e.data.orderData;
+  
+  // mostramos mensaje de confirmación antes de enviar la orden de compra
+  SnvaJsApi.confirm("¿Seguro desea enviar la orden de compra?", function(){
+     
+     // Mostramos el loading
+     SnvaJsApi.manageLoading("block", "Enviando la orden de compra al fabricante, espera un momento por favor...");
+     
+     // Enviamos la orden de compra al fabricantte
+     google.script.run.withSuccessHandler(function(ordersData){
+       
+       // Insertamos la ordenes de compra a la tabla actualizadas
+       insertOrdersHistory(ordersData);
+       
+       // Ocultamos el loading
+       SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+       
+       // mostramos el respectivo mensaje
+       SnvaJsApi.showAlert("La orden de compra se ha enviado con éxito.");
+       
+     }).withFailureHandler(SnvaJsApi.onFailure).sendOrderToManufacturer(orderData);
+   
+  });
+ 
+  // Se previene el evento por defecto
+  e.preventDefault();
+ 
+}
+</script>

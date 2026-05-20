@@ -1,0 +1,294 @@
+<script>
+// se llama la función de inicializar el módulo
+initModuleOrders();
+
+/**
+ * Función que permite inicializar los campos para generar ordenes de compra
+**/
+function initModuleOrders(){
+  
+  // adicionamos el evento al botón de generar orden de compra
+  $("#btnGenerateOrder").click(generateOrders);
+  
+}
+
+/**
+* Función que permite generar una orden de compra
+**/
+function generateOrders(){
+   
+   // Obtenemos los datos de la tabla
+   var specieObjData = $("#tblConceptSelected").data("specieObjData");
+   
+   // Validamos que se tengan especies 
+   if(specieObjData && Object.keys(specieObjData).length > 0){
+     
+     // Object con los datos para cada orden
+     var sumaryOrder = {}, manufacturerData = {}, quantity = null, specieData = {},
+         defaultUnit = null, currentUnit = null;
+     
+     // Referenciamos la tabla 
+     $("#tblConceptSelected tbody tr.isValid").each(function(){
+     
+       // Obtenemos los datos del fabricante 
+       manufacturerData = specieObjData[$(this).data("specieData").specieName].manufacturerObject;
+       console.log("manufacturerData", manufacturerData);
+       
+       // validamos si el fabricante NO existe
+       if(!sumaryOrder[manufacturerData.manufacturerName]){
+       
+         // inicializamos el objeto con el nombre del cliente
+         sumaryOrder[manufacturerData.manufacturerName] = {
+           id: manufacturerData.manufacturerId,
+           name: manufacturerData.manufacturerName,
+           concepts: [],
+           currencyType: manufacturerData.currencyType,
+           currencyObj:{
+             "USD": manufacturerData.exchangeRateUsd,
+             "EUR": manufacturerData.exchangeRateEur,
+             "MX": "0"
+           }
+         };
+       }
+       
+       // Obtenemos los datos de la especie
+       specieData  = specieObjData[$(this).data("specieData").specieName].specieData;
+       
+       // obtenemos el valor de cantidad del campo
+       quantity = Number($(this).find("td:eq(4) input").val() || 0);
+       
+       // se obtiene la unidad solicitada
+       defaultUnit = String(specieData.unitRequested).toUpperCase().trim();
+       
+       // se obtiene la unidad solicitada
+       currentUnit = String(manufacturerData.unit).toUpperCase().trim();
+       
+       // se valida si la unidad solicitada es diferente
+       if(defaultUnit != currentUnit && manufacturerData.equivalency){
+       
+         // calculamos la cantidad de acuerdo a la unidad del fabricante
+         quantity = quantity * Number(manufacturerData.equivalency);
+       
+       }
+       
+       // agregamos la información de la especie y el fabricante a quien se debe enviar
+        sumaryOrder[manufacturerData.manufacturerName].concepts.push({
+          name: specieData.specieName,
+          quantity: quantity,
+          unit: currentUnit,
+          price: manufacturerData.price,
+          currencyType: manufacturerData.currencyType,
+          total: (Number(manufacturerData.price) * quantity),
+          code: manufacturerData.code,
+          productName: manufacturerData.productName,
+          iva: manufacturerData.iva,
+          plist: manufacturerData.priceUnit
+        });
+     })
+     
+     // validamos si existen datos para enviarlos para la generación de ordenes de compra
+     if(Object.keys(sumaryOrder).length > 0){
+       
+       // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+       SnvaJsApi.confirm("¿Seguro desea generar la orden de compra para los fabricantes y especies seleccionadas?", function(){
+       
+       // Mostramos el loading
+       SnvaJsApi.manageLoading("block", "Generando órdenes de compra.<br>Espera un momento por favor...");
+ 
+       // obtenemos la información del grupo ya creado
+       google.script.run.withSuccessHandler(function(ordersData){
+       
+         // Se actualiza el listado de la tabla de órdenes generadas
+         insertOrdersHistory(ordersData);
+         
+         // desmarcamos las columnas marcadas
+         $("#tblPriceAnalysis tbody tr td.td-price-selected-active").click();
+         
+         // Ocultamos el loading
+         SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+         
+         // mostramos el respectivo mensaje
+         SnvaJsApi.showAlert("Órdenes de compra generadas satisfactoriamente.");
+         
+       }).withFailureHandler(SnvaJsApi.onFailure).generateOrders(sumaryOrder);
+       
+       });
+     
+     } else {
+     
+       // mostramos el respectivo mensaje
+       SnvaJsApi.showAlert("Lo sentimos no se encontraron datos del fabricante por favor intenta nuevamente o comunicate con el administrador.");
+     
+     }
+     
+   }else {
+  
+    // mostramos el respectivo mensaje
+    SnvaJsApi.showAlert("No se tiene especies en la tabla para generar la orden de compra.");
+  
+  }
+
+}
+
+
+/**
+* Función que permite generar una orden de compra
+**/
+function generateOrders1(){
+
+  // consultamos las filas seleccionadas
+  var $tdSelected = $("#tblPriceAnalysis tbody tr:not(.info-message) td.td-price-selected-active");
+  
+  // se valida que exista al menos una celda seleccionada
+  if($tdSelected.length > 0){
+    
+    // obtenemos los datos de de los fabricantes
+    var $headers = $("#tblPriceAnalysis thead tr th:gt(2)");
+    
+    // variable para guardar la información del fabricante
+    var manufacturersArray = [];
+    
+    // recorremos cada una de las columnas de la cabecera
+    $headers.each(function(){
+      
+      // agregamos los datos del fabricante
+      manufacturersArray.push($(this).data("manufacturerData"));
+      
+    });
+    
+    // Variable para guardar el resumen de la orden
+    var sumaryOrder = {},
+        index = 0,
+        currentManufacturerData = null,
+        defaultUnit = "",
+        currentUnit = "",
+        quantity = 0; 
+    
+    // obtenemos el listado de especies asociados a cada fabricante seleccionado
+    $tdSelected.each(function(){
+      
+      // referenciamos la fila actual
+      $currentTd = $(this);
+      
+      // obtenemos la fila actual
+      var $row = $currentTd.closest("tr");
+      
+      // obtenemos los datos de la especie
+      var conceptObject = $row.data("conceptData");
+      
+      // obtenemos los datos del fabricante
+      currentManufacturerData = manufacturersArray[$currentTd.index() - 3];
+      
+      // obtenemos los datos adicionales del fabricante
+      var manufacterAditional = null;
+      
+      // recorremos el listado de fabricantes
+      for(var i = 0; i < conceptObject.manufacturersArray.length; i++){
+        
+        // se valida si el nombre del fabricante es el mismo de uno de las lista
+        if(conceptObject.manufacturersArray[i].manufacturerName == currentManufacturerData.manufacturerName){
+          
+          // refernciamos los datos del fabricante
+          manufacterAditional = conceptObject.manufacturersArray[i];
+          
+        }
+      }
+      
+      // validamos si existe los datos adicionales del fabricante
+      if(manufacterAditional){
+      
+        // validamos si el fabricante NO existe
+        if(!sumaryOrder[currentManufacturerData.manufacturerName]){
+          
+          // inicializamos el objeto con el nombre del cliente
+          sumaryOrder[currentManufacturerData.manufacturerName] = {
+            id: currentManufacturerData.manufacturerId,
+            name: currentManufacturerData.manufacturerName,
+            concepts: [],
+            currencyType: manufacterAditional.currencyType,
+            currencyObj:{
+              "USD": currentManufacturerData.changeType.usd,
+              "EUR": currentManufacturerData.changeType.eur,
+              "MX": "0"
+            }
+          };
+        }
+        
+        // obtenemos el valor de cantidad del campo
+        quantity = Number($row.find("input").val()) || 0;
+        
+        // se obtiene la unidad solicitada
+        defaultUnit = String(conceptObject.unitRequested).toUpperCase().trim();
+        
+        // se obtiene la unidad solicitada
+        currentUnit = String(manufacterAditional.unit).toUpperCase().trim();
+      
+        // se valida si la unidad solicitada es diferente
+        if(defaultUnit != currentUnit && manufacterAditional.equivalency){
+          
+          // calculamos la cantidad de acuerdo a la unidad del fabricante
+          quantity = quantity * Number(manufacterAditional.equivalency);
+          
+        }
+        
+        // agregamos la información de la especie y el fabricante a quien se debe enviar
+        sumaryOrder[currentManufacturerData.manufacturerName].concepts.push({
+          name: conceptObject.conceptName,
+          quantity: quantity,
+          unit: currentUnit,
+          price: manufacterAditional.price,
+          currencyType: manufacterAditional.currencyType,
+          total: (Number(manufacterAditional.price) * quantity),
+          code: manufacterAditional.code,
+          productName: manufacterAditional.productName,
+          iva: manufacterAditional.iva
+        });
+       
+      }
+    });
+    
+    // validamos si existen datos para enviarlos para la generación de ordenes de compra
+    if(Object.keys(sumaryOrder).length > 0){
+   
+      // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+      SnvaJsApi.confirm("¿Seguro desea generar la orden de compra para los fabricantes y especies seleccionadas?", function(){
+        
+        // Mostramos el loading
+        SnvaJsApi.manageLoading("block", "Generando órdenes de compra.<br>Espera un momento por favor...");
+        
+        // obtenemos la información del grupo ya creado
+        google.script.run.withSuccessHandler(function(ordersData){
+        
+          // Se actualiza el listado de la tabla de órdenes generadas
+          insertOrdersHistory(ordersData);
+          
+          // desmarcamos las columnas marcadas
+          $("#tblPriceAnalysis tbody tr td.td-price-selected-active").click();
+          
+          // Ocultamos el loading
+          SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+          
+          // mostramos el respectivo mensaje
+          SnvaJsApi.showAlert("Órdenes de compra generadas satisfactoriamente.");
+          
+        }).withFailureHandler(SnvaJsApi.onFailure).generateOrders(sumaryOrder);
+        
+      });
+      
+    } else {
+      
+      // mostramos el respectivo mensaje
+      SnvaJsApi.showAlert("Lo sentimos no se encontraron datos del fabricante por favor intenta nuevamente o comunicate con el administrador.");
+      
+    }
+    
+  } else {
+  
+    // mostramos el respectivo mensaje
+    SnvaJsApi.showAlert("Se debe seleccionar al menos un fabricante.");
+  
+  }
+
+}
+
+</script>

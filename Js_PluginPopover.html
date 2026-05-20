@@ -1,0 +1,387 @@
+<script>
+(function ($) {
+    'use strict';
+    var defaults = {
+        //public options
+        trigger : 'hover',//è§¦å‘æ–¹å¼ï¼Œ'hover','click','focus', 'custom_specie'
+        autoPlace : true,//è‡ªåŠ¨æ”¾ç½®ï¼Œé˜²æ­¢å†…å®¹é®æŒ¡
+        delay : 10, //æ˜¾ç¤ºéšè—æ ·å¼
+        placement : 'top', //æ”¾ç½®ä½ç½®ï¼Œ'top',    'topLeft',    'topRight',
+                                   // 'right',  'rightTop',   'rightBottom',
+                                   // 'bottom', 'bottomLeft', 'bottomRight',
+                                   // 'left',   'leftTop',    'leftBottom'
+        //private options
+        title : '',
+        content : ''
+    };
+    var Popover = function (element,options) {
+        this.ele  = $(element);
+        this.wrapper = null;
+        this.product = null;
+        this.pid = 'popover_' + (new Date()).getTime();
+        this.timer_in = null;
+        this.timer_out = null;
+        this.mouse = false;
+        //å…è®¸æ”¾ç½®çš„æ–¹ä½åç§°
+        this.posMap = ['topLeft','top','topRight','rightTop','right','rightBottom','bottomLeft','bottom','bottomRight','leftTop','left','leftBottom'];
+        this.posId = 1;//é»˜è®¤åå¥½æ”¾ç½®ç´¢å¼•
+        this.opts = $.extend({}, defaults, options);
+        for (var i = this.posMap.length-1; i >=0;i--){
+            if (this.opts.placement === this.posMap[i]){
+                this.posId = i;
+                break;
+            }
+        }
+        this.init();
+    };
+    //åˆå§‹åŒ–
+    Popover.prototype.init = function () {
+        this.bind();
+    };
+    //æ¸²æŸ“
+    Popover.prototype.render = function(){
+        var _this = this,
+            _html,
+            _pid  = this.pid,
+            _content,
+            _container = $(document.body);
+        if (typeof _this.opts.content == 'function') {
+            _content = _this.opts.content.call(this);
+        }else if (typeof _this.opts.content == 'object') {
+            _content = $(_this.opts.content).html();
+        }else{
+            _content = _this.opts.content;
+        }
+        _html = '<div>'+
+                    '<div class="popover" id="'+_pid+'">'+
+                        '<div class="popover-container">'+
+                            '<div class="popover-inner">'+
+                                '<div class="popover-title">'+_this.opts.title+'</div>'+
+                                '<div class="popover-content">'+_content+'</div>'+
+                            '</div>'+
+                            '<div class="popover-arrow"></div>'+
+                        '</div>'+
+                    '</div>'+
+                '</div>';
+        _container.append(_html);
+        _this.product = $('#'+_pid);//æ¸²æŸ“äº§å“
+        _this.wrapper = _this.product.parent('div');//èŽ·å–åŒ…è£¹å®¹å™¨
+        this.place();
+    };
+    //æ”¾ç½®
+    Popover.prototype.place = function(){
+        var _this = this,
+            _result,//æœ€ç»ˆè¾“å‡ºçš„æ”¾ç½®æ–¹æ¡ˆ
+            _plan = [],//è‡ªåŠ¨ä¼˜åŒ–æ”¾ç½®åŽçš„å¯é€‰æ–¹æ¡ˆ
+            _trigger = this.ele,
+            _targets = this.wrapper,
+            _product = this.product,
+            _container = $(window),
+            _gutter = 8;
+        var _t = {
+            x : _trigger.offset().left,
+            y : _trigger.offset().top,
+            w : _trigger.outerWidth(),
+            h : _trigger.outerHeight()
+        };//è§¦å‘å™¨çš„è§„æ ¼
+        
+        var _v = {
+            x : _container.scrollLeft(),
+            y : _container.scrollTop(),
+            w : _container.outerWidth(true),
+            h : _container.outerHeight(true)
+        };//è§†å›¾å®¹å™¨çš„è§„æ ¼
+        
+        var _p = {
+            w : _product.outerWidth(true),
+            h : _product.outerHeight(true)
+        };//å¾…æ”¾ç½®ç‰©çš„è§„æ ¼
+        
+        //è®¡ç®—æ‰€æœ‰æ”¾ç½®æ–¹æ¡ˆ
+        //æ‰€æœ‰å®½åº¦
+        var _W_ = {
+            w1 : _v.w - (_t.x - _v.x), //t-l,b-l
+            w2 : _v.w - (_t.x - _v.x) - _t.w, //r-tcb
+            w3 : (_t.x - _v.x) + _t.w, //t-r,b-r
+            w4 : _t.x - _v.x, //l-tcb
+            w5 : (Math.min((_t.x - _v.x),(_v.w - _t.w - _t.x + _v.x)) + _t.w / 2) * 2 //t-c,b-c
+        };
+        //æ‰€æœ‰é«˜åº¦
+        var _H_ = {
+            h1 : _t.y - _v.y, //t-lcr
+            h2 : _v.h - (_t.x - _v.x), //l-t,r-t
+            h3 : _v.h - (_t.y - _v.y) - _t.h,//b-lcr
+            h4 : (_t.y - _v.y) + _t.h,//l-b,r-b
+            h5 : (Math.min((_t.y - _v.y),(_v.h - _t.h - _t.y + _v.y)) + _t.h / 2) * 2//l-c,r-c
+        };
+        //æ‰€æœ‰top
+        var _T_ = {
+            t1 : _t.y - _p.h, //t-lcr
+            t2 : _t.y - _gutter, //l-t,r-t
+            t3 : _t.y + _t.h,//b-lcr
+            t4 : _t.y + _t.h - _p.h + _gutter,//l-b,r-b
+            t5 : _t.y + (_t.h - _p.h) / 2 //l-c,r-c
+        };
+        //æ‰€æœ‰left
+        var _L_ = {
+            l1 : _t.x - _gutter, //t-l,b-l
+            l2 : _t.x + _t.w,//r-tcb
+            l3 : _t.x + _t.w - _p.w + _gutter,//t-r,b-r
+            l4 : _t.x - _p.w,//l-tcb
+            l5 : _t.x + (_t.w - _p.w) / 2//t-c,b-c
+        };
+        //æ‰€æœ‰åŒºåŸŸå‚æ•°
+        var _area = [
+            {
+                name   : 'topLeft',
+                width  : _W_.w1,
+                height : _H_.h1,
+                top    : _T_.t1,
+                left   : _L_.l1
+            },{
+                name   : 'top',
+                width  : _W_.w5,
+                height : _H_.h1,
+                top    : _T_.t1,
+                left   : _L_.l5
+            },{
+                name   : 'topRight',
+                width  : _W_.w3,
+                height : _H_.h1,
+                top    : _T_.t1,
+                left   : _L_.l3
+            },{
+                name   : 'rightTop',
+                width  : _W_.w2,
+                height : _H_.h2,
+                top    : _T_.t2,
+                left   : _L_.l2
+
+            },{
+                name   : 'right',
+                width  : _W_.w2,
+                height : _H_.h5,
+                top    : _T_.t5,
+                left   : _L_.l2
+
+            },{
+                name   : 'rightBottom',
+                width  : _W_.w2,
+                height : _H_.h4,
+                top    : _T_.t4,
+                left   : _L_.l2
+            },{
+                name   : 'bottomLeft',
+                width  : _W_.w1,
+                height : _H_.h3,
+                top    : _T_.t3,
+                left   : _L_.l1
+            },{
+                name   : 'bottom',
+                width  : _W_.w5,
+                height : _H_.h3,
+                top    : _T_.t3,
+                left   : _L_.l5
+            },{
+                name   : 'bottomRight',
+                width  : _W_.w3,
+                height : _H_.h3,
+                top    : _T_.t3,
+                left   : _L_.l3
+            },{
+                name   : 'leftTop',
+                width  : _W_.w4,
+                height : _H_.h2,
+                top    : _T_.t2,
+                left   : _L_.l4
+            },{
+                name   : 'left',
+                width  : _W_.w4,
+                height : _H_.h5,
+                top    : _T_.t5,
+                left   : _L_.l4
+            },{
+                name   : 'leftBottom',
+                width  : _W_.w4,
+                height : _H_.h4,
+                top    : _T_.t4,
+                left   : _L_.l4
+            }
+        ];
+        $.each(_area,function (i,res) {
+            //ç­›é€‰æ‰€æœ‰ç¬¦åˆæ”¾ç½®çš„æ–¹æ¡ˆ
+            if (res.width >= _p.w && res.height >= _p.h){
+                _plan.push(res);
+            }
+        });
+        if (_this.opts.autoPlace) {
+            if (_plan.length){
+                //å¯ç”¨è‡ªåŠ¨ä¼˜åŒ–æ”¾ç½®æ–¹æ¡ˆ
+                _result = _plan[0];
+                for (var i = _plan.length-1; i>=0;i--) {
+                    if (_plan[i].name === _this.opts.placement){
+                        _result = _plan[i];//æ‰¾åˆ°ä¸€æ¡æ—¢ç¬¦åˆä¼˜åŒ–æ”¾ç½®ï¼Œåˆç¬¦åˆç”¨æˆ·è§„å®šçš„æ–¹æ¡ˆ
+                        break;
+                    }
+                }
+            } else{
+                //æ²¡æœ‰æ‰¾åˆ°ç¬¦åˆä¼˜åŒ–æ”¾ç½®æ–¹æ¡ˆï¼Œé€‰æ‹©é»˜è®¤åå¥½æ”¾ç½®
+                _result = _area[_this.posId];
+            }
+        }else{
+            //ä¸å¯ç”¨è‡ªåŠ¨ä¼˜åŒ–æ”¾ç½®æ–¹æ¡ˆï¼Œé€‰æ‹©é»˜è®¤åå¥½æ”¾ç½®
+            _result = _area[_this.posId];
+        }
+        
+        // Validamos si es un popover para el modal de especies
+        if(_this.opts.trigger === 'custom_specie'){
+        
+ 			var $sizeText_ =$('<span>').css({display:'none',whiteSpace:'nowrap', fontSize: '16px'}).appendTo($('body')).text(_trigger.val());
+          
+            _targets.css({
+                'position' : 'absolute',
+                'top' : (_result.top - 15) + 'px',
+                'left': ((_t.x - 24) + $sizeText_.width()) + 'px'
+            });
+            
+            // Eliminamos el elemento
+            $sizeText_.remove();
+        } else {
+          _targets.css({
+              'position' : 'absolute',
+              'top' : _result.top + 'px',
+              'left': _result.left + 'px'
+          });
+        }
+        _product.addClass('popover-'+_result.name);
+        
+        //ä¸ºæ¸²æŸ“çš„äº§å“ç»‘å®šäº‹ä»¶
+        if (_this.opts.trigger !== 'click' && _this.opts.trigger !== 'focus' && _this.opts.trigger !== 'custom_specie'){
+            _targets.mouseenter(function () {
+              _this.show();
+            });
+            
+            _targets.mouseleave(function () {
+                _this.destroy()
+            });
+        }
+    };
+    //ç»‘å®šäº‹ä»¶
+    Popover.prototype.bind = function(){
+        var _this = this,
+            _trigger = this.opts.trigger,
+            _element = $(this.ele);
+        switch (_trigger) {
+            case "click":
+                _element.on('click',function (e) {
+                    e.stopPropagation();
+                    _this.product = $('#'+_this.pid);
+                    if (!_this.product.length){
+                        _this.mouse = false;
+                        _this.show();
+                    }else{
+                        _this.destroy();
+                    }
+                });
+                $(document).on('click',function (e) {
+                    var _trigger = $(e.target);
+                    if (!_trigger.closest('.popover').length){
+                       
+                       // Se elimina la clase de apertura
+                      document.querySelectorAll('.popover__open').forEach(function(element) {
+                        element.classList.remove("popover__open");
+                      });
+                      
+                       $('.popover').parent('div').remove();
+                    }
+                });
+                break;
+            case "focus":
+                _element.on({
+                    'focus' : function () {
+                        _this.product = $('#'+_this.pid);
+                        if (!_this.product.length){
+                            _this.mouse = false;
+                            _this.show()
+                        }
+                    },
+                    'blur' : function () {
+                        _this.product = $('#'+_this.pid);
+                        if (_this.product.length){
+                            _this.destroy();
+                        }
+                    }
+                });
+                break;
+                case "custom_specie":
+                 
+                _element.on('keydown',function (e) {
+                    e.stopPropagation();
+                 
+                    // obtenemos el código
+                    var _key = e.key;
+                    _this.product = $('#'+_this.pid);
+                    if (!_this.product.length && _key == "*"){
+                        _this.mouse = false;
+                        _this.show();
+                    }else{
+                        _this.destroy();
+                    }
+                });
+                break;
+            default :
+                _element.hover(function () {
+                    _this.show()
+                },function () {
+                    _this.destroy()
+                });
+        }
+    };
+    //æ˜¾ç¤º
+    Popover.prototype.show = function(){
+        var _this = this;
+        console.log(_this);
+        // se garantiza que no exista ningun panel abiertp
+        document.querySelectorAll('.popover__open').forEach(function(element) {
+          element.click();
+        });
+        
+        _this.ele.addClass("popover__open");
+        window.clearTimeout(_this.timer_out);
+        if (!_this.mouse){
+            _this.timer_in = window.setTimeout(function () {
+                _this.mouse = true;
+                _this.render();
+                if(_this.opts && _this.opts.callbackShow){
+                  _this.opts.callbackShow(_this);
+                }
+            },_this.opts.delay);
+        } else if(_this.opts && _this.opts.callbackShow){
+          _this.opts.callbackShow(_this);
+        }
+    };
+    //é”€æ¯
+    Popover.prototype.destroy = function(){
+    
+        // se garantiza que no exista ningun panel abiertp
+        document.querySelectorAll('.popover__open').forEach(function(element) {
+          element.click();
+        });
+        
+        var _this = this;
+        _this.ele.removeClass("popover__open");
+        window.clearTimeout(_this.timer_in);
+        _this.timer_out = window.setTimeout(function () {
+            _this.mouse = false;
+            $('.popover').parent('div').remove();
+            _this.product = null;
+        },_this.opts.delay);
+    };
+    $.fn.popover = function(options) {
+        var _this = this;
+        return _this.each(function () {
+            return new Popover(this, options);
+        });
+    };
+})(jQuery);
+</script>

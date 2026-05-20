@@ -1,0 +1,1568 @@
+<script>
+let G_IS_SUBMITTING = false;
+
+// obtenemos las cotizaciones de renovación
+google.script.run.withSuccessHandler(insertRenovationFromTable).withFailureHandler(SnvaJsApi.onFailure).filterRenovationsByMail(userRole);
+
+// obtenemos el listado de opciones de precios
+google.script.run.withSuccessHandler(showPricesList).withFailureHandler(SnvaJsApi.onFailure).getPricesList();
+
+// se ejecuta la función al cargar el aplicativo
+initModuleRenovation();
+
+/**
+ * Función que te permite inicicializar los campos del módulo de creación de la cotización de refacciones
+**/
+function initModuleRenovation(){
+  
+  // asignamos el evento al boton de crear un proyecto de refacción con base a otro
+  $("#btnCreateRenByOther").click(showMdlDuplicateRenovation);
+  
+  // inicializamos el título personalizado
+  $("#btnCreateRenByOther").tooltip();
+  
+  // Se asigna el evento al boton de enviar la petición de crear una cotización a partir de otra
+  $("#btnCreateMdlDuplicateRenovation").click(createDuplicateRenovation);
+  
+  // Se asigna el evento al boton de seleccionar carpeta en la duplicación de una cotización
+  $("#btnSelectedFolderModalRenovation").click(function(){
+    
+    // obtenemos el token y mostramos el selector
+    google.script.run.withSuccessHandler(showPickerFile).withFailureHandler(SnvaJsApi.onFailure).getPickerInfo("renovation", {contentId: "ctnLinkModalRenovation"}, "folder");
+  });
+  
+  // Se asigna el evento al boton de seleccionar la plantilla respectiva
+  $("#btnSelectedTemplateModalRenovation").click(function(){
+    
+    // obtenemos el token y mostramos el selector
+    google.script.run.withSuccessHandler(showPickerFile).withFailureHandler(SnvaJsApi.onFailure).getPickerInfo("renovation", {contentId: "ctnTemplateModalRenovation", text: "Plantilla seleccionada: ", property: "templateId"}, "doc");
+  });
+  
+  // inicializamos el modal de crear copia de refacciones
+  $("#mdlDuplicateRenovation").modal({
+    dismissible: false
+  });
+  
+  // habilitamos la funcionalidad de busqueda en la tabla de refacciones
+  $("#txtSearchTableRenovation").keyup({paginationId: "ulRenovationPagination", tableId: "tblRenovationList"}, searchByTable);
+  
+  // establecemos un evento para solo permitir numeros y punto en un campo
+  $("#txtEUCounter, #txtUSDCounter").on("paste keypress", function(event){
+    
+    // obtenemos el caracter tecleado
+    var character = String.fromCharCode(event.which);
+    
+    // validamos si el caracter actual no es un punto
+    if(character == "."){
+      
+      // validamos si ya existe un punto y se desea agregar otro
+      if((String(this.value).indexOf(".") != -1 && character == ".")){
+        
+        // no se permite agregar el caracter en la caja
+        event.preventDefault();
+        
+      }
+      
+    } else {
+      
+      // se define el nuevo valor
+      var nowValue = this.value + String.fromCharCode(event.which);
+    
+      if(event.which != 8  && /^[0-9]+(?:\.[0-9]+){0,1}$/.test(nowValue) == false){
+        
+        // no se permite agregar el caracter en la caja
+        event.preventDefault();  
+      }
+      
+    }
+    
+  });
+  
+   
+  // iniciamos el campo de fecha del módulo de creación de refacción
+  $("#txtIssueRenovation").datepicker({
+    format: "dd/mm/yyyy",
+    i18n: i18n,
+    autoClose: true
+  });
+  
+  // agregamos el evento al boton de agregar una especie de refacción
+  $("#btnAddConceptRenovation").click(function(){
+    
+    // llamamos la función de abrir el modal
+    openModalSearchConcept();
+    
+  });
+  
+   // Se asigna el evento al boton de seleccionar carpeta en creación de cotización de refacción
+  $("#btnSelectedFolderRenovation").click(function(){
+    
+    // obtenemos el token y mostramos el selector
+    google.script.run.withSuccessHandler(showPickerFile).withFailureHandler(SnvaJsApi.onFailure).getPickerInfo("renovation", {contentId: "ctnLinkRenovation"}, "folder");
+  });
+  
+  // Se asigna el evento al boton de seleccionar la plantilla respectiva
+  $("#btnSelectedTemplateRenovation").click(function(){
+    
+    // obtenemos el token y mostramos el selector
+    google.script.run.withSuccessHandler(showPickerFile).withFailureHandler(SnvaJsApi.onFailure).getPickerInfo("renovation", {contentId: "ctnLinkTemplateRenovation", text: "Plantilla seleccionada: ", property: "templateId"}, "doc");
+  });
+  
+  // Se asigna el evento al boton de actualizar lista de precios
+  $("#btnUpdatePrices").click(function(){
+    
+    // obtenemos el listado de opciones de precios
+    google.script.run.withSuccessHandler(showPricesList).withFailureHandler(SnvaJsApi.onFailure).getPricesList();
+  });
+  
+  // agregamos la función de calcular el total de segun el tipo de taza de cambio de Euro
+  $("#txtEUCounter").on("keyup change",{type: "EU"}, searchTotal);
+  
+  // agregamos la función de calcular el total de segun el tipo de taza de cambio de Dolar
+  $("#txtUSDCounter").on("keyup change",{type: "USD"}, searchTotal);
+  
+  // agregamos la función de calcular el total de segun el tipo de taza de cambio de Mexicano
+  $("#txtMxMCounter").on("keyup change",{type: "MX"}, searchTotal);
+  
+  // agregamos el evento al formulario de creación de cotización de refacción
+  $("#frmCreateRenovation").off("submit").data("action", "creation").submit(sendRenovationRequest);
+  
+  // asignamos el evento al boton de crear cotización de refacción
+  $("#btnCreateRenovation").click(showCreateRenovation);
+  
+  // asignamos el evento al boton de cancelar
+  $("#btnCancelCreateRenovation").click(cancelCreationRenovation);
+  
+}
+
+//console.log("asadasd")
+//// Adicionamos el evento para mover hacia delante la fila
+//$("#ulRenovationPagination").on('click', 'a', function(event) {
+//console.log("aca")
+//  // se garantiza que no exista ningun panel abiertp
+//  document.querySelectorAll('.popover__open').forEach(function(element) {
+//    element.click();
+//  });
+//  
+//});
+
+
+/**
+ * Función que permite crear una copia de un proyecto de renovación
+**/
+function createDuplicateRenovation(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos los datos
+  var requestData = $(this).data("requestData");
+  
+  // obtenemos el elemento de la carpeta seleccionada
+  var $link = $("#ctnLinkModalRenovation a");
+  
+  // validamos si existe algun vínculo
+  if($link.length > 0){
+  
+    // obtenemos el elemento de la carpeta seleccionada
+  	var $linkTemplate = $("#ctnTemplateModalRenovation a");
+    
+    // validamos si existe algun vínculo
+    if($linkTemplate.length > 0){
+      
+      // Mostramos el loading
+      SnvaJsApi.manageLoading("block", "Generando cotización de refacción a partir de otra...");
+      
+      //Invocamos a la función que trae del servidor los datos de las carpetas hijas de la carpeta principal y sus respectivos archivos
+      google.script.run.withSuccessHandler(responseCreateDuplicateRenovation).withFailureHandler(SnvaJsApi.onFailure).createDuplicateRenovation(requestData, $link.data("folderId"), $linkTemplate.data("templateId"), userRole);
+    } else {
+      
+      // mostramos mensaje en la interfaz
+      SnvaJsApi.showAlert("Debes seleccionar una <b>plantilla</b> para continuar.");
+      
+    }  
+    
+  } else {
+    
+    // mostramos mensaje en la interfaz
+    SnvaJsApi.showAlert("Debes seleccionar una <b>carpeta</b> para alojar la cotización.");
+    
+  }  
+}
+
+/**
+* Función que permite obter la respuesta luego de crear la cotización a partir de otra
+**/
+function responseCreateDuplicateRenovation(response){
+    
+  // actualizamos el listado de solicitudes
+  insertRenovationFromTable(response.requestData);
+    
+  // se referencia el modal de seleccionar la carpeta destivo 
+  var $modal= $("#mdlDuplicateRenovation");
+  
+  // creamos la instancia del modal
+  var instanceMdl = M.Modal.getInstance($modal);
+  
+  // validamos si existe la instancia
+  if(instanceMdl){
+  
+    // cerramos el modal
+    instanceMdl.close();
+  }
+  
+  // ocultamos el loading
+  SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+  
+  // mostramos mensaje de confirmación
+  SnvaJsApi.confirm("Cotización de refacción generada exitosamente. ¿Desea abrir la cotización en modo de edición?", function(){
+  	
+    // referenciamos la opción
+    var $optionEdit = $("#dropdown" + (response.requestData.length - 1) + " a.edit__renovation");
+    
+    // Se valida si existe
+    if($optionEdit.length > 0){
+    
+      // emulamos el clic en la opción de modificar 
+      $optionEdit.click();
+    }
+  
+  });
+  
+}
+
+/**
+* Función encargado de mostrar el panel para crear nueva cotización de refacción
+**/
+function showCreateRenovation(e){
+  
+  // Se valida que se llame esta función desde un boton directamenente
+  if(e != false){
+    
+    // Se previene el evento por defecto
+    e.preventDefault();
+  }
+  
+  // ubicamos el scroll en la parte superior
+  $(window).scrollTop(0);
+  
+  // ocultamos el panel principal y el boton de abrir cotización
+  $("#pnlRenovationMain, #btnOpenFileRenovation").hide();
+  
+  // cambiamos el texto del boton de enviar cotización
+  $("#btnManagerRenovation").text("Crear cotización");
+  
+  // cambiamos el título del panel
+  $("#lblTitleFormRenovation").text("Crear cotización de refacción");
+  
+  // reseteamos el formulario
+  resetCreateFormRenovation();
+  
+  // mostramos el panel de seleccionar carpeta y plantilla
+  $("#btnSelectedFolderRenovation").closest("div.panel-primary").show();
+  
+  // se define que el formulario se debe comportar como creación
+  $("#frmCreateRenovation").data("action", "creation");
+  
+  // mostramos el panel de crear cotización
+  $("#pnlCreateRenovation").show();
+  
+  if(e){
+    // creamos la propiedad para guardar los datos temporales
+    Lockr.set('snva_temporal_data_renovation', {});
+  }
+
+}
+
+/**
+* Función que permite cancelar la creaciòn de la cotizaciòn
+**/
+function cancelCreationRenovation(){
+
+  // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+  SnvaJsApi.confirm("¿Esta seguro que desea cancelar la creación de esta cotización de refacciones?", function(){
+    
+    // borramos la propiedad del localStorage
+    Lockr.rm("snva_temporal_data_renovation");
+    
+    // ocultamos el panel de creación
+    $("#pnlCreateRenovation").hide();
+    
+    // reseteamos el formulario
+    resetCreateFormRenovation();
+    
+    // mostramos el panel de inicio
+    $("#pnlRenovationMain").show();
+  
+  });
+
+}
+
+/**
+  * Función que permite resetear el formulario de creación de cotización de refacción
+**/
+function resetCreateFormRenovation(){
+    
+  // referenciamos el formulario
+  var $form = $("#frmCreateRenovation");
+  
+  // reseteamos todos los campos
+  $form[0].reset();
+  
+  // borramos el contenido del panel de selecciòn de carpeta y plantilla
+  $("#ctnLinkRenovation").html('');
+  $("#ctnLinkTemplateRenovation").html('');
+  
+  // agregamos el valor por defecto a Vigencia
+  $("#txtValidityRenovation").val("7");
+  
+  // restablecemos el listado de filas en la tabla de especies
+  $("#tblConceptRenovation tbody").html('<tr class="info-message" style=""><td colspan="8">No hay refacciones para mostrar.</td></tr>');
+  
+  // actualizamos el paginador
+  SnvaJsApi.initPaginationByTable($("#tblConceptRenovation"), "ulPaginationConceptList", 10);
+  
+  // restablecemos los valores de la tabla de tipo de cambio
+  $(".tdEUSubTotal, .tdEUTotal, .tdUSDSubTotal, .tdUSDTotal, .tdMxNSubTotal, .tdMxNTotal, .td_Total").text("0");
+  
+  // borramos el contenido de la tabla de refacciones pendientes
+  $("#tblConceptPending tbody").html('<tr class="info-message" style=""><td colspan="2">No hay refacciones pendientes para mostrar.</td></tr>');
+  
+  // actualizamos el paginador
+  SnvaJsApi.initPaginationByTable($("#tblConceptPending"), "ulPaginationConceptPending", 10);
+  
+  // establecemos el estado tamaulipas, victoria y victoria por defecto
+  $("#sltStateRenovation").val("Tamaulipas"); // agregamos el dato estado y emulamos el evento para que obtenga el valor
+  $("#sltMunicipalityRenovation").data("tempValue", "Victoria"); // agregamos el dato de municipio
+  $("#sltLocationRenovation").data("tempValue", "CIUDAD VICTORIA"); // agregamos el dato de localidad
+  
+  // actualizamos los campos
+  M.updateTextFields();
+  
+  // referenciamos la instancia del campo de fecha
+  var instancePicker = M.Datepicker.getInstance($("#txtIssueRenovation"));
+  
+  // validamos si existe instancia
+  if(instancePicker){
+    // establecemos la fecha actual
+    instancePicker.setDate(new Date());
+  }
+  
+}
+
+/**
+* Función encargado de mostrar el panel para crear nueva cotización, pero en modo de edición
+**/
+function modifyCotRenovation(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // Mostramos el loading
+  SnvaJsApi.manageLoading("block", "Habilitando la cotización en modo de edición...");
+  
+  // cambiamos el texto del boton de enviar cotización
+  $("#btnManagerRenovation").text("Modificar cotización");
+  
+  // cambiamos el título del panel
+  $("#lblTitleFormRenovation").text("Modificar cotización de refacción");
+  
+  // se referncia los datos de la solicitud actual
+  var requestData = e.data.requestData;
+  
+  // se obtienen los datos actualizados de la solicitud
+  google.script.run.withSuccessHandler(function(objectData){
+    
+    // ocultamos el panel principal
+    $("#pnlRenovationMain").hide();
+    
+    // reseteamos el formulario
+    resetCreateFormRenovation();
+    
+    // Ocultamos el panel de seleccionar carpeta
+    $("#btnSelectedFolderRenovation").closest("div.panel-primary").hide();
+    
+    // se define que el formulario se debe comportar como modificación
+    $("#frmCreateRenovation").data({
+      "action": "modification",
+      "rowIndex": requestData.row,
+      "documentId": requestData.documentId,
+      "lastRow": objectData.lastRow,
+      "templateId": objectData.currentData.templateId,
+      "folderId": objectData.currentData.folderId,
+      "consecutive": requestData.quotationNumber
+    });
+    
+    // agregamos cada uno de los campos al formulario
+    addDataToFormRenovation(objectData.currentData);
+    
+    // mostramos el panel de crear cotización y el boton para abrir la cotización
+    $("#pnlCreateRenovation").show();
+    
+    // agregamos el vínculo de la cotización
+    $("#btnOpenFileRenovation").css("display", "inline-block").attr("href", "https://docs.google.com/spreadsheets/d/" + requestData.documentId);
+    
+    // Ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+  
+  }).withFailureHandler(SnvaJsApi.onFailure).getInfoUpdatedRenovation(requestData.documentId, requestData.structure);
+
+}
+
+/**
+* Función que permite agregar los valores en el formulario de creación
+**/
+function addDataToFormRenovation(arrayData){
+  
+  //############# PLAZOS ############
+  // referenciamos la instancia del campo de fecha
+  var instancePicker = M.Datepicker.getInstance($("#txtIssueRenovation"));
+  
+  // obtenemos el array de la fecha
+  var issueArray = String(arrayData.issue).split("/");
+  
+  try{
+    // establecemos la fecha actual
+    instancePicker.setDate(new Date(issueArray[1] + "/" + issueArray[0] + "/" + issueArray[2]));
+  }catch(e){}
+  
+  $("#txtIssueRenovation").val(arrayData.issue); // agregamos el dato fecha de emisión
+  $("#txtValidityRenovation").val(arrayData.validity); // agregamos el dato de vigencia
+  
+  //############# Razon social del solicitante ############
+  $("#txtClientRenovation").val(arrayData.client); // agregamos el dato de nombre
+  $("#txtFederalRecordRenovation").val(arrayData.federalRecord); // agregamos el dato de registro federal
+  $("#txtAgentRenovation").val(arrayData.agent); // agregamos el dato del representante
+  $("#txtFiscalResidenceRenovation").val(arrayData.fiscalRecidence); // agregamos el dato del domicilio fiscal
+  $("#txtSaleContactRenovation").val(arrayData.salesContact); // agregamos el dato del contacto de ventas
+  $("#txtTelephoneRenovation").val(arrayData.phone); // agregamos el dato del telefono
+  $("#txtEmailRenovation").val(arrayData.email); // agregamos el dato del correo electronico
+  
+  //############# Ubicación del proyecto ############
+  $("#sltStateRenovation").val(arrayData.state); // agregamos el dato estado y emulamos el evento para que obtenga el valor
+  $("#sltMunicipalityRenovation").data("tempValue", arrayData.municipality); // agregamos el dato de municipio
+  $("#sltLocationRenovation").data("tempValue", arrayData.location); // agregamos el dato de localidad
+
+  // agregamos el valor de tipo de cambio de euros
+  $("#txtEUCounter").val(arrayData.euValue);
+  
+  // agregamos el valor de tipo de cambio de euros
+  $("#txtUSDCounter").val(arrayData.usdValue);
+  
+  // recorremos el listado de opciones asociada a los precios
+  for(var i = 0; i < arrayData.priceCategory.length; i++){
+    
+    // seleccionamos la respectiva opción
+    $("#ctnPricesList input[value='" + arrayData.priceCategory[i] + "']")[0].checked = true;
+    
+  }
+  
+  // validamos si la opción de enviar correo esta habilitada
+  if(arrayData.sendMail){
+    
+    // seleccionamos la opción
+    $("#chxSendMail")[0].checked = true;
+    
+  }
+  
+  // referenciamos la tabla de especies
+  var $conceptTable = $("#tblConceptRenovation");
+  
+  // referenciamos la tabla de especies pendientes
+  var $conceptPendingTable = $("#tblConceptPending");
+  
+  // recorremos cada uno de los especies
+  for(var j = 0; j < arrayData.conceptList.length; j++){
+    
+    // agregamos cada uno de las especies
+    addConceptByModification(arrayData.conceptList[j], arrayData.deliveryTime, $conceptTable, $conceptTable.find("tbody"), $conceptPendingTable.find("tbody"));
+    
+  }
+  
+  // simulamos un evento de cambio en los campos de cantidad
+  $conceptTable.find("input[type='text']").change();
+  
+  // iniciaizamos el paginador de las especies
+  SnvaJsApi.initPaginationByTable($conceptTable, "ulPaginationConceptList", 10);
+
+  // iniciaizamos el paginador de las especies pendientes
+  SnvaJsApi.initPaginationByTable($conceptPendingTable, "ulPaginationConceptPending", 10);
+  
+  // actualizamos los campos
+  M.updateTextFields();
+}
+
+
+/**
+ * Función encargado de obtener los datos diligenciados y enviarlos para realizar la creación de una cotización
+ **/
+function sendRenovationRequest(e) {
+  // Validamos si ya se realizo un submit
+  if (G_IS_SUBMITTING) return false;
+  
+  // referenciamos el formulario como objeto Jquery
+  var $form = $(this);
+  
+  // se obtiene que tipo de acción que se debe realizar
+  var action = $form.data("action");
+  
+  // referenciamos el id del documento de la cot.
+  var documentId = null,
+      rowIndex = -1,
+      message = "¿Seguro desea generar la cotización de refacción?",
+      lastRow = -1,
+      consecutive = null;
+  
+  // obtenemos los datos de los respectivos campos
+  var formData = getRenovationData();
+  
+  // validamos si es una actualización
+  if(action == "modification"){
+   
+    // obtenemos el id del documento
+    documentId = $form.data("documentId");
+    
+    // obtenemos la fila donde se encuentra la cotización en la hoja base de solicitudes
+    rowIndex = Number($form.data("rowIndex"));
+    
+    // obtenemos la fila hasta la que se van a eliminar filas cuando se modificque
+    lastRow = Number($form.data("lastRow"));
+    
+    // agregamos el id de la plantilla seleccionada
+    formData.templateId = $form.data("templateId");
+    
+    // agregamos el id de la carpeta
+    formData.folderId = $form.data("folderId");
+    
+    // obtenemos el consecutivo
+    consecutive = $form.data("consecutive");
+    
+    // cambiamos el mensaje
+    message = "¿Seguro desea modificar la cotización refacción?";    
+  }
+  
+  // validamos si existe alguna categoria de precios
+  if($("#ctnPricesList input:checked").length == 0){
+    
+    // mostramos mensaje en la interfaz
+    SnvaJsApi.showAlert("Debes seleccionar al menos una categoria de precios.");
+    
+    // finalizamos la ejecución de la función
+    return false;    
+  }
+  
+  // obtenemos la respuesta de la validación de la generación del presupuesto
+  var responseValidationData = validateConceptByRenovation(formData.conceptList);
+  
+  // validamos que los datos de Generación de presupuesto este diligenciados correctamenete
+  if(responseValidationData.state){
+    console.log("formData", formData)
+    // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+    SnvaJsApi.confirm(message, function(){
+
+      // Deshabilitar botón
+      $form.find("button[type=submit]").prop("disabled", true);
+    
+      // mostramos el loading
+      SnvaJsApi.manageLoading("block", (action == "modification" ? "Modificando" : "Generando") + " la cotización de refacciones...");      
+      G_IS_SUBMITTING = true;
+      
+      // realizamos la petición para la generación de la cotización de refacción
+      google.script.run.withSuccessHandler(function(response_){
+        // Habilitamos botón
+        $form.find("button[type=submit]").prop("disabled", false);
+
+        // Cambiamos la bandera para volver a ejecutar
+        G_IS_SUBMITTING = false;
+        answerCreateRenovation(response_);
+      }).withFailureHandler(function(error_){
+
+        // Habilitamos botón
+        $form.find("button[type=submit]").prop("disabled", false);
+
+        // Cambiamos la bandera para volver a ejecutar y mostramos el error
+        G_IS_SUBMITTING = false;
+        SnvaJsApi.onFailure(error_);
+      }).generateCotRenovation(formData, documentId, rowIndex, lastRow, consecutive, userRole);
+    
+    });
+  } else {
+  
+    // mostramos un mensaje
+    SnvaJsApi.showAlert(responseValidationData.message);
+  
+  }
+  
+  // prevenimos el evento por defecto
+  e.preventDefault();
+  
+}
+
+/**
+ * permite obtener los datos de renovación
+**/
+function getRenovationData(){
+  
+  // obtenemos los datos de los respectivos campos
+  var formData = {
+    issue: $("#txtIssueRenovation").val(),
+    validity: $("#txtValidityRenovation").val(),
+    state: $("#sltStateRenovation").val(),
+    municipality: $("#sltMunicipalityRenovation").val(),
+    location: $("#sltLocationRenovation").val(),
+    client: $("#txtClientRenovation").val(),
+    federalRecord: $("#txtFederalRecordRenovation").val(),
+    agent: $("#txtAgentRenovation").val(),
+    fiscalRecidence: $("#txtFiscalResidenceRenovation").val(),
+    salesContact: $("#txtSaleContactRenovation").val(),
+    phone: $("#txtTelephoneRenovation").val(),
+    email: $("#txtEmailRenovation").val(),
+    euValue: $("#txtEUCounter").val(),
+    usdValue: $("#txtUSDCounter").val(),
+    total: Number($("#tblResultRenovation tbody tr td.td_Total").text().replace(/\,/g, "")),
+    deliveryTime: {},
+    conceptList: getConceptListByRenovation(),
+    priceCategory: [],
+    sendMail: $("#chxSendMail").is(":checked")
+  };
+  
+  // obtenemos el listado de categoria de precios
+  $("#ctnPricesList input:checked").each(function(){
+    
+    // agregamos el valor
+    formData.priceCategory.push(this.value);
+    
+  });
+  
+  // obtenemos los datos de la tabla de entrega
+  $("#tblConceptPending tbody tr.isValid").each(function(){
+    
+    // refernciamos la fila
+    var $row = $(this);
+    
+    // validamos si tiene chequeado la opción
+    if($row.hasClass("info-message") == false){
+    
+      // agregamos la información de los coneptos que no se encuentran en el inventario
+      formData.deliveryTime[$row.attr("data-reference")] = $row.find("input").val();
+    }
+    
+  });
+  
+  // retornamos la información del formualrio
+  return formData;
+  
+}
+
+/**
+ * Función que permite validar si todos las especies estan diligenciados
+**/
+function validateConceptByRenovation(conceptList){
+  
+  // definimos un objeto por defecto
+  var returnObject = {
+    state: true,
+    message: ""
+  };
+  
+  // validamos si la cantidad es igual a cero
+  if(conceptList.length == 0){
+    
+    // Ajustamos el mensaje
+    returnObject.message = "Debes agregar mínimo una refacción.";
+    
+    // Ajustamos el estado
+    returnObject.state = false;
+    
+    // retornamos el objeto
+    return returnObject;
+    
+  }
+  
+  // definimos un estado de especies diligenciadas
+  var conceptState = true;
+  
+  // recorremos cada uno de las especies para validar que cada especie este diligenciado correctamente
+  conceptList.forEach(function(record){
+  
+    // validamos si el valor es diferente de vacio
+    if(!record.conceptCount || (record.conceptCount == "0") ){
+    
+    // cambiamos de estado
+    conceptState = false;
+    
+    // salimos del ciclo
+    return false;
+    
+    }
+  
+  });
+  
+  // validamos si el estado es false
+  if(conceptState == false){
+  
+    // Ajustamos el mensaje
+    returnObject.message = "Debes agregar la cantidad en cada <b>refacción</b>.";
+    
+    // Ajustamos el estado
+    returnObject.state = false;
+    
+  }
+  
+  // retornamos el objeto por defecto
+  return returnObject;
+  
+}
+
+/**
+ * Función que permite obtener el listado de las especies en las refacciones
+**/
+function getConceptListByRenovation(){
+  
+  // definimos la variable donde almacenamos las especies
+  var conceptsArray = [],
+      currentConcept = [],
+      index = -1;
+  
+  // recorremos cada una de las opciones seleccionadas sobre las especies asociadas a una línea
+  $("#tblConceptRenovation > tbody tr").each(function(index, element){
+  
+    // refernciamos la fila
+    var $row = $(this);
+   
+    // validamos si tiene chequeado la opción
+    if($row.hasClass("info-message") == false){
+      
+      // obtenemos los datos de la especie actual
+      currentConcept = $row.data("conceptData");
+      
+      // validamos si la moneda es EU
+      if(currentConcept[6] == "EU"){
+        // agregamos el indice 1
+        index = 1;
+      } else if(currentConcept[6] == "USD"){
+        // agregamos el indice 2
+        index = 2;
+      } else {
+        // agregamos el indice 3
+        index = 3;
+      }
+      
+      // Agregamos cada una de las ordenes del proyecto
+      conceptsArray.push({
+        conceptCount: $row.find("input").val(),
+        inventory: $row.find("select").val(),
+        conceptData: currentConcept,
+        reference: $row.attr("data-reference"),
+        index: index
+      });
+    }
+  
+  });
+  
+  // retornamos los datos
+  return conceptsArray;
+  
+}
+
+/**
+ * Función que permite capturar la respuesta una vez terminado el proceso de creación o modificación de la cotización de refacción
+**/
+function answerCreateRenovation(response){
+  
+  // borramos la propiedad del localStorage
+  Lockr.rm("snva_temporal_data_renovation");
+  
+  // mostramos un mensaje
+  SnvaJsApi.showAlert(response.message);
+  
+  // actualizamos el listado de solicitudes
+  insertRenovationFromTable(response.requestData);
+  
+  // mostramos el panel de inicio
+  $("#pnlRenovationMain").show();
+  
+  // ocultamos el panel de creación
+  $("#pnlCreateRenovation").hide();
+  
+  // reseteamos el formulario
+  resetCreateFormRenovation();
+  
+  // Ocultamos el loading
+  SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+}
+
+
+/**
+ * Función que permite calcular el total por cada tipo de cambio
+**/
+function searchTotal(e){
+  
+  // obtenemos la fila 
+  var $currentRow = $(this).closest("tr");
+  
+  // obtenemos el tipo de cambio
+  var type = e.data.type,
+      conceptData = [],
+      total = 0,
+      $row = null;
+  
+  // Validamos si es MX
+  if(type == "MX"){
+    type = [type, "MXN"];
+  } else {
+    type = [type];
+  }
+
+  // obtenemos el tipo de cambio
+  var value = this.value;
+  
+  // recorremos cada una de las filas de la tabla de especies
+  $("#tblConceptRenovation tbody tr").each(function(){
+    
+    // referenciamos la fila
+    $row = $(this);
+    
+    // obtenemos los datos de la especie
+    conceptData = $row.data("conceptData");
+    
+    // validamos si existe datos
+    if(conceptData){
+      
+      // validamos si el tipo de cambio es igual al que se paso como parametro
+      //if(type == conceptData[6]){
+      if(type.indexOf(conceptData[6]) != -1){
+        
+        // obtenemos la cantidad
+        var counter = $row.find("input[type='text']").val() || 0;
+        
+        // sumamos
+        total += (String(conceptData[7]).replace(/\,|\$/g, "") || 0) * counter;
+        
+      }
+    }
+    
+  });
+
+  // agregamos el dato en la columna subtotal
+  $currentRow.find("td:nth-child(3)").text(roundDecimal(total, 2));
+  
+  // agregamos el dato en la columna subtotal en pesos mexicanos
+  $currentRow.find("td:nth-child(4)").text(SnvaJsApi.formatValue(roundDecimal(total * Number(value), 2)));
+  
+  // calculamos el total
+  calculateMxMTotal();
+  
+}
+
+/** 
+  Función que aproxima un valor decimal a cierto número de decimales. 
+  @param {Number} number Número que se desea truncar. 
+  @param {Number} [decimals=0] Número de decimales a truncar. 
+  @return {Number} Retorna el número truncado. 
+*/
+function roundDecimal(number, decimals) {
+
+  // convertimos en un numero el valor si el valor es diferente a un tipo numero
+  if(typeof number !== "number"){
+  
+    // convertimos el valor en numero
+    number = Number(String(number).replace(/\$|\,/g, "")) || 0;
+  } else if(number === Infinity){
+  
+    // se supera la cantidad de decimales se establece cero
+    number = 0;
+  }
+  
+  if (decimals == undefined) {
+    decimals = 0;
+  }
+  if (decimals >= 0) {
+    /*var multipleValue = Math.pow(10, decimals);
+    return Math.floor(number * multipleValue) / multipleValue;*/
+    return +(Math.round(number + "e+" + decimals)  + "e-" + decimals);
+  }
+}
+
+/**
+ * Función que permite calcular el total en refacciones
+**/
+function calculateMxMTotal(){
+  
+  // variable para calcular el total
+  var total = 0;
+  
+  // Sumamos el total de euros
+  total += parseFloat($("#tblResultRenovation tbody tr td.tdEUTotal").text().replace(/\,/gi, ""));
+  
+  // Sumamos el total de dolares
+  total += parseFloat($("#tblResultRenovation tbody tr td.tdUSDTotal").text().replace(/\,/gi, ""));
+  
+  // Sumamos el total de dolares
+  total += parseFloat($("#tblResultRenovation tbody tr td.tdMxNTotal").text().replace(/\,/gi, ""));
+  
+  // agregamos el dato en la columna subtotal
+  $("#tblResultRenovation tbody tr td.td_Total").text(SnvaJsApi.formatValue(roundDecimal(total, 2)));
+  
+}
+
+/**
+ * Función que permite agregar las descripciones de precios
+**/
+function showPricesList(pricesList){
+  
+  // refrenciamos el contenedor
+  var $content = $("#ctnPricesList");
+  
+  // borramos el contenido actual
+  $content.html("");
+  
+  // recorremos cada uno de las descripciones de precios
+  for(var i = 0; i < pricesList.length; i++){
+    
+    // agregamos cada una de las opciones
+    $content.append(
+      $("<div>").attr({class: "col s12"}).append(
+        $("<label>").append(
+          $("<input>").attr({type: "checkbox", class: "filled-in", value: pricesList[i][0]})
+        ).append(
+          $("<span>").text(pricesList[i][0])
+        )
+      )
+    );
+  }
+  
+}
+
+/**
+ * Función que permite insertar cada uno de los registros de cot. en la tabla
+**/
+function insertRenovationFromTable(requestData) {
+  
+  // referenciamos la tabla de lista de cotizaciones de refacciones
+  var $table = $("#tblRenovationList");
+
+  // obtenemos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+
+  // restablecemos el contenido
+  $tBody.html('<tr class="info-message" style="display: none;"><td colspan="8">No hay cotizaciones de refacción para mostrar.</td></tr>');
+
+  // variable para almacenar la referencia de la fila creada
+  var $row = null, $tdId = null, $tdSpan = null;
+
+  // recorremos cada uno de los datos
+  //for (var i = 0; i < requestData.length; i++) {
+  for (var i = requestData.length - 1; i >= 0; i--) {
+
+    // creamos una nueva fila
+    $row = $("<tr>").attr({
+      class: "isValid"
+    });
+
+    // agregamos la fila al cuerpo de la tabla
+    $tBody.append($row);
+    
+    // creamos la fila de: Seleccionar
+    $row.append(
+      $("<td>").attr({class: "text-center"}).append(
+        $("<label>").append(
+        	$("<input>").attr({class: "with-gap", type: "radio", name: "radRenovation"}).data("requestData", requestData[i]).click({$table: $table}, enabledOptionRenovation)
+        ).append(
+        	$("<span>")
+        )
+      )
+    );
+	
+    // creamos la fila de: # de la cotización
+    $tdSpan = $("<span>").text(requestData[i].quotationNumber);
+    $tdId = $("<td>").append($tdSpan);
+    
+    // Mostramos el popover
+    $tdSpan.popover({
+      title: ('Detalles de la solicitud: ' + requestData[i].quotationNumber),
+      trigger: 'click',
+      placement: 'right',
+      content: getTableRenovation(requestData[i].structure)
+    });
+    
+    // Se agrega la columna a la fila
+    $row.append($tdId);
+
+    // creamos la fila de: Cliente
+    $row.append(
+      $("<td>").text(requestData[i].client)
+    );
+
+    // creamos la fila de: Fecha de emisión
+    $row.append(
+      $("<td>").text(requestData[i].issueDate)
+    );
+
+    // creamos la fila de: Vigencia
+    $row.append(
+      $("<td>").text(requestData[i].validateDate)
+    );
+
+    // creamos la fila de: Autor
+    $row.append(
+      $("<td>").text(requestData[i].author)
+    );
+    
+    // creamos la fila de: Importe
+    $row.append(
+      $("<td>").text(SnvaJsApi.formatValue(requestData[i].importe))
+    );
+    
+    // agregamos la columna de acciones
+    $row.append(
+      $("<td>").attr({ class: "text-center td-options"}).append(
+        $("<a>").attr({"data-target": "dropdown" + i, title: "Opciones", href: "javascript:void(0)", class: "dropdown-trigger btn-icon btn-floating orange waves-effect" }).append(
+          $("<i>").attr("class", "material-icons").text("more_vert")
+        )
+      )
+    );
+    
+    // removemos el elemento anterior
+    $("#dropdown" + i).remove();
+    
+    // agregamos un elemento en el cuerpo de la página sobre las opciones en una cotización de refacciones
+    $("body").append(
+        $("<ul>").attr({class: "dropdown-content table-options", id: "dropdown" + i}).append(
+          $("<li>").attr({title: "Editar cotización"}).append(
+            $("<a>").attr({href: "javascript:void(0)", class: "edit__renovation"}).append(
+              $("<i>").attr("class", "material-icons").text("edit")
+            ).append("Editar").click({ requestData: requestData[i] }, modifyCotRenovation)
+          )
+        ).append(
+          $("<li>").attr({title: "Enviar al cliente"}).append(
+            $("<a>").attr({href: "javascript:void(0)"}).append(
+              $("<i>").attr("class", "material-icons").text("mail")
+            ).append("Enviar al cliente").click({ googleDoc: requestData[i].googleDoc, structure: requestData[i].structure, consecutive: requestData[i].quotationNumber}, sendQuotation)
+          )
+        ).append(
+          $("<li>").attr({title: "Notificar al área de adquisiciones"}).append(
+            $("<a>").attr({href: "javascript:void(0)"}).append(
+              $("<i>").attr("class", "material-icons").text("mail_outline")
+            ).append("Notificar adquisiciones").click({ documentId: requestData[i].documentId, consecutive: requestData[i].quotationNumber}, notifyAcquisitions)
+          )
+        ).append(
+          $("<li>").attr({title: "Eliminar cotización"}).append(
+            $("<a>").attr({href: "javascript:void(0)"}).append(
+              $("<i>").attr("class", "material-icons").text("delete")
+            ).append("Eliminar cotización").click({ documentId: requestData[i].documentId, row: requestData[i].row, tableId: "tblRenovationList", paginationId: "ulRenovationPagination", module: "renovation"}, deleteQuotation)
+          )
+        ).append(
+          $("<li>").attr({title: "Abrir cotización"}).append(
+            $("<a>").attr({href: ("https://docs.google.com/spreadsheets/d/" + requestData[i].documentId), target: "_blank"}).append(
+              $("<i>").attr("class", "material-icons").text("open_in_new")
+            ).append("Abrir cotización")
+          )
+        ).append(
+          $("<li>").attr({title: "Abrir documento"}).append(
+            $("<a>").attr({href: ("https://docs.google.com/document/d/" + requestData[i].googleDoc), target: "_blank"}).append(
+              $("<i>").attr("class", "material-icons").text("open_in_browser")
+            ).append("Abrir documento")
+          )
+        )
+    );
+
+  }
+  
+  // inicializamos los "dropdown"
+  $table.find('.dropdown-trigger').dropdown({container: "body", constrainWidth: false});
+  
+  // iniciaizamos el paginador
+  SnvaJsApi.initPaginationByTable($table, "ulRenovationPagination", 10);
+
+ }
+ /**
+  * Permite mostrar una tabla con el valor de los conceptos
+ */
+ function getTableRenovation(structureStr){
+ 
+   // definimos la variable para obtener la estructura de conceptos
+   var structure = null, contenthtml = "";
+   
+   try{
+   
+     // Se convierte el texto en Objeto
+     structure = JSON.parse(structureStr);
+     
+   }catch(e){
+     
+     // Inicializaos los valores
+     structure = null;
+   }
+   
+   // Se valida si es diferente de null
+   if(structure != null){
+     
+     // agregamos la cabecera
+     contenthtml += '<div class="content__table-info"><table><thead><tr><th>Concepto</th><th>Unidad</th><th>Cantidad</th><th>Importe</th></tr></thead><tbody>';
+     
+     // Variable que vamos a usar
+     var total = 0, price = 0, totalComplete = 0;
+     
+     // Recorremos la lista de conceptos
+     for(var i = 0; i < structure.conceptList.length; i++){
+       
+       // Obtenemso el precio
+       price = Number(String(structure.conceptList[i].conceptData[7]).trim().replace(/\$|\,/g, "")) || 0;
+       
+       // calculamos el total
+       total = roundDecimal(price * Number(String(structure.conceptList[i].conceptCount).replace(/\,/g, "")), 2);
+       
+       // Agregamos el total
+       totalComplete += total;
+       
+       // Agregamos la fila
+       contenthtml += '<tr><td>' + structure.conceptList[i].conceptData[1] +
+       '</td><td>' + structure.conceptList[i].conceptData[4] + '</td><td>' +
+       structure.conceptList[i].conceptCount + '</td><td>' +
+       SnvaJsApi.formatValue(total) + '</td></tr>';
+       
+     }
+     
+     // Agregamos el cierre del cuerpo y la tabla
+     contenthtml += '</tbody><tfoot><tr><th style="padding: 4px 5px;text-align: right;" colspan="3">Total:</th><td>' + SnvaJsApi.formatValue(totalComplete) + '</td></tr></tfoot></table></div>';
+     
+   }
+   
+   // se retorna el HTML
+   return contenthtml;
+   
+ }
+
+ /**
+ * Función que permite mostrar el modal de para crera una cotización a partir de otra
+ **/
+ function showMdlDuplicateRenovation(e){
+  
+    // obtenemos los datos de la solicitud
+    var requestData = e.data ? e.data.requestData : null;
+    
+    // se referencia la tabla
+    var $table = $("#tblRenovationList");
+    
+    // obtenemos las opciones seleccionadas
+    var $radSelected = $table.find("tbody tr input[type='radio'][name='radRenovation']:checked");
+    
+    // se valida si existe algun opción selecciondo
+    if(requestData || $radSelected.length > 0){
+      
+      // se valida si no existen datos de la solicitud
+      if(!requestData){
+        
+        // obtenemos el data de radio button
+        requestData = $radSelected.data("requestData");
+        
+      }
+      
+      // agregamos los datos de la solicitud
+      $("#btnCreateMdlDuplicateRenovation").data("requestData", requestData);
+      
+      // se referencia el modal de seleccionar la carpeta destivo 
+      var $modal= $("#mdlDuplicateRenovation");
+      
+      // creamos la instancia del modal
+      var instanceMdl = M.Modal.getInstance($modal);
+      
+      // validamos si existe la instancia
+      if(instanceMdl){
+        
+        // borramos el contenido del vínculo de la carpeta
+        $("#ctnLinkModalRenovation, #ctnTemplateModalRenovation").html("");
+        
+        // cerramos el modal
+        instanceMdl.open();
+      }
+      
+    } else {
+      
+      // Mostramos un mensaje informando que se debe seleccinar una cotización
+      SnvaJsApi.showAlert("Se debe seleccionar una cotización de refacción antes continuar con esta opción.");
+      
+    }
+}
+
+/**
+* Función que permite habilitar la opción de crear cot. a partir de otra en la sesión de renovation
+**/
+function enabledOptionRenovation(e){
+
+  // se referencia la tabla
+  var $table = e.data.$table;
+  
+  // se valida si existe algun opción selecciondo
+  if($table.find("tbody tr input[type='radio'][name='radRenovation']:checked").length > 0){
+  
+    // habilitamos el botón
+    $("#btnCreateRenByOther").attr({disabled: false});
+  
+  } else {
+  
+    // deshabilitamos el boton de generar cotización a partir de otra
+    $("#btnCreateRenByOther").attr({disabled: true});
+  
+  }
+
+}
+
+/**
+ * Función que permite notificar al área de adquisiciones 
+**/
+function notifyAcquisitions(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos el id de la cotización
+  var spreadsheetId = e.data.documentId;
+  
+  // obtenemos el consecutivo de la cotización
+  var consecutive = e.data.consecutive;
+  
+  // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+  SnvaJsApi.confirm("¿Seguro desea enviar la notificación al área de adquisiciones?", function(){
+  
+    // mostramos el loading
+    SnvaJsApi.manageLoading("block", "Notificando al área de adquisiciones...");
+    
+    //Invocamos a la función que trae del servidor los datos de las carpetas hijas de la carpeta principal y sus respectivos archivos
+    google.script.run.withSuccessHandler(function(response){
+      
+      // Ocultamos el loading
+      SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+      
+      // mostramos el respectivo mensaje
+      SnvaJsApi.showAlert(response.message);
+    
+    }).withFailureHandler(SnvaJsApi.onFailure).notifyAcquisitions(spreadsheetId, consecutive);
+  
+  });
+  
+}
+
+/**
+ * Función que permite enviar un correo de notificación al usuario especifico
+**/
+function sendQuotation(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos la estructura
+  var structure = JSON.parse(e.data.structure);
+  
+  // validamos si existe un correo
+  if(structure.email){
+    
+    // obtenemos el id del documento a compartir
+    var googleDocId = e.data.googleDoc;
+    
+    // obtenemos el consecutivo
+    var consecutive = e.data.consecutive;
+    
+    // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+    SnvaJsApi.confirm("¿Seguro desea enviar esta cotización por correo electrónico?", function(){
+     
+      // mostramos el loading
+      SnvaJsApi.manageLoading("block", "Eviando la cotización...");
+      
+      //Invocamos a la función que envia el respectivo correo
+      google.script.run.withSuccessHandler(function(response){
+        
+        // Ocultamos el loading
+        SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+        
+        // mostramos el respectivo mensaje
+        SnvaJsApi.showAlert("Cotización enviada satisfactoriamente.");
+      
+      }).withFailureHandler(SnvaJsApi.onFailure).sendMail(googleDocId, structure.client, structure.email, consecutive);
+      
+    });
+    
+  } else {
+    
+    // mostramos el respectivo mensaje
+    SnvaJsApi.showAlert("No existe el correo del solicitante.");
+    
+  }
+  
+}
+
+/**
+* Función que permite insertar una especie a la tabla principal de especies de una refacción
+**/
+function addConceptByRenovation(e) {
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos los datos de la especie seleccionada
+  var conceptData = e.data.conceptData;
+  
+  // referenciamos la tabla
+  var $table = $("#tblConceptRenovation");
+  
+  // generamos un id unico
+  var uuId = "row" + SnvaJsApi.generateUUID();
+  
+  // obtenemos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+  
+  // validamos que la especie no exista
+  if(validateIfExisteConcept(conceptData, $tBody)){
+  
+    // variable para almacenar la referencia de la fila creada
+    var $row = $("<tr>").attr({class: "isValid", "data-reference": uuId}).data("conceptData", conceptData);
+    
+    // agregamos la fila al cuerpo de la tabla
+    $tBody.append($row);
+    
+    // creamos la fila de: Moneda
+    $row.append(
+      $("<td>").text(conceptData[6])
+    );
+    
+    // creamos la fila de: Inventario
+    $row.append(
+      $("<td>").append(
+        $("<select>").attr({style: "max-width: 80px;display:block;height: 30px;"}).change({uuId: uuId, conceptData: conceptData}, validateRenovationPending).append(
+          $("<option>").attr({value: "Si"}).text("Si")
+        ).append(
+          $("<option>").attr({value: "No"}).text("No")
+        )
+      )
+    );
+    
+    // creamos la fila de: Descripción
+    $row.append(
+      $("<td>").text(conceptData[1])
+    );
+    
+    // creamos la fila de: Unidad
+    $row.append(
+      $("<td>").text(conceptData[4])
+    );
+    
+    // creamos la fila de: cantidad
+    $row.append(
+      $("<td>").append(
+        $("<input>").attr({type: "text", pattern: "^[0-9]+(?:\.[0-9]{1,3}){0,1}$", style: "max-width: 80px;"}).on("keyup change", {price: String(conceptData[7]).replace(/\,|\$/g, "")}, calculateRenovationTotal).on("paste keypress", SnvaJsApi.validateNumberFormat)
+      )
+    );
+    
+    // creamos la fila de: Costo unitario
+    $row.append(
+      $("<td>").text(SnvaJsApi.formatValue(String((conceptData[7] || 0)).replace(/\$/g, ""))) 
+    );
+    
+    // creamos la fila de: Importe
+    $row.append(
+      $("<td>").text("0")
+    );
+    
+    // creamos la fila de: acciones
+    $row.append(
+      $("<td>").attr({class: "text-center"}).append(
+        $("<a>").attr({title: "Eliminar especie", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+          $("<i>").attr("class", "material-icons").text("delete").click({uuId: uuId, $table: $table, paginationId: "ulPaginationConceptList"}, deleteConcept)
+        )
+      ).append(
+        $("<a>").attr({title: "Subir nivel", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+          $("<i>").attr("class", "material-icons").text("keyboard_arrow_up").click({$table: $table, paginationId: "ulPaginationConceptList", "action": "levelUp"}, manageUpOrDown)
+        )
+      ).append(
+        $("<a>").attr({title: "Bajar nivel", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+          $("<i>").attr("class", "material-icons").text("keyboard_arrow_down").click({$table: $table, paginationId: "ulPaginationConceptList", "action": "levelDown"}, manageUpOrDown)
+        )
+      )
+    );
+    
+    // iniciaizamos el paginador
+    SnvaJsApi.initPaginationByTable($table, "ulPaginationConceptList", 10);
+    
+    //Mostramos el mensaje de error
+    M.toast({
+      html: ("La especie: " + conceptData[1] + " ha sido agregada con éxito."),
+      displayLength: 1500
+    });
+  } else {
+    
+    //Mostramos el mensaje de error
+    M.toast({
+      html: ("La especie ya se encuentra registrada."),
+      displayLength: 1500,
+      classes: "orange"
+    });
+  }
+}
+
+/**
+ * Función que permite validar si una refacción no esta en el inventario
+**/
+function validateRenovationPending(e){
+  
+  // referenciamos el id de referencia
+  var uuId = e.data.uuId;
+  
+  // referenciamos el elemento actual
+  var $elem = $(this);
+  
+  // obtenemos el valor de seleccionado
+  var selectedValue = $elem.val();
+  
+  // referenciamos la tabla de refacciones pendientes
+  var $table = $("#tblConceptPending");
+  
+  // validmoa si la selección es "Si"
+  if(selectedValue == "Si"){
+    
+    // removemos de la tabla de pendientes la respectiva fila
+    $table.find("tbody tr[data-reference='" + uuId + "']").remove();
+    
+  } else {
+    
+    // obtenemos los datos de la especie o refacción
+    var conceptData = e.data.conceptData;
+    
+    // referenciamos el cuerpo de la tabla
+    var $tBody = $table.find("tbody");
+    
+    // agregamos la nueva fila
+    $tBody.append(
+      $("<tr>").attr({class: "isValid", "data-reference": uuId}).append(
+        $("<td>").text(conceptData[1])
+      ).append(
+        $("<td>").append(
+          $("<input>").attr({type: "text", style: "max-width: 250px;", required: true})
+        )
+      )
+    );
+    
+  }
+  
+  // iniciaizamos el paginador
+  SnvaJsApi.initPaginationByTable($table, "ulPaginationConceptPending", 10);
+  
+}
+
+/**
+ * Función que permite calcular el todal de una refacción
+**/
+function calculateRenovationTotal(e){
+  
+  // obtenemos el valor de la especie o producto
+  var value = e.data.price;
+  
+  // validamos si es un valor valido
+  value = value ? value : 0;
+ console.log("value", value);
+  // obtenemos la fila donde se muestra la especie
+  var $row = $(this).closest("tr");
+  
+  // calculamos el total
+  var total = roundDecimal(value * Number($(this).val().replace(/\,/g, "")), 2);
+  console.log("total", total);
+  // buscamos la fila 5 para agregar el total
+  $row.find("td:eq(6)").text(SnvaJsApi.formatValue(total));
+  
+  // Emulamos el evento en los campos de tipo de cambio
+  $("#txtEUCounter, #txtUSDCounter, #txtMxMCounter").change();
+}
+
+/**
+* Función que permite insertar una especie a la tabla principal de espceies de una refacción en modo de edición
+**/
+function addConceptByModification(conceptObj, deliveryTime, $table, $tBody, $tBodyDelivery) {
+  
+  // variable para almacenar la referencia de la fila creada
+  var $row = $("<tr>").attr({class: "isValid", "data-reference": conceptObj.reference}).data("conceptData", conceptObj.conceptData);
+  
+  // agregamos la fila al cuerpo de la tabla
+  $tBody.append($row);
+  
+  // creamos la fila de: Moneda
+  $row.append(
+    $("<td>").text(conceptObj.conceptData[6])
+  );
+  
+  // creamos la fila de: Inventario
+  $row.append(
+    $("<td>").append(
+      $("<select>").attr({style: "max-width: 80px;display:block;height: 30px;", value: conceptObj.inventory}).change({uuId: conceptObj.reference, conceptData: conceptObj.conceptData}, validateRenovationPending).append(
+        $("<option>").attr({value: "Si"}).text("Si")
+      ).append(
+        $("<option>").attr({value: "No"}).text("No")
+      )
+    )
+  );
+  
+  // creamos la fila de: Descripción
+  $row.append(
+    $("<td>").text(conceptObj.conceptData[1])
+  );
+  
+  // creamos la fila de: Unidad
+  $row.append(
+    $("<td>").text(conceptObj.conceptData[4])
+  );
+  
+  // creamos la fila de: cantidad
+  $row.append(
+    $("<td>").append(
+      $("<input>").attr({type: "text", pattern: "^[0-9]+(?:\.[0-9]{1,3}){0,1}$", style: "max-width: 80px;", value: conceptObj.conceptCount}).on("keyup change", {price: String(conceptObj.conceptData[7]).replace(/\,|\$/g, "")}, calculateRenovationTotal).on("paste keypress", SnvaJsApi.validateNumberFormat)
+    )
+  );
+  
+  // creamos la fila de: Costo unitario
+  $row.append(
+    $("<td>").text(SnvaJsApi.formatValue(String(conceptObj.conceptData[7]).replace(/\$/g, "")))
+  );
+  
+  // creamos la fila de: Importe
+  $row.append(
+    $("<td>").text("0")
+  );
+  
+  // creamos la fila de: acciones
+  $row.append(
+    $("<td>").attr({class: "text-center"}).append(
+      $("<a>").attr({title: "Eliminar especie", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+        $("<i>").attr("class", "material-icons").text("delete").click({$table: $table, paginationId: "ulPaginationConceptList"}, deleteConcept)
+      )
+    ).append(
+      $("<a>").attr({title: "Subir nivel", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+        $("<i>").attr("class", "material-icons").text("keyboard_arrow_up").click({$table: $table, paginationId: "ulPaginationConceptList", "action": "levelUp"}, manageUpOrDown)
+      )
+    ).append(
+      $("<a>").attr({title: "Bajar nivel", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+        $("<i>").attr("class", "material-icons").text("keyboard_arrow_down").click({$table: $table, paginationId: "ulPaginationConceptList", "action": "levelDown"}, manageUpOrDown)
+      )
+    )
+  );
+  
+  // seleccionamos el valor de inventario
+  $row.find("select").val(conceptObj.inventory);
+  
+  // validamos si no se encuentra en el inventario
+  if(conceptObj.inventory == "No"){
+    
+    // agregamos la nueva fila
+    $tBodyDelivery.append(
+      $("<tr>").attr({class: "isValid", "data-reference": conceptObj.reference}).append(
+        $("<td>").text(conceptObj.conceptData[1])
+      ).append(
+        $("<td>").append(
+          $("<input>").attr({type: "text", style: "max-width: 250px;", value: deliveryTime[conceptObj.reference], required: true})
+        )
+      )
+    );
+    
+  }
+  
+}
+
+</script>

@@ -1,0 +1,781 @@
+<script>
+/**
+ * Clase que determina qué productos acompañantes (consumibles, accesorios,
+ * tornillería, etc.) se requieren al agregar un concepto a una cotización.
+ *
+ * Diseñada para trabajar con el formato de catálogo como array de arrays,
+ * donde cada fila sigue la estructura de `filterArray` usada en
+ * `insertConceptFromTable`:
+ *
+ *   [0]  coleccion       ej. "ADHESIVOS", "TUBERÍA", "CONEXIONES"
+ *   [1]  concepto        ej. "TUBERÍA PVC HIDRÁULICO C/C ø3 Pulg"
+ *   [2]  genero/material ej. "CEMENTO PVC"
+ *   [3]  tipo            ej. "CONSUMIBLES"
+ *   [4]  unidad          ej. "PIEZA", "METRO"
+ *   [5]  precio_venta    ej. "100.34"
+ *   [6]  moneda          ej. "MXN"
+ *   [7]  precio_alt      ej. "70.00"   (precio refacciones / costo)
+ *   [8]  genero_desc     ej. "PEGAMENTO"
+ *   [9]  material_desc   ej. "BAJA VISCOSIDAD"
+ *   [24] marca           ej. "PRO WELD"
+ *   [25] presentacion    ej. "1/8 L"
+ *   // índices de dimensiones (opcionales, pueden estar vacíos):
+ *   [IDX_DIAM_IN]   diámetro entrada en pulg
+ *   [IDX_DIAM_OUT]  diámetro salida en pulg
+ *   [IDX_CONEX_IN]  tipo conexión entrada  ej. "BRIDADO", "CEM", "C/C"
+ *   [IDX_CONEX_OUT] tipo conexión salida
+ *   [IDX_LONGITUD]  longitud del tramo     ej. "6" (metros)
+ *
+ * USO BÁSICO:
+ *   const motor = new MotorAcompanantes(filterArray, opciones);
+ *   const resultado = motor.obtenerAcompanantes(filaConcepto, cantidad);
+ *   // resultado.acompanantes → array de filas del catálogo listas para
+ *   //   pasarse a insertConceptFromTable o usarse directamente.
+ *
+ * ============================================================================
+ */
+
+class SmartConcepts {
+
+  /**
+   * @param {Array[]} catalogo  - El array completo de productos (filterArray)
+   * @param {Object}  opciones  - Configuración de índices de columna
+   *   opciones.idxDiamIn   {number}  default 30
+   *   opciones.idxDiamOut  {number}  default 31
+   *   opciones.idxConexIn  {number}  default 32
+   *   opciones.idxConexOut {number}  default 33
+   *   opciones.idxLongitud {number}  default 34
+   */
+  constructor(catalogo, opciones = {}) {
+    this._catalogo = catalogo || [];
+    // Índices de las columnas de dimensión en tu filterArray.
+    // Ajusta estos valores si tu estructura tiene columnas en posiciones distintas.
+    this._idx = {
+      coleccion:  0,
+      concepto:   1,
+      genero:     2,   // en tu estructura este campo es el "material" del producto
+      unidad:     4,
+      precio:     5,
+      precioAlt:  7,
+      generoDes:  8,   // descriptor del género (PEGAMENTO, LIMPIADOR, etc.)
+      materialDes:9,
+      marca:      24,
+      presentacion: 25,
+      diamIn:   opciones.idxDiamIn   ?? 30,
+      diamOut:  opciones.idxDiamOut  ?? 31,
+      conexIn:  opciones.idxConexIn  ?? 32,
+      conexOut: opciones.idxConexOut ?? 33,
+      longitud: opciones.idxLongitud ?? 34,
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // API PÚBLICA
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Devuelve los acompañantes calculados para una fila del catálogo.
+   *
+   * @param  {Array}  filaConcepto - Una fila de filterArray (el concepto que
+   *                                 el usuario acaba de agregar)
+   * @param  {number} cantidad     - Cantidad que el usuario ingresó (default 1)
+   * @returns {{ acompanantes: Array[], advertencias: string[], faltantes: string[] }}
+   *   - acompanantes: filas sintéticas compatibles con filterArray,
+   *                   listas para pasarse a insertConceptFromTable.
+   *                   Cada fila tiene además ._cantidad y ._justificacion.
+   *   - advertencias: textos de advertencia (termofusión, soldable, etc.)
+   *   - faltantes:    descripciones de productos requeridos pero no hallados
+   *                   en el catálogo.
+   */
+  obtenerAcompanantes(filaConcepto, cantidad = 1) {
+    const producto = this._filaAProducto(filaConcepto);
+    const items    = this._generarAcompanantes(producto, cantidad);
+
+    const acompanantes = [];
+    const advertencias = [];
+    const faltantes    = [];
+
+    for (const item of items) {
+      if (item.origen === 'ADVERTENCIA') {
+        advertencias.push(item.concepto);
+      } else if (!item.enCatalogo) {
+        faltantes.push(`${item.concepto} × ${this._fmt(item.cantidad)} ${item.unidad}`);
+      } else {
+        // Clonamos la fila del catálogo para no mutarla, y añadimos metadatos
+        const filaCat = this._buscarFilaPorConcepto(item.concepto);
+        if (filaCat) {
+          const filaAcomp = filaCat.slice(); // copia superficial
+          filaAcomp._cantidad      = item.cantidad;
+          filaAcomp._justificacion = item.justificacion;
+          filaAcomp._regla         = item.regla;
+          filaAcomp._cara          = item.cara;
+          acompanantes.push(filaAcomp);
+        }
+      }
+    }
+
+    return { acompanantes, advertencias, faltantes };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // MAPEO FILA ↔ OBJETO PRODUCTO (interfaz interna del motor de reglas)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** Convierte una fila de filterArray al objeto que espera el motor de reglas */
+  _filaAProducto(fila) {
+    const idx = this._idx;
+    return {
+      concepto:  String(fila[idx.concepto]  || '').trim(),
+      coleccion: String(fila[idx.coleccion] || '').trim(),
+      genero:    String(fila[idx.generoDes] || fila[idx.genero] || '').trim(),
+      material:  String(fila[idx.materialDes] || fila[idx.genero] || '').trim(),
+      cedula:    '',
+      diam_in:   String(fila[idx.diamIn]   || '').trim(),
+      diam_out:  String(fila[idx.diamOut]  || '').trim(),
+      conex_in:  String(fila[idx.conexIn]  || '').trim(),
+      conex_out: String(fila[idx.conexOut] || '').trim(),
+      capacidad: '',
+      unidad:    String(fila[idx.unidad]   || 'PIEZA').trim(),
+      longitud:  String(fila[idx.longitud] || '').trim(),
+    };
+  }
+
+  /** Busca la fila original del catálogo por coincidencia de concepto */
+  _buscarFilaPorConcepto(concepto) {
+    const idx = this._idx;
+    const upper = concepto.toUpperCase();
+    return this._catalogo.find(f =>
+      String(f[idx.concepto] || '').toUpperCase() === upper
+    ) || null;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // MOTOR DE REGLAS (adaptado de MotorReglas.gs)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  _generarAcompanantes(producto, cantidadPrincipal) {
+    const acompanantes = [];
+    const perfil = this._inferirPerfil(producto);
+    const cant   = parseFloat(cantidadPrincipal) || 1;
+
+    if (['ACCESORIO','NO_RECONOCIDO','PRODUCTO_AUXILIAR'].includes(perfil.tipo)) {
+      return acompanantes;
+    }
+
+    // ── BRIDA SUELTA (R-020b) ────────────────────────────────────────────────
+    if (perfil.tipo === 'BRIDA_SUELTA') {
+      return this._unionBridadaMedia(perfil.caras[0].diametro, cant,
+        'Brida suelta — contracara provista por el equipo', 'unión');
+    }
+
+    // ── TUBERÍAS ─────────────────────────────────────────────────────────────
+    if (perfil.tipo === 'TUBERIA_CC') {
+      const nu = Math.ceil(cant / perfil.longitud_tramo);
+      return this._unionAnilloHule(perfil.diametro, nu,
+        `${cant} m ÷ tramo ${perfil.longitud_tramo} m = ${nu} unión(es) C/C`, 'tramo');
+    }
+    if (perfil.tipo === 'TUBERIA_CEM') {
+      const nu = Math.ceil(cant / perfil.longitud_tramo);
+      return this._unionCementada(perfil.diametro, nu,
+        `${cant} m ÷ tramo ${perfil.longitud_tramo} m = ${nu} unión(es) cementada(s)`, 'tramo');
+    }
+    if (perfil.tipo === 'TUBERIA_CB') {
+      const nu = Math.ceil(cant / perfil.longitud_tramo);
+      return this._unionBocinaMixta(perfil.diametro, nu,
+        `${cant} m ÷ tramo ${perfil.longitud_tramo} m = ${nu} unión(es) C/B`, 'tramo');
+    }
+    if (perfil.tipo === 'TUBERIA_TERMOFUSION') {
+      return [this._advertencia(
+        'Tubería de termofusión: requiere máquina termofusionadora. No se cuantifican consumibles químicos automáticamente.',
+        'R-030', 'tramo')];
+    }
+    if (perfil.tipo === 'TUBERIA_ROSCADA') {
+      const nu = Math.ceil(cant / perfil.longitud_tramo);
+      return this._unionRoscadaMacho(perfil.diametro, nu,
+        `${cant} m de tubería roscada ÷ tramo = ${nu} unión(es)`, 'tramo');
+    }
+    if (perfil.tipo === 'TUBERIA_SOLDABLE') {
+      return [this._advertencia(
+        'Tubería soldable: requiere proceso de soldadura. Considera electrodo y mano de obra por separado.',
+        'R-080', 'tramo')];
+    }
+
+    // ── PROCESAR CARAS ───────────────────────────────────────────────────────
+    for (const cara of perfil.caras) {
+      const just = this._describirCara(cara, producto);
+      const rol  = cara.rol;
+
+      if (cara.tipo === 'BR') {
+        const tabla = ['VALVULA_CHECK','VALVULA_COMPUERTA_BR'].includes(perfil.tipo) ? 'CHECK' : 'FOFO';
+        acompanantes.push(...this._unionBridada(cara.diametro, tabla, cant, just, rol));
+      } else if (cara.tipo === 'OBL') {
+        acompanantes.push(...this._unionMariposaWafer(cara.diametro, cant, just, rol));
+      } else if (cara.tipo === 'CEM') {
+        acompanantes.push(...this._unionCementada(cara.diametro, cant, just, rol));
+      } else if (cara.tipo === 'CC') {
+        acompanantes.push(...this._unionAnilloHule(cara.diametro, cant, just, rol));
+      } else if (cara.tipo === 'CB') {
+        acompanantes.push(...this._unionBocinaMixta(cara.diametro, cant, just, rol));
+      } else if (cara.tipo === 'RM') {
+        acompanantes.push(...this._unionRoscadaMacho(cara.diametro, cant, just, rol));
+      } else if (cara.tipo === 'RH') {
+        acompanantes.push(...this._unionRoscadaHembra(cara.diametro, cant, just, rol));
+      } else if (cara.tipo === 'INS') {
+        acompanantes.push(...this._unionInsercion(cara.diametro, cant, just, rol));
+      } else if (cara.tipo === 'TF') {
+        acompanantes.push(this._advertencia(
+          `Cara termofusión en ${producto.concepto}: requiere termofusionadora`, 'R-030', rol));
+      } else if (cara.tipo === 'SOL') {
+        acompanantes.push(this._advertencia(
+          `Cara soldable en ${producto.concepto}: requiere soldadura por separado`, 'R-080', rol));
+      } else if (cara.tipo === 'EL' || cara.tipo === 'ESP') {
+        acompanantes.push(...this._unionCementada(cara.diametro, cant, just + ' (espiga → cementada)', rol));
+      } else if (/^CAMLOCK_/.test(cara.tipo)) {
+        const tipoCL = cara.tipo.replace('CAMLOCK_', '');
+        acompanantes.push(...this._unionCamlock(tipoCL, cara.diametro, producto.material, cant,
+          `Acople rápido tipo ${tipoCL} en ${producto.concepto}`, rol));
+      }
+    }
+
+    return acompanantes;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // INFERENCIA DE PERFIL
+  // ──────────────────────────────────────────────────────────────────────────
+
+  _inferirPerfil(producto) {
+    const concepto  = (producto.concepto  || '').toUpperCase();
+    const coleccion = (producto.coleccion || '').toUpperCase();
+    const genero    = (producto.genero    || '').toUpperCase();
+    const material  = (producto.material  || '').toUpperCase();
+
+    // Accesorios — no generan nada
+    const accesorios = ['EMPAQUES','FIJADORES','ADHESIVOS'];
+    if (accesorios.includes(coleccion)) return { tipo: 'ACCESORIO', caras: [] };
+    if (/^(PEGAMENTO|LIMPIADOR|LUBRICANTE|SELLADOR|SILICÓN|ELECTRODO|EMPAQUE|TORNILLO|TUERCA|RONDANA|ABRAZADERA|CINCHO|ANILLO)/.test(concepto)) {
+      return { tipo: 'ACCESORIO', caras: [] };
+    }
+
+    // Colecciones sin reglas hidráulicas
+    const sinReglas = [
+      'AGROINSUMOS','AGROEQUIPOS','COMBUSTIBLES Y ACEITES','MADERA',
+      'PROPAGACIÓN VEGETATIVA','ADMINISTRACIÓN','INSTALACIÓN','FLETE',
+      'MOV. TIERRA','CONSTRUCCIÓN','CONSTRUCCIÓN CIVIL','MATERIALES CIVIL',
+      'CONSTRUCCIÓN ELÉCTRICA','ELÉCTRICO','CONDUCTORES','AUTOMATIZACIÓN',
+      'SOLAR','RIEGO MÓVIL','HIDROPONIA','PREFABRICADOS','RESERVORIOS',
+      'MANTENIMIENTO','REFACCIONES','ARRENDAMIENTO'
+    ];
+    if (sinReglas.includes(coleccion)) return { tipo: 'NO_RECONOCIDO', caras: [] };
+
+    // Brida suelta (R-020b)
+    if (genero === 'BRIDA' || /^BRIDA\s/.test(concepto)) {
+      return { tipo: 'BRIDA_SUELTA', caras: [{ rol: 'unión', tipo: 'BR_HALF', diametro: producto.diam_in }] };
+    }
+
+    // Tubería
+    if (coleccion === 'TUBERÍA' || coleccion === 'TUBERIA') {
+      const lt = this._parsearLongitud(producto.longitud);
+      if (/C\/C/.test(concepto))      return { tipo: 'TUBERIA_CC',         caras: [], longitud_tramo: lt, diametro: producto.diam_in };
+      if (/C\/B/.test(concepto))      return { tipo: 'TUBERIA_CB',         caras: [], longitud_tramo: lt, diametro: producto.diam_in };
+      if (/CEM/.test(concepto))       return { tipo: 'TUBERIA_CEM',        caras: [], longitud_tramo: lt, diametro: producto.diam_in };
+      if (/TERMOFUS/.test(concepto))  return { tipo: 'TUBERIA_TERMOFUSION',caras: [], longitud_tramo: lt, diametro: producto.diam_in };
+      if (/SOLDABLE/.test(concepto))  return { tipo: 'TUBERIA_SOLDABLE',   caras: [], longitud_tramo: lt, diametro: producto.diam_in };
+      if (/×MACHO|×HEMBRA/.test(concepto)) return { tipo: 'TUBERIA_ROSCADA', caras: [], longitud_tramo: lt, diametro: producto.diam_in };
+      return { tipo: 'TUBERIA_GENERICA', caras: [], longitud_tramo: lt, diametro: producto.diam_in };
+    }
+
+    // Camlock
+    if (genero === 'ACOPLE RÁPIDO') {
+      const tipoCL = this._extraerTipoCamlock(concepto);
+      return { tipo: 'CAMLOCK', tipoCamlock: tipoCL,
+        caras: [{ rol: 'acople', tipo: 'CAMLOCK_' + tipoCL, diametro: producto.diam_in }] };
+    }
+
+    // Hidrociclón
+    if (genero === 'HIDROCICLÓN' || genero === 'HIDROCICLON') {
+      return { tipo: 'EQUIPO_BRIDADO', caras: [
+        { rol: 'entrada', tipo: 'BR', diametro: producto.diam_in },
+        { rol: 'salida',  tipo: 'BR', diametro: producto.diam_out || producto.diam_in }
+      ]};
+    }
+
+    // Filtros
+    if (coleccion === 'FILTROS') {
+      const ext = producto.conex_in || this._detectarExtremo(concepto);
+      if (ext === 'BRIDADO' || ext === 'BR') {
+        return { tipo: 'EQUIPO_BRIDADO', caras: [
+          { rol: 'entrada', tipo: 'BR', diametro: producto.diam_in },
+          { rol: 'salida',  tipo: 'BR', diametro: producto.diam_out || producto.diam_in }
+        ]};
+      }
+      if (ext === 'MACHO' || ext === 'RM') {
+        return { tipo: 'EQUIPO_ROSCADO', caras: [
+          { rol: 'entrada', tipo: 'RM', diametro: producto.diam_in },
+          { rol: 'salida',  tipo: 'RM', diametro: producto.diam_out || producto.diam_in }
+        ]};
+      }
+      return { tipo: 'FILTRO_GENERICO', caras: [] };
+    }
+
+    // Válvulas
+    if (coleccion === 'VÁLVULAS' || coleccion === 'VALVULAS') {
+      const ext = (producto.conex_in && producto.conex_in !== '')
+        ? producto.conex_in : this._detectarExtremo(concepto);
+
+      if (genero === 'MARIPOSA' || /MARIPOSA/.test(concepto)) {
+        return { tipo: 'VALVULA_MARIPOSA',
+          caras: [{ rol: 'wafer', tipo: 'OBL', diametro: producto.diam_in }] };
+      }
+      if (genero === 'CHECK' && (ext === 'BRIDADO' || ext === 'BR')) {
+        return { tipo: 'VALVULA_CHECK', caras: [
+          { rol: 'entrada', tipo: 'BR', diametro: producto.diam_in },
+          { rol: 'salida',  tipo: 'BR', diametro: producto.diam_out || producto.diam_in }
+        ]};
+      }
+      if (genero === 'BOLA' && /PVC/.test(material)) {
+        return { tipo: 'VALVULA_BOLA_PVC', caras: [
+          { rol: 'entrada', tipo: 'CEM', diametro: producto.diam_in },
+          { rol: 'salida',  tipo: 'CEM', diametro: producto.diam_out || producto.diam_in }
+        ]};
+      }
+      if (genero === 'COMPUERTA' && (ext === 'BRIDADO' || ext === 'BR')) {
+        return { tipo: 'VALVULA_COMPUERTA_BR', caras: [
+          { rol: 'entrada', tipo: 'BR', diametro: producto.diam_in },
+          { rol: 'salida',  tipo: 'BR', diametro: producto.diam_out || producto.diam_in }
+        ]};
+      }
+      if (genero === 'ADMISIÓN-EXPULSIÓN' || /VENTOSA|VAE/.test(concepto)) {
+        const t = (ext === 'MACHO' || ext === 'RM') ? 'RM' : 'RH';
+        return { tipo: 'VALVULA_VAE', caras: [{ rol: 'cuello', tipo: t, diametro: producto.diam_in }] };
+      }
+      if (ext === 'BRIDADO' || ext === 'BR') {
+        return { tipo: 'VALVULA_BRIDADA', caras: [
+          { rol: 'entrada', tipo: 'BR', diametro: producto.diam_in },
+          { rol: 'salida',  tipo: 'BR', diametro: producto.diam_out || producto.diam_in }
+        ]};
+      }
+      if (ext === 'MACHO' || ext === 'RM') {
+        return { tipo: 'VALVULA_ROSCADA', caras: [
+          { rol: 'entrada', tipo: 'RM', diametro: producto.diam_in },
+          { rol: 'salida',  tipo: 'RM', diametro: producto.diam_out || producto.diam_in }
+        ]};
+      }
+      if (ext === 'HEMBRA' || ext === 'RH') {
+        return { tipo: 'VALVULA_ROSCADA', caras: [
+          { rol: 'entrada', tipo: 'RH', diametro: producto.diam_in },
+          { rol: 'salida',  tipo: 'RH', diametro: producto.diam_out || producto.diam_in }
+        ]};
+      }
+      return { tipo: 'VALVULA_NO_RECONOCIDA', caras: [] };
+    }
+
+    // Conexiones PVC (codos, tees, cruces, reducciones, etc.)
+    if (coleccion === 'CONEXIONES') {
+      const numCaras = this._CARAS_POR_GENERO[genero] || 2;
+      const tiposPorCara = this._detectarExtremosPorCara(concepto, numCaras);
+      if (!tiposPorCara[0]) return { tipo: 'CONEXION_NO_RECONOCIDA', caras: [] };
+      const roles = this._rolesPorCaras(numCaras);
+      const caras = [];
+      for (let i = 0; i < numCaras; i++) {
+        caras.push({
+          rol: roles[i],
+          tipo: tiposPorCara[i] || tiposPorCara[0],
+          diametro: i === 0 ? producto.diam_in : (producto.diam_out || producto.diam_in)
+        });
+      }
+      return { tipo: 'CONEXION_PVC', caras, generoConex: genero };
+    }
+
+    if (['MANGUERA','REGANTE MM','EMISOR','MEDIDORES','SOPORTES','BOMBEO'].includes(coleccion)) {
+      return { tipo: 'PRODUCTO_AUXILIAR', caras: [] };
+    }
+
+    return { tipo: 'NO_RECONOCIDO', caras: [] };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // GENERADORES DE UNIONES
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** R-001 · Unión cementada — pegamento + limpiador */
+  _unionCementada(diametro, cantidad, justificacion, cara) {
+    const items = [];
+    const d = this._normDiam(diametro);
+    const uniones = this._UNIONES_POR_LATA_048L[d] || 10;
+    const litrosPeg = (cantidad / uniones) * 0.48;
+    const presPeg   = this._presentacionLitros(litrosPeg);
+    items.push(this._crearItem({
+      descripcion: `PEGAMENTO BAJA VISCOSIDAD ®PRO WELD ${presPeg.etiqueta}`,
+      cantidad: presPeg.unidades_decimal, unidad: 'PZA', regla: 'R-001', cara,
+      just: `${cantidad} unión(es) ø${d}" → ${litrosPeg.toFixed(2)} L → ${presPeg.unidades_decimal.toFixed(2)} × ${presPeg.etiqueta}`
+    }));
+    const litrosLim = litrosPeg * 0.6;
+    const presLim   = this._presentacionLitros(litrosLim);
+    items.push(this._crearItem({
+      descripcion: `LIMPIADOR BAJA VISCOSIDAD ®PRO WELD ${presLim.etiqueta}`,
+      cantidad: presLim.unidades_decimal, unidad: 'PZA', regla: 'R-001', cara,
+      just: `Limpiador 0.6× pegamento ≈ ${litrosLim.toFixed(2)} L → ${presLim.unidades_decimal.toFixed(2)} × ${presLim.etiqueta}`
+    }));
+    return items;
+  }
+
+  /** R-002 · Unión C/C anillo de hule — lubricante + estopa */
+  _unionAnilloHule(diametro, cantidad, justificacion, cara) {
+    const items = [];
+    const d = this._normDiam(diametro);
+    const mlPorUnion = this._LUBRICANTE_ML_CC[d] || 20;
+    const mlLub      = mlPorUnion * cantidad;
+    const litrosLub  = mlLub / 1000;
+    const presLub    = this._presentacionLitros(litrosLub);
+    items.push(this._crearItem({
+      descripcion: `LUBRICANTE BAJA VISCOSIDAD ®PRO WELD ${presLub.etiqueta}`,
+      cantidad: presLub.unidades_decimal, unidad: 'PZA', regla: 'R-002', cara,
+      just: `${cantidad} unión(es) C/C ø${d}" × ~${mlPorUnion} mL = ${mlLub} mL → ${presLub.unidades_decimal.toFixed(2)} × ${presLub.etiqueta} [ESTIMADO]`
+    }));
+    const unxRollo  = this._UNIONES_POR_ROLLO_ESTOPA[d] || 10;
+    const rollos    = cantidad / unxRollo;
+    items.push(this._crearItem({
+      descripcion: `ESTOPA (rollo) — para purgar uniones C/C`,
+      cantidad: rollos, unidad: 'ROLLO', regla: 'R-002', cara,
+      just: `${cantidad} unión(es) ÷ ~${unxRollo} uniones/rollo = ${rollos.toFixed(2)} rollo(s) [ESTIMADO]`
+    }));
+    return items;
+  }
+
+  /** R-003 · C/B bocina mixta — combina anillo + cementada */
+  _unionBocinaMixta(diametro, cantidad, justificacion, cara) {
+    return [
+      ...this._unionAnilloHule(diametro, cantidad, justificacion + ' — lado campana', cara),
+      ...this._unionCementada(diametro, cantidad, justificacion + ' — lado bocina',   cara)
+    ];
+  }
+
+  /** R-010 · Cara macho — adaptador hembra + teflón */
+  _unionRoscadaMacho(diametro, cantidad, justificacion, cara) {
+    const d = this._normDiam(diametro);
+    const ancho = this._diamANum(d) <= 1 ? '1/2' : '3/4';
+    return [
+      this._crearItem({ descripcion: `ADAPTADOR PVC HIDRÁULICO CEM HEMBRA ø${d} Pulg ⒸCED 40`,
+        cantidad, unidad: 'PZA', regla: 'R-010', cara,
+        just: justificacion + ' — adaptador hembra para recibir rosca macho' }),
+      this._crearItem({ descripcion: `SELLADOR TEFLON ø${ancho} Pulg Cal:3 mil＊Long:10 m`,
+        cantidad: cantidad / 50, unidad: 'PZA', regla: 'R-010', cara,
+        just: `${cantidad} roscas ÷ ~50 roscas/rollo = ${(cantidad/50).toFixed(2)} rollo(s) [ESTIMADO]` })
+    ];
+  }
+
+  /** R-010 · Cara hembra — adaptador macho + teflón */
+  _unionRoscadaHembra(diametro, cantidad, justificacion, cara) {
+    const d = this._normDiam(diametro);
+    const ancho = this._diamANum(d) <= 1 ? '1/2' : '3/4';
+    return [
+      this._crearItem({ descripcion: `ADAPTADOR PVC HIDRÁULICO CEM MACHO ø${d} Pulg ⒸCED 40`,
+        cantidad, unidad: 'PZA', regla: 'R-010', cara,
+        just: justificacion + ' — adaptador macho para enroscar en hembra' }),
+      this._crearItem({ descripcion: `SELLADOR TEFLON ø${ancho} Pulg Cal:3 mil＊Long:10 m`,
+        cantidad: cantidad / 50, unidad: 'PZA', regla: 'R-010', cara,
+        just: `${cantidad} roscas ÷ ~50 roscas/rollo = ${(cantidad/50).toFixed(2)} rollo(s) [ESTIMADO]` })
+    ];
+  }
+
+  /** R-020 · BR ↔ BR — unión bridada estándar */
+  _unionBridada(diametro, tablaTornillos, cantidad, justificacion, cara) {
+    const items = [];
+    const d    = this._normDiam(diametro);
+    const torn = tablaTornillos === 'CHECK'
+      ? this._TORNILLERIA_CHECK[d]
+      : this._TORNILLERIA_FOFO[d];
+
+    items.push(this._crearItem({ descripcion: `BRIDA PVC HIDRÁULICO CEM ø${d} Pulg ⒸCED 40`,
+      cantidad, unidad: 'PZA', regla: 'R-020', cara, just: justificacion }));
+    items.push(this._crearItem({ descripcion: `EMPAQUE BRIDA NEOPRENO ø${d} Pulg`,
+      cantidad, unidad: 'PZA', regla: 'R-020', cara,
+      just: justificacion + ' — sello entre las dos bridas' }));
+    if (torn) this._agregarTornilleria(items, d, torn, cantidad, 'R-020', cara);
+    return items;
+  }
+
+  /** R-020b · Brida individual — empaque + tornillería */
+  _unionBridadaMedia(diametro, cantidad, justificacion, cara) {
+    const items = [];
+    const d    = this._normDiam(diametro);
+    const torn = this._TORNILLERIA_FOFO[d];
+    items.push(this._crearItem({ descripcion: `EMPAQUE BRIDA NEOPRENO ø${d} Pulg`,
+      cantidad, unidad: 'PZA', regla: 'R-020b', cara,
+      just: justificacion + ' — empaque para sellar la unión' }));
+    if (torn) this._agregarTornilleria(items, d, torn, cantidad, 'R-020b', cara);
+    return items;
+  }
+
+  /** R-021 · Mariposa wafer — 2 bridas + 2 empaques + tornillos largos */
+  _unionMariposaWafer(diametro, cantidad, justificacion, cara) {
+    const items = [];
+    const d    = this._normDiam(diametro);
+    const torn = this._TORNILLERIA_MARIPOSA[d];
+    items.push(this._crearItem({ descripcion: `BRIDA PVC HIDRÁULICO CEM ø${d} Pulg ⒸCED 40`,
+      cantidad: 2 * cantidad, unidad: 'PZA', regla: 'R-021', cara,
+      just: justificacion + ' — 2 bridas (una por cada cara de la oblea)' }));
+    items.push(this._crearItem({ descripcion: `EMPAQUE BRIDA NEOPRENO ø${d} Pulg`,
+      cantidad: 2 * cantidad, unidad: 'PZA', regla: 'R-021', cara,
+      just: '2 empaques: uno por cada cara de la oblea' }));
+    if (torn) this._agregarTornilleria(items, d, torn, cantidad, 'R-021', cara);
+    return items;
+  }
+
+  /** R-050 · Inserción PE — 2 abrazaderas inox por unión */
+  _unionInsercion(diametro, cantidad, justificacion, cara) {
+    const d = this._normDiam(diametro);
+    return [this._crearItem({ descripcion: `ABRAZADERA ACERO INOXIDABLE ø${d} Pulg`,
+      cantidad: 2 * cantidad, unidad: 'PZA', regla: 'R-050', cara,
+      just: justificacion + ' — 2 abrazaderas por unión insertable' })];
+  }
+
+  /** R-070 · Camlock — agregar la contracara (tipo opuesto) */
+  _unionCamlock(tipoCamlock, diametro, material, cantidad, justificacion, cara) {
+    const PARES = { A:'B', B:'A', C:'D', D:'C', E:'F', F:'E' };
+    if (!tipoCamlock || !PARES[tipoCamlock]) return [];
+    const tipoOp = PARES[tipoCamlock];
+    const d = this._normDiam(diametro);
+    const matKey = /ALUMINIO/.test(material) ? 'ALUMINIO'
+                 : /POLIPROPILENO/.test(material) ? 'POLIPROPILENO' : '';
+    const desc = matKey
+      ? `ACOPLE RÁPIDO ${matKey} TIPO ${tipoOp} ø${d} Pulg`
+      : `ACOPLE RÁPIDO TIPO ${tipoOp} ø${d} Pulg`;
+    return [this._crearItem({ descripcion: desc,
+      cantidad, unidad: 'PZA', regla: 'R-070', cara,
+      just: `Tipo ${tipoCamlock} se conecta con tipo ${tipoOp}` })];
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // HELPERS INTERNOS
+  // ──────────────────────────────────────────────────────────────────────────
+
+  _agregarTornilleria(items, d, torn, cantidadUniones, regla, cara) {
+    const concTorn = `TORNILLO ACERO AL CARBÓN ☉HEXAGONAL ø${torn.diametro} Pulg＊Long:${torn.longitud} Pulg`;
+    items.push(this._crearItem({ descripcion: concTorn,
+      cantidad: torn.cantidad * cantidadUniones, unidad: 'PZA', regla, cara,
+      just: `${torn.cantidad} tornillos por unión bridada de ${d}"` }));
+    for (const n of ['TUERCA GALVANIZADO HEXAGONAL','RONDANA GALVANIZADO PLANA','RONDANA GALVANIZADO DE PRESIÓN']) {
+      items.push(this._crearItem({ descripcion: `${n} ø${torn.diametro} Pulg`,
+        cantidad: torn.cantidad * cantidadUniones, unidad: 'PZA', regla, cara,
+        just: 'Acompaña a cada tornillo' }));
+    }
+  }
+
+  /** Crea un item del resultado buscando la fila en el catálogo */
+  _crearItem({ descripcion, cantidad, unidad, regla, cara, just }) {
+    const fila = this._buscarEnCatalogo(descripcion);
+    if (fila) {
+      return {
+        concepto: fila[this._idx.concepto],
+        cantidad, unidad: fila[this._idx.unidad] || unidad,
+        regla, cara, justificacion: just,
+        enCatalogo: true, faltante: false, origen: 'ACOMPAÑANTE'
+      };
+    }
+    return {
+      concepto: descripcion,
+      cantidad, unidad,
+      regla, cara, justificacion: just,
+      enCatalogo: false, faltante: true, origen: 'FALTA_CATALOGO'
+    };
+  }
+
+  _advertencia(mensaje, regla, cara) {
+    return { concepto: 'ⓘ ' + mensaje, cantidad: 0, unidad: '—',
+      regla, cara, justificacion: mensaje,
+      enCatalogo: false, faltante: false, origen: 'ADVERTENCIA' };
+  }
+
+  /** Búsqueda fuzzy por texto contenido en el concepto */
+  _buscarEnCatalogo(descripcion) {
+    if (!descripcion) return null;
+    const upper = descripcion.toUpperCase();
+    const idx   = this._idx;
+    // 1. Coincidencia exacta
+    let r = this._catalogo.find(f => String(f[idx.concepto]||'').toUpperCase() === upper);
+    if (r) return r;
+    // 2. El catálogo contiene la descripción buscada
+    r = this._catalogo.find(f => String(f[idx.concepto]||'').toUpperCase().includes(upper));
+    if (r) return r;
+    // 3. La descripción contiene el concepto del catálogo
+    r = this._catalogo.find(f => upper.includes(String(f[idx.concepto]||'').toUpperCase()));
+    return r || null;
+  }
+
+  _presentacionLitros(litros) {
+    const ps = [
+      { etiqueta: '1/8 L', litros: 0.125 },
+      { etiqueta: '1/4 L', litros: 0.250 },
+      { etiqueta: '1/2 L', litros: 0.500 },
+      { etiqueta: '1 L',   litros: 1.000 },
+      { etiqueta: '1 GAL', litros: 3.785 }
+    ];
+    if (litros <= 0) return { unidades_decimal: 0, etiqueta: '1/8 L' };
+    for (const p of ps) {
+      if (litros <= p.litros) return { unidades_decimal: litros / p.litros, etiqueta: p.etiqueta };
+    }
+    const u = ps[ps.length - 1];
+    return { unidades_decimal: litros / u.litros, etiqueta: u.etiqueta };
+  }
+
+  _normDiam(d) {
+    if (d === null || d === undefined || d === '') return '';
+    const s = String(d).trim().replace(/"/g, '').replace(/\s+/g, '');
+    const conv = { '0.5':'1/2','0.75':'3/4','1.25':'1-1/4','1.5':'1-1/2',
+                   '2.5':'2-1/2','11/2':'1-1/2','11/4':'1-1/4','21/2':'2-1/2' };
+    return conv[s] || s;
+  }
+
+  _diamANum(d) {
+    if (!d) return 0;
+    const s = String(d).trim();
+    const m = s.match(/^(\d+)-(\d+)\/(\d+)$/);
+    if (m) return parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]);
+    const f = s.match(/^(\d+)\/(\d+)$/);
+    if (f) return parseInt(f[1]) / parseInt(f[2]);
+    return parseFloat(s) || 0;
+  }
+
+  _parsearLongitud(longitud) {
+    if (!longitud) return 6;
+    const m = String(longitud).match(/[\d.]+/);
+    return m ? parseFloat(m[0]) : 6;
+  }
+
+  _detectarExtremo(concepto) {
+    const c = (concepto || '').toUpperCase();
+    if (/×BRIDADO|BRIDAD/.test(c)) return 'BR';
+    if (/×SOLDABLE|SOLDABL/.test(c)) return 'SOL';
+    if (/×TERMOFUS|TERMOFUS/.test(c)) return 'TF';
+    if (/×INSERCIÓN|INSERCIÓN/.test(c)) return 'INS';
+    if (/×ESPIGA|ESPIGA/.test(c)) return 'ESP';
+    if (/C\/C/.test(c)) return 'CC';
+    if (/C\/B/.test(c)) return 'CB';
+    if (/×MACHO|MACHO/.test(c)) return 'RM';
+    if (/×HEMBRA|HEMBRA/.test(c)) return 'RH';
+    if (/CEM/.test(c)) return 'CEM';
+    return null;
+  }
+
+  _extraerTipoCamlock(concepto) {
+    const m = (concepto || '').toUpperCase().match(/TIPO\s+([A-F])\b/);
+    return m ? m[1] : null;
+  }
+
+  _detectarExtremosPorCara(concepto, numCaras) {
+    const c = (concepto || '').toUpperCase();
+    if (numCaras === 2) {
+      if (/C\/C/.test(c) && /×ESPIGA/.test(c))   return ['CC','EL'];
+      if (/C\/B/.test(c) && /×ESPIGA/.test(c))   return ['CB','EL'];
+      if (/CEM/.test(c) && /×HEMBRA/.test(c))    return ['CEM','RH'];
+      if (/CEM/.test(c) && /×MACHO/.test(c))     return ['CEM','RM'];
+      if (/HEMBRA/.test(c) && /×MACHO/.test(c))  return ['RH','RM'];
+      if (/HEMBRA/.test(c) && /×INSERCIÓN/.test(c)) return ['RH','INS'];
+      if (/MACHO/.test(c) && /×INSERCIÓN/.test(c))  return ['RM','INS'];
+      if (/CEM/.test(c) && /×INSERCIÓN/.test(c)) return ['CEM','INS'];
+      if (/MACHO/.test(c) && /×BRIDADO/.test(c)) return ['RM','BR'];
+    }
+    const tipo = this._detectarExtremo(c);
+    return tipo ? Array(numCaras).fill(tipo) : [];
+  }
+
+  _rolesPorCaras(n) {
+    if (n === 1) return ['unión'];
+    if (n === 2) return ['entrada','salida'];
+    if (n === 3) return ['entrada','salida','derivación'];
+    if (n === 4) return ['entrada','salida','derivación 1','derivación 2'];
+    return Array.from({ length: n }, (_, i) => 'cara ' + (i + 1));
+  }
+
+  _describirCara(cara, producto) {
+    const r = cara.rol === 'wafer'  ? 'Mariposa wafer'
+            : cara.rol === 'cuello' ? 'Cuello roscado'
+            : 'Cara ' + cara.rol;
+    return `${r} de ${producto.concepto}`;
+  }
+
+  _fmt(n) { return Number.isInteger(n) ? n : n.toFixed(3); }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // TABLAS DE CONSUMO
+  // ──────────────────────────────────────────────────────────────────────────
+
+  get _TORNILLERIA_FOFO() {
+    return {
+      '2':{'cantidad':4,'diametro':'5/8','longitud':'2-1/2'},
+      '2-1/2':{'cantidad':4,'diametro':'5/8','longitud':'2-1/2'},
+      '3':{'cantidad':4,'diametro':'5/8','longitud':'2-1/2'},
+      '4':{'cantidad':8,'diametro':'5/8','longitud':'3'},
+      '6':{'cantidad':8,'diametro':'3/4','longitud':'3-1/2'},
+      '8':{'cantidad':8,'diametro':'3/4','longitud':'3-1/2'},
+      '10':{'cantidad':12,'diametro':'7/8','longitud':'4'},
+      '12':{'cantidad':12,'diametro':'7/8','longitud':'4'}
+    };
+  }
+  get _TORNILLERIA_MARIPOSA() {
+    return {
+      '2':{'cantidad':4,'diametro':'5/8','longitud':'4-1/2'},
+      '2-1/2':{'cantidad':4,'diametro':'5/8','longitud':'4-1/2'},
+      '3':{'cantidad':4,'diametro':'5/8','longitud':'4-1/2'},
+      '4':{'cantidad':8,'diametro':'5/8','longitud':'5'},
+      '6':{'cantidad':8,'diametro':'3/4','longitud':'5-1/2'},
+      '8':{'cantidad':8,'diametro':'3/4','longitud':'6'},
+      '10':{'cantidad':12,'diametro':'7/8','longitud':'7'},
+      '12':{'cantidad':12,'diametro':'7/8','longitud':'7'}
+    };
+  }
+  get _TORNILLERIA_CHECK() {
+    return {
+      '2':{'cantidad':4,'diametro':'5/8','longitud':'5'},
+      '2-1/2':{'cantidad':4,'diametro':'5/8','longitud':'5'},
+      '3':{'cantidad':4,'diametro':'5/8','longitud':'5'},
+      '4':{'cantidad':8,'diametro':'5/8','longitud':'5-1/2'},
+      '6':{'cantidad':8,'diametro':'3/4','longitud':'5-1/2'},
+      '8':{'cantidad':8,'diametro':'3/4','longitud':'7'},
+      '10':{'cantidad':12,'diametro':'7/8','longitud':'10'},
+      '12':{'cantidad':12,'diametro':'7/8','longitud':'11-1/2'}
+    };
+  }
+  get _UNIONES_POR_LATA_048L() {
+    return {
+      '1/2':157,'3/4':95,'1':67,'1-1/4':48,'1-1/2':38,
+      '2':22,'2-1/2':17,'3':10,'4':8,'6':3,'8':2,'10':1,'12':1
+    };
+  }
+  get _LUBRICANTE_ML_CC() {
+    return {
+      '1/2':3,'3/4':4,'1':5,'1-1/4':7,'1-1/2':8,
+      '2':10,'2-1/2':12,'3':15,'4':20,'6':35,'8':50,'10':75,'12':100
+    };
+  }
+  get _UNIONES_POR_ROLLO_ESTOPA() {
+    return {
+      '1/2':60,'3/4':50,'1':45,'1-1/4':40,'1-1/2':35,
+      '2':30,'2-1/2':25,'3':20,'4':15,'6':10,'8':8,'10':6,'12':5
+    };
+  }
+  get _CARAS_POR_GENERO() {
+    return {
+      'CODO 90':2,'CODO 45':2,'CODO 22':2,'CODO 11':2,
+      'CODO 90 ADAPTADOR':2,'CODO 90 CONVERTIDOR':2,
+      'CURVA 90':2,'CURVA 45':2,'CURVA 22':2,'CURVA 11':2,
+      'TEE':3,'TEE REDUCCIÓN':3,'TEE CONVERTIDOR':3,'TEE TRANSICIÓN':3,
+      'TEE ADAPTADOR':3,'TEE HIDRANTE':3,'TEE UNIÓN':3,'TEE DE CAMPO':3,
+      'YEE':3,'YEE ADAPTADOR':3,'YEE REDUCCIÓN':3,
+      'CRUZ':4,'CRUZ REDUCCIÓN':4,'CRUZ CONVERTIDOR':4,'CRUZ TRANSICIÓN':4,
+      'NIPLE':2,'NIPLE BOTELLA':2,'NIPLE UNIÓN':2,
+      'COPLE':2,'COPLE DE COMPRESIÓN':2,'COPLE DE REPARACIÓN':2,
+      'TUERCA UNIÓN':2,
+      'REDUCCIÓN':2,'REDUCCIÓN BUSH':2,'REDUCCIÓN CAMPANA':2,
+      'REDUCCIÓN EXÉNTRICA':2,'REDUCCIÓN CONCENTRICA':2,
+      'ADAPTADOR':2,'CONVERTIDOR':2,'EXTREMIDAD':1,
+      'TAPA':1,'TAPA HIDRANTE':1,
+      'CARRETE':2,'TRANSICION':2,'CUELLO DE GANSO':2,
+      'ARISTA 90':2,'ARISTA 90 ADAPTADOR':2,'ARISTA 90 CONVERTIDOR':2,
+      'CODO CAMPO':2,'CODO CAMPO REVERSIBLE':2
+    };
+  }
+}
+</script>

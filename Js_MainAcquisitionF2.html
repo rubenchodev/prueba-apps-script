@@ -1,0 +1,766 @@
+<script>
+  /**
+   * Función que permite validar si un especie ya existe en la tabla para no permitir agregar el especie
+  **/
+  function getConceptsTable(){
+     
+     // Referenciamos el cuerpo de la tabla 
+     var $tBody = $("#tblUpdatePrices tbody");
+     
+     // Creamos el objeto para el listado de conceptos 
+     var objectConcept = {}, conceptName = null; 
+     
+     // recorremos cada una de las filas sin incluir la del mesaje por defecto 
+     $tBody.find("tr:not(.info-message)").each(function(row){
+       
+       // obtenemos los datos sobe la fila
+       conceptName = $(this).data("conceptName");
+       
+       // validamos si existe la propiedad del nombre
+       if(!objectConcept[conceptName]){
+         
+         //Agregamos el concepto 
+         objectConcept[conceptName] = true;
+       }
+       
+     });
+    
+    // retornamos el estado
+    return objectConcept;
+     
+  }
+
+  /*
+  * Función que permite agregar las especies a la tabla
+  * @param {object} conceptsData datos de las especies
+  *
+  */
+  function insertConceptsTables(conceptsData, isVerify){
+    
+    // crea el objeto vacio
+    var speciesObj = {};
+    
+    // Obtenemos los datos 
+    var pricesAnalysis =  $("#frmSearchConceptOC").data("arrayPricesAnalysis");
+    
+    // obtenemos la información de las familias y su asociación con los fabricantes
+    var familyReference = $("#btnAddConceptUpdate").data("familyReference");
+    
+    // se valida que exista el objeto con los datos de la especie junto al fabricante
+    if(pricesAnalysis && pricesAnalysis.speciesObj){
+      speciesObj = pricesAnalysis.speciesObj;
+    }
+   
+    // Referenciamos la tabla
+    var $tblUpdatePrices = $("#tblUpdatePrices");
+    
+    // referenciamos el cuerpo
+    var $tbody = $tblUpdatePrices.find("tbody");
+    
+    // validamos si se debe borrar los anteriores especies
+    if(isVerify){
+      
+      // Obtenemos los conceptos de la tabla 
+      var conceptListTable = getConceptsTable();
+    }
+    
+    // variable para crear la fila
+    var $row = null, costData = null, color = null, $optionA = null, $optionB = null, specieData;
+    var allManufacturer = null;
+    
+    // variable para obtener la fecha de actualización
+    var currTime = new Date().getTime(), requestDate, counter = 0;
+  
+    // Recorremos cada uno de las especies para agregar 
+    for (var index in conceptsData) {
+       
+       // validamos si se debe borrar los anteriores especies
+       if((isVerify && !conceptListTable[index]) || !isVerify){
+         
+         // Obtenemos todos los fabricantes
+         allManufacturer = JSON.parse(JSON.stringify((familyReference[conceptsData[index].family] || {})));
+         
+         // obtenemos los datos de la especie y la cantidad de fabricantes
+         specieData = speciesObj[index];
+         
+         // se valida que exista fabricantes que ya han registrado precios
+         if(specieData && specieData.manufacturersObj){
+         
+           // recorremos cada uno de los fabricantes
+           for(var key in specieData.manufacturersObj){
+             
+             // obtenemos la fecha
+             requestDate = SnvaJsApi.newDate(specieData.manufacturersObj[key].updateDate);
+             
+             // validamos que no exista fecha o que la actualización o si ya pasarons 72 horas
+             if(!requestDate || (currTime - requestDate.getTime()) > (72 * 60 * 60 *1000)){
+               allManufacturer[key] = specieData.manufacturersObj[key];
+             } else {
+               delete allManufacturer[key];
+             }
+           }
+         }
+                  
+         // iniciamos las variables de las opciones respectivas
+         $optionA = null, $optionB = null;
+         
+         // obtenemos los costos minimos y maximo
+         costData = getUnitCostByPrices(specieData);
+         
+         // Establecemos por defecto que no tiene color 
+         color = "none";
+         
+         // Validamos si el concepto esta actualizado
+         if(conceptsData[index].background){
+           
+           // Establecemos el color de la fila
+           color = conceptsData[index].background;
+         }
+         
+         // creamos la nueva fila
+         $row = $("<tr>").attr({class:"isValid", style:"background:" + color + ";"}).data({"conceptData": conceptsData[index], "conceptName": index, costData: costData});
+         
+         // agregamos la fila al cuerpo
+         $tbody.append($row );
+         
+         // creamos la columna nombre
+         $row.append(
+           $("<td>").text(index)
+         );
+         
+         // creamos la columna Familia
+         $row.append(
+           $("<td>").text(conceptsData[index].family)
+         );
+         
+         // creamos la columna de Unidad
+         $row.append(
+           $("<td>").text(conceptsData[index].unit)
+         );
+         
+         // creamos la columna cantidad
+         $row.append(
+           $("<td>").attr({style:"padding: 0px;"}).append(
+             $("<input>").attr({type: "text", pattern: "^[0-9]+(?:\.[0-9]{1,3}){0,1}$", style: "max-width: 100px;", value: conceptsData[index].conceptCount}).on("paste keypress", SnvaJsApi.validateNumberFormat).on("change keyup", updatePricesInModule)
+           )
+         );
+         
+         // creamos la columna C.U. Max
+         $row.append(
+           $("<td>").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(costData.costMax, 4), 4))
+         );
+         
+         // creamos la columna C.U. Min.
+         $row.append(
+           $("<td>").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(costData.costMin, 4), 4))
+         );
+         
+         // creamos la columna Importe Max.
+         $row.append(
+           $("<td>").attr({class:"text-center"}).text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(conceptsData[index].conceptCount * costData.costMax, 4), 4))
+         );
+         
+         // creamos la columna Importe Min.
+         $row.append(
+           $("<td>").attr({class:"text-center"}).text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(conceptsData[index].conceptCount * costData.costMin, 4), 4))
+         );
+         
+         // se valida si existe datos de especies y fabricantes
+         //if(specieData && specieData.manufacturersObj && Object.keys(specieData.manufacturersObj).length > 0){
+         //if(allManufacturer && Object.keys(allManufacturer).length > 0){
+         
+           // se crea la opción A: Agregar especie
+           $optionA =  $("<a>").attr({title: "Agregar precio", href: "javascript:void(0)", class: "btn-icon-table btn-floating black waves-effect"}).append(
+             $("<i>").attr("class", "material-icons").text("add")
+           ).click({conceptData: conceptsData[index], conceptName: index, $row: $row, allManufacturer: allManufacturer}, showModalUpdatePriceSpecie);
+         //}
+         // se valida si existe datos de especies y mas de 2 fabricantes
+         if(specieData && specieData.manufacturersObj && Object.keys(specieData.manufacturersObj).length > 1){
+         
+           // se crea la opciónBA: Comparar precios especie
+           $optionB =  $("<a>").attr({title: "Comparar precios", href: "javascript:void(0)", class: "btn-icon-table btn-floating green waves-effect"}).append(
+             $("<i>").attr("class", "material-icons").text("info")
+           ).click({specieData: specieData, conceptData: conceptsData[index], conceptName: index}, showPriceComparative);
+         }
+         
+         // creamos la columna unidad
+         $row.append(
+            $("<td>").attr({class: "text-center td-project-options"}).append(
+              $optionA
+            ).append(
+              $optionB
+            ).append(
+              $("<a>").attr({title: "Eliminar especie", href: "javascript:void(0)", class: "btn-icon-table btn-floating red waves-effect"}).append(
+                $("<i>").attr("class", "material-icons").text("delete")
+              ).click({ $table: $tblUpdatePrices, paginationId: "ulPaginationUpdatePrices"}, deleteConceptUpdate)
+           )
+         );
+       }
+    }
+
+    // actualizamos la información de total de importes maximos y minimos
+    amountsSum();
+    
+    // iniciaizamos el paginador
+    SnvaJsApi.initPaginationByTable($tblUpdatePrices, "ulPaginationUpdatePrices", 10);
+  }
+  
+  /*
+  * Función que permite agregar las especies a la tabla
+  * @param {object} conceptsData datos de las especies
+  *
+  */
+  function insertConceptsTablesFamily(conceptsData, pricesAnalysis, familyReference, $tblUpdatePrices, $tbody){
+    
+    // crea el objeto vacio
+    var speciesObj = {};
+    
+    // Obtenemos los datos 
+    //var pricesAnalysis =  $("#frmSearchConceptOC").data("arrayPricesAnalysis");
+    
+    // obtenemos la información de las familias y su asociación con los fabricantes
+    //var familyReference = $("#btnAddConceptUpdate").data("familyReference");
+    
+    // se valida que exista el objeto con los datos de la especie junto al fabricante
+    if(pricesAnalysis && pricesAnalysis.speciesObj){
+      speciesObj = pricesAnalysis.speciesObj;
+    }
+   
+    // Referenciamos la tabla
+    //var $tblUpdatePrices = $("#tblUpdatePrices");
+    
+    // referenciamos el cuerpo
+    //var $tbody = $tblUpdatePrices.find("tbody");
+    
+    // variable para crear la fila
+    var $row = null, costData = null, color = null, $optionA = null, $optionB = null, specieData;
+    var allManufacturer = null;
+    
+    // variable para obtener la fecha de actualización
+    var currTime = new Date().getTime(), requestDate, counter = 0;
+  
+    // Recorremos cada uno de las especies para agregar 
+    for (var index in conceptsData) {
+       
+       // validamos si se debe borrar los anteriores especies
+       //if((isVerify && !conceptListTable[index]) || !isVerify){
+         //console.log("TEXT:", conceptsData[index].family)
+         // Obtenemos todos los fabricantes
+         allManufacturer = JSON.parse(JSON.stringify((familyReference[conceptsData[index].family] || {})));
+         
+         // obtenemos los datos de la especie y la cantidad de fabricantes
+         specieData = speciesObj[index];
+         
+         // se valida que exista fabricantes que ya han registrado precios
+         if(specieData && specieData.manufacturersObj){
+         
+           // recorremos cada uno de los fabricantes
+           for(var key in specieData.manufacturersObj){
+             
+             // obtenemos la fecha
+             requestDate = SnvaJsApi.newDate(specieData.manufacturersObj[key].updateDate);
+             
+             // validamos que no exista fecha o que la actualización o si ya pasarons 72 horas
+             if(!requestDate || (currTime - requestDate.getTime()) > (72 * 60 * 60 *1000)){
+               allManufacturer[key] = specieData.manufacturersObj[key];
+             } else {
+               delete allManufacturer[key];
+             }
+           }
+         }
+         
+         // iniciamos las variables de las opciones respectivas
+         $optionA = null, $optionB = null;
+         
+         // obtenemos los costos minimos y maximo
+         costData = getUnitCostByPrices(specieData);
+         
+         // Establecemos por defecto que no tiene color 
+         color = "none";
+         
+         // Validamos si el concepto esta actualizado
+         if(conceptsData[index].background){
+           
+           // Establecemos el color de la fila
+           color = conceptsData[index].background;
+         }
+         
+         // creamos la nueva fila
+         $row = $("<tr>").attr({class:"isValid", style:"background:" + color + ";"}).data({"conceptData": conceptsData[index], "conceptName": index, costData: costData});
+         
+         // agregamos la fila al cuerpo
+         $tbody.append($row );
+         
+         // creamos la columna nombre
+         $row.append(
+           $("<td>").text(index)
+         );
+         
+         // creamos la columna Familia
+         $row.append(
+           $("<td>").text(conceptsData[index].family)
+         );
+         
+         // creamos la columna de Unidad
+         $row.append(
+           $("<td>").text(conceptsData[index].unit)
+         );
+         
+         // creamos la columna cantidad
+         $row.append(
+           $("<td>").attr({style:"padding: 0px;"}).append(
+             $("<input>").attr({type: "text", pattern: "^[0-9]+(?:\.[0-9]{1,3}){0,1}$", style: "max-width: 100px;", value: conceptsData[index].conceptCount}).on("paste keypress", SnvaJsApi.validateNumberFormat).on("change keyup", updatePricesInModule)
+           )
+         );
+         
+         // creamos la columna C.U. Max
+         $row.append(
+           $("<td>").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(costData.costMax, 4), 4))
+         );
+         
+         // creamos la columna C.U. Min.
+         $row.append(
+           $("<td>").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(costData.costMin, 4), 4))
+         );
+         
+         // creamos la columna Importe Max.
+         $row.append(
+           $("<td>").attr({class:"text-center"}).text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(conceptsData[index].conceptCount * costData.costMax, 4), 4))
+         );
+         
+         // creamos la columna Importe Min.
+         $row.append(
+           $("<td>").attr({class:"text-center"}).text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(conceptsData[index].conceptCount * costData.costMin, 4), 4))
+         );
+         
+         // se valida si existe datos de especies y fabricantes
+         //if(specieData && specieData.manufacturersObj && Object.keys(specieData.manufacturersObj).length > 0){
+         if(allManufacturer && Object.keys(allManufacturer).length > 0){
+         
+           // se crea la opción A: Agregar especie
+           $optionA =  $("<a>").attr({title: "Agregar precio", href: "javascript:void(0)", class: "btn-icon-table btn-floating black waves-effect"}).append(
+             $("<i>").attr("class", "material-icons").text("add")
+           ).click({conceptData: conceptsData[index], conceptName: index, $row: $row, allManufacturer: allManufacturer}, showModalUpdatePriceSpecie);
+         }
+         // se valida si existe datos de especies y mas de 2 fabricantes
+         if(specieData && specieData.manufacturersObj && Object.keys(specieData.manufacturersObj).length > 1){
+         
+           // se crea la opciónBA: Comparar precios especie
+           $optionB =  $("<a>").attr({title: "Comparar precios", href: "javascript:void(0)", class: "btn-icon-table btn-floating green waves-effect"}).append(
+             $("<i>").attr("class", "material-icons").text("info")
+           ).click({specieData: specieData, conceptData: conceptsData[index], conceptName: index}, showPriceComparative);
+         }
+         
+         // creamos la columna unidad
+         $row.append(
+            $("<td>").attr({class: "text-center td-project-options"}).append(
+              $optionA
+            ).append(
+              $optionB
+            ).append(
+              $("<a>").attr({title: "Eliminar especie", href: "javascript:void(0)", class: "btn-icon-table btn-floating red waves-effect"}).append(
+                $("<i>").attr("class", "material-icons").text("delete")
+              ).click({ $table: $tblUpdatePrices, paginationId: "ulPaginationUpdatePrices"}, deleteConceptUpdate)
+           )
+         );
+       //}
+    }
+    
+    // actualizamos la información de total de importes maximos y minimos
+    //amountsSum();
+    
+    // iniciaizamos el paginador
+    //SnvaJsApi.initPaginationByTable($tblUpdatePrices, "ulPaginationUpdatePrices", 10);
+  }
+  
+  /**
+   * Permite mostrar el comparativo de precios
+  **/
+  function showPriceComparative(e){
+    
+    // Prevenimmos el evento por defecto
+    e.preventDefault();
+    
+    // Referenciamos la fila de detalles
+    var $pnlDetail = $("#tblUpdatePrices tr.tr__show-details");
+    
+    // se valida si existe el panel
+    if($pnlDetail && $pnlDetail.length > 0){
+    
+      // eliminamos el panel
+      $pnlDetail.remove();
+      
+      // retornamos la información
+      return false;
+    }
+    
+    // referenciamos la fila actual
+    var $currRow = $(this).closest("tr");
+    
+    // obtenemos los datos de fabricantes
+    var specieData = e.data.specieData;
+    var conceptData = e.data.conceptData;
+    var conceptName = e.data.conceptName;
+  
+    // referenciamos la tabla de analisis de precios
+    var $table = $("<table>").attr({class: "responsive-table mdl-bordered"}).html('<thead><tr></tr></thead><tbody></tbody>');
+    
+    // creamos el contenedor de los detalles
+    var $contentDiv = $("<div>").attr({class: "preview__prices-manufacture"});
+    
+    // Agregamos la tabla al contenedor
+    $contentDiv.append($table);
+    
+    // creamos la fila nueva
+    var $newRow = $("<tr>").attr({class: "tr__show-details"}).append(
+      $("<td>").attr({colspan: 9}).append($contentDiv)
+    );
+    
+    // agregamos la nueva fila despues del concepto seleccionado
+    $newRow.insertAfter($currRow);
+    
+    // Insertamos la cabecera a la tabla y retornamos el valor de la columna donde esta cada fabricante empezando desde cero
+    var columnReference = insertTableHead($table, specieData.manufacturersObj);
+  
+    // obtenemos el cuerpo de la tabla
+    var $tBody = $table.find("tbody");
+    
+    // restablecemos el contenido
+    $tBody.html('<tr class="info-message" style="display: none;"><td colspan="' + (4 + Object.keys(columnReference).length) + '">No hay datos para mostrar.</td></tr>');
+      
+    // creamos una nueva fila
+    var $row = $("<tr>").attr({class: "isValid"}).data("specieData", specieData);
+    
+    // agregamos la fila al cuerpo de la tabla
+    $tBody.append($row);
+    
+    // creamos la fila de acciones
+    $row.append(
+      $("<td>").attr({class:"center"}).append( 
+        $("<a>").attr({title:"Agregar", href:"javascript:void(0)", class:"btn-icon btn-floating orange waves-effect" }).append(
+          $("<i>").attr({class:"material-icons", style:"color:rgba(4, 104, 79, 0.87) !important;font-size:23px!important;"}).text("add_shopping_cart")
+        ).click({$row: $row}, addItemOC)
+      )
+    );
+    
+    // creamos la fila de: nombre de la especie
+    $row.append(
+      $("<td>").text(conceptName)
+    );
+    
+    // creamos la fila de: unidad
+    $row.append(
+      $("<td>").attr({class: "center"}).text(conceptData.unit)
+    );
+    
+    // creamos la fila de: la cantidad
+    $row.append(
+      $("<td>").attr({class: "center"}).append( 
+        $("<input>").attr({class: "center", value: 1, type: "text", pattern: "^[0-9]+(?:\.[0-9]{1,3}){0,1}$", style: "max-width: 80px;height: 30px;margin: 0;border: 1px solid #ccc;"}).focusin(showFormuleInField).focusout(processFormuleInField).on("paste keypress", SnvaJsApi.validateNumberFormat)
+      )
+    );
+    
+    // agregamos las columnas con los precios de los fabricantes
+    addColumnsByManufacturers($row, columnReference, specieData.manufacturersObj);
+    
+    // Agregamos los datos de la especie
+    //addConceptInPreview(specieData, conceptData, conceptName);
+  }
+  
+  /**
+   * Permite actualizar la tabla respectiva de actualización de precios
+  **/
+  function updatePricesInModule(){
+    
+    // obtenemos la información de los tipos de cambios
+    var changeTypeData = $("#btnUpdateCurrencyTypeHexp").data("currencyTypeData");
+    
+    // creamos el objeto con el valor de el tipo de cambio
+    var changeTypeValues = {
+      "USD": 0,
+      "EUR": 0
+    };
+    
+    // validamos si existe información del tipo de cambio
+    if(changeTypeData){
+    
+      // actualizamoslos valores de los tipos de cambio
+      changeTypeValues["USD"] = changeTypeData.usdHexp || 0;
+      changeTypeValues["EUR"] = changeTypeData.eurHexp || 0;
+    }
+    
+    // Obtenemos las filas con los conceptos de la tabla
+    var $rows = $("#tblUpdatePrices tbody tr:not(.info-message)");
+    
+    // se valida que exista al menos una fila
+    if($rows.length > 0){
+      
+      // variable para manipular la información den el ciclo
+      var $row, conceptData, costData, quantity, conceptName;
+      
+      // Obtenemos los datos 
+      var pricesAnalysis =  $("#frmSearchConceptOC").data("arrayPricesAnalysis");
+   
+      // recorremos cada una de las fila
+      $rows.each(function(){
+        
+        // se referencia la fila actual
+        $row = $(this);
+        
+        // Nombre del concepto
+        conceptName = $row.data("conceptName");
+        
+        // obtenemos los costos minimos y maximo
+        costData = getUnitCostByPrices(pricesAnalysis.speciesObj[conceptName]);
+        
+        // se obtiene la información del concepto
+        conceptData = $row.data("conceptData");
+        
+        // se actualiza los datos de costos
+        $row.data("costData", costData);
+        
+        // obtenemos la cantidad actual
+        quantity = $row.find("td:eq(3) input").val();
+        
+        // actualizamos el Costo unitario minimo y maximo
+        $row.find("td:eq(4)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(costData.costMax, 4)));
+        $row.find("td:eq(5)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(costData.costMin, 4)));
+        
+        // actualizamos el importe max y minimo
+        $row.find("td:eq(6)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(quantity * costData.costMax, 4)));
+        $row.find("td:eq(7)").text(SnvaJsApi.formatValue(SnvaJsApi.roundDecimal(quantity * costData.costMin, 4)));
+        
+      });
+      
+    }
+    
+    // actualizamos la información de total de importes maximos y minimos
+    amountsSum();
+    
+  }
+  
+  /**
+   * Permite obtener el costo unitario minimo y maximo
+  **/
+  function getUnitCostByPrices(conceptInfo){
+  
+    // definimos el objeto a retornar
+    var returnObject = {
+      costMin: 0,
+      costMax: 0
+    };
+    
+    // validamos si exiset información del conceptos
+    if(conceptInfo){
+      
+      // obtenemos la información de los tipos de cambios
+      var changeTypeData = $("#btnUpdateCurrencyTypeHexp").data("currencyTypeData");
+      
+      // creamos el objeto con el valor de el tipo de cambio
+      var changeTypeValues = {
+        "USD": 0,
+        "EUR": 0
+      };
+      
+      // validamos si existe información del tipo de cambio
+      if(changeTypeData){
+        
+        // actualizamoslos valores de los tipos de cambio
+        changeTypeValues["USD"] = changeTypeData.usdHexp || 0;
+        changeTypeValues["EUR"] = changeTypeData.eurHexp || 0;
+        
+      }
+      
+      // objeto para almacenar la lista de fabricantes
+      var manufacturersCost = [];
+      
+      // validamos si existe información de fabricantes
+      if(conceptInfo.manufacturersObj){
+        
+        // varible que almacena el costo actual del fabricante
+        var currentCost = 0;
+        
+        // recorremos cada uno de los fabricantes
+        for(var key in conceptInfo.manufacturersObj){
+          
+          // referenciamos el costo actual
+          currentCost = Number(conceptInfo.manufacturersObj[key].priceUnitAP) || 0;
+          
+          // se valida si el tipo de moneda es diferente a "MX"
+          if(conceptInfo.manufacturersObj[key].currencyType != "MX"){
+            
+            // calculamos el valor dependiendo el tipo de cambio configurado
+            currentCost = currentCost * (changeTypeValues[conceptInfo.manufacturersObj[key].currencyType] || 0);
+            
+          }
+          
+          // Validamos si la especie tien iva
+          if(conceptInfo.manufacturersObj[key].iva != "0"){
+            
+            // Se le agrga el iva a la especie
+            currentCost = currentCost + (currentCost * (conceptInfo.manufacturersObj[key].iva / 100) );
+            
+          }
+          
+          // agregamos la información del costo
+          manufacturersCost.push(currentCost);
+          
+        }
+        
+        // organizamos de menor a mayor
+        manufacturersCost.sort(function (a, b){
+          return a - b;
+        });
+     
+        // agregamos el costo minimo
+        returnObject.costMax = manufacturersCost[manufacturersCost.length - 1];
+        
+        // validamo si existe mas de un costo
+        if(manufacturersCost.length > 1){
+          
+          // agregamos el costo maximo
+          returnObject.costMin = manufacturersCost[0];
+        }
+      }
+    }
+    
+    // retornamos el respectivo objeto
+    return returnObject;
+  }
+  
+  /**
+  * Función que permite eliminar una especie de la tabla de actualización de precios
+  **/
+  function deleteConceptUpdate(e){
+    
+    // Se previene el evento por defecto
+    e.preventDefault();
+    
+    // Referenciamos la tabla
+    var $table = e.data.$table;
+    
+    // referenciamos el id del paginador
+    var paginationId = e.data.paginationId;
+    
+    // removemos la respectiva fila
+    var $row = $(this).closest("tr");
+    
+    // mostramos mensaje de confirmación antes de eliminar la especie
+    SnvaJsApi.confirm("¿Seguro desea eliminar esta especie?", function(){
+    
+      // removemos la fila de la especie
+      $row.remove();
+      
+      // actualizamos los importes maximos y minimos
+      amountsSum();
+      
+      // Contenedor de las paginas
+      var $ulPaginationUpdatePrices =  $("#ulPaginationUpdatePrices");
+      
+      // Obtenemos el numero de la pagina 
+      var pageNumberActive = $ulPaginationUpdatePrices.find("li.active").text();
+      
+      // inicializamos el paginador
+      SnvaJsApi.initPaginationByTable($table, paginationId, 10);
+      
+      // Validamos la cantidad de paginas se encuentre entre la pagina activa
+      if(pageNumberActive > ($ulPaginationUpdatePrices.find("li").length - 2)){
+        
+        // Le restamos una pagina 
+        pageNumberActive = Number(pageNumberActive) -1;
+      }
+      
+      // Simulamos el click en la pagina       
+      $ulPaginationUpdatePrices.find("li:eq(" + pageNumberActive + ") a").click();
+      
+    });
+    
+  }
+  
+  
+  
+  /*
+  * Función que permite verificar y agregar las especies al array si es necesario
+  * @param {array} orderProjects datos de las especies del proyecto 
+  * @param {array} conceptsData Especies que se debe agregar 
+  */
+  function verifyConcepts(orderProjects, conceptsData, nameReferenceObj){
+    
+    // para las  lineas de los productos de cada orden
+    var linesProducts = null;
+    
+    // Para guardar la lista de la especies de cada linea
+    var conceptList = null,
+        conceptName = "",
+        currentCounter = 0;
+    
+    // Recorremos cada una de las ordenes de los proyectos 
+    for( var i =0; i < orderProjects.length; i++){
+      
+      // Obtenemos la lineas
+      linesProducts = orderProjects[i].linesProducts;
+      
+      // Validamos si hay lineas 
+      if(linesProducts.length > 0){
+      
+        // recorremos cada una de la lineas
+        for( var j = 0; j < linesProducts.length; j++){
+           
+           // Obtenemos la lista de especies  
+           conceptList = linesProducts[j].conceptList;
+           
+           // Validamos si hay especies
+           if(conceptList.length){
+             
+             // Recorremos las especies 
+             for(var z = 0; z < conceptList.length; z++){
+              
+              // obtenemos el nombre de la especie
+              conceptName = conceptList[z].conceptData[1];
+              
+              // validamos si la especie existe en el listado de precios y si ya han pasado 15 días
+              if(nameReferenceObj[conceptName] ){
+                
+                // obtenemos en numero la cantidad
+                currentCounter = Number(conceptList[z].conceptCount);
+                
+                // validamos si no es un numero
+                if(isNaN(currentCounter)) currentCounter = 0;
+                
+                // Validamos si ya existe el elemento
+                if(conceptsData[conceptName]){
+                  
+                  // Agregamos la especie
+                  conceptsData[conceptName].conceptCount += currentCounter;
+                  
+                } else {
+                   
+                   // Agregamos la especie
+                   conceptsData[conceptName] = {
+                     conceptCount: currentCounter, 
+                     keyword: nameReferenceObj[conceptName].keyword, 
+                     family: nameReferenceObj[conceptName].family,
+                     unit: nameReferenceObj[conceptName].unit,
+                     rowIndex: nameReferenceObj[conceptName].rowIndex
+                   };
+                   
+                   ///validamos si ya ha pasado los 15 dias
+                   if(!isValidUpdatePrices(nameReferenceObj[conceptName])){
+                     
+                     // Establecemos el color de la fila 
+                     conceptsData[conceptName].background= "#e1c572";
+                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Retornamos el objecto con las especies 
+    return conceptsData;
+      
+  }
+  
+</script>

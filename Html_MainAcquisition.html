@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <!-- Libreria de jquery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <!--Import Google Icon Font-->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!--Import la tipografía Roboto-->
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    <!--Importar los estilos propios-->
+    <?!= includeHtmlFile("Css_Stylesheet", false, false) ?>
+    <!--Importar los estilos para normalizar-->
+    <?!= includeHtmlFile("Css_Normalize", false, false) ?>
+    <!-- Libreria de general de Sinova -->
+    <?!= includeHtmlFile("Js_LibSnvaApi", false, false) ?>
+    <!-- Libreria para el paginador -->
+    <?!= includeHtmlFile("Js_PaginationMaterial", false, false) ?>
+    
+    <!-- Cargamos los archivos de javascript-->
+    <?!= includeHtmlFile("Js_Mbox", false, false); ?>
+    
+    <!-- Estilos y funciones para el formulario de feedback-->
+    <?!= includeHtmlFile("Js_Feedback", false, false); ?>
+    <?!= includeHtmlFile("Css_Feedback", false, false); ?>
+    
+    <!-- Cargamos los archivos de javascript para crear una imagen a partir de un HTML-->
+    <?!= includeHtmlFile("Js_Html2Canvas", false, false); ?>    
+    
+    <!-- Libreria para mostrar los popover https://www.jqueryscript.net/tooltip/minimal-clean-popover.html -->
+    <?!= includeHtmlFile("Js_PluginPopover", false, false); ?>
+    
+    <!-- select2 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css" rel="stylesheet" />
+    
+    <!-- select2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js"></script>
+    
+    <!-- manejo de un select de doble selección - https://github.com/fabianlindfors/multi.js/tree/master -->
+    <?!= includeHtmlFile("Js_MultiSelect", false, false); ?>
+    <?!= includeHtmlFile("Css_MultiSelect", false, false); ?>
+
+    <!-- Libreria para el manejo de feedback -->
+    <script src="https://cdn.jsdelivr.net/gh/rubenchodev/open-source-libraries@main/qc_feedback/qc_feedback_min.js"></script>
+    
+  </head>
+  <body>
+
+    <!-- Widget de Feedback -->
+    <qc-feedback
+      app-name="Hidrocotizador - Adquisiciones"
+      primary-color="#39c1e8"
+      position="bottom-left"
+      endpoint="https://script.google.com/macros/s/AKfycbz0OD7JHBzJyANUzUJjkwmtxIXaXRCwSo_aaJbyuPrSiQKTi3sP6MaGuTIwpQ5Zi6xUNw/exec"
+      title="Enviar feedback"
+      subtitle="¿Encontraste un problema? Cuéntanos"
+      modules="Fabricantes,Paquetería,Actualización de precios,Análisis y orden de compra,Especies"
+      size="sm"
+      left="12"
+      bottom="12"
+      theme="light"
+      image-scale="2"
+      image-quality="0.85">
+    </qc-feedback>
+    
+    <!-- Interfaz del loading -->
+    <div id="loading">
+      <div class="spinner">
+        <div class="preloader-wrapper big active">
+          <div class="spinner-layer spinner-blue-only">
+            <div class="circle-clipper left">
+              <div class="circle"></div>
+            </div>
+            <div class="gap-patch">
+              <div class="circle"></div>
+            </div>
+            <div class="circle-clipper right">
+              <div class="circle"></div>
+            </div>
+          </div>
+        </div>
+        <div id="text-loading" class="text-loading">Espere un momento por favor...</div>
+      </div>
+    </div>
+    
+    <!-- <button id="btnFeedBack" title="Enviar retroalimentación">
+      <div>
+        <img alt="Retroalimentación" src="https://cdn-icons-png.flaticon.com/512/2665/2665051.png">
+      </div>
+      <span>Feedback</span>
+    </button> -->
+    
+    <!-- Contenido base -->
+    <div class="ctn-main">
+      <div class="navbar-fixed">
+        <nav class="nav-blue">
+          <div class="nav-wrapper">
+            <a href="javascript:void(0)" class="brand-logo not-events">HidroCotizador</a>
+            <a id="btnShowMenu" href="javascript:void(0)" data-target="ctn-menu-fixed" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+              <!-- Validamos si el usuario no solo tiene un rol -->
+              <? if(onlyOneRole == false) {?>
+                
+                <li><a href="<?!=link?>" target="_top" class="showLoadingIndeterminate"><i class="material-icons left">keyboard_return</i>Regresar</a></li>
+              <?}?>
+              <li class="active"><a href="#ctnManufacturers" class="options-menu lnk-blue"><i class="material-icons left">library_add</i>Fabricantes</a></li>
+              <li ><a href="#ctnParcel" class="options-menu lnk-blue"><i class="material-icons left">settings</i>Paquetería</a></li>
+              <li><a href="#ctnUpdatePrices" class="options-menu lnk-blue"><i class="material-icons left">update</i>Actualizar precios</a></li>
+              <li><a href="#ctnPriceAnalysis" class="options-menu lnk-blue"><i class="material-icons left">list_alt</i>Análisis y orden de compra</a></li>
+              <li><a href="#ctnHistoryData" class="options-menu lnk-blue"><i class="material-icons left">history</i>Historial</a></li>
+              <li><a href="#ctnSpecies" class="options-menu lnk-blue"><i class="material-icons left">assignment</i>Especies</a></li>
+              <li>
+                <div class="chip ctn-logo">
+                  <span id="lblUserShortName">Usuario</span>
+                  <img id="imgUser" src="http://ssl.gstatic.com/accounts/ui/avatar_2x.png" alt="Contact Person">
+                </div>
+              </li>
+            </ul>
+          </div>
+        </nav>
+      </div>
+      
+      <!-- Menu que se muestra cuando esta en pantallas pequeñas -->
+      <ul id="ctn-menu-fixed" class="sidenav">
+        <li>
+          <div class="user-view">
+            <div class="background background-blue"></div>
+            <a href="javascript:void(0)"><img class="circle" src="http://ssl.gstatic.com/accounts/ui/avatar_2x.png"></a>
+            <a href="javascript:void(0)"><span class="white-text name">Usuario</span></a>
+            <a href="javascript:void(0)"><span class="white-text email"></span></a>
+          </div>
+        </li>
+        <!-- Validamos si el usuario no solo tiene un rol -->
+        <? if(onlyOneRole == false) {?>
+        
+        <li><a href="<?!=link?>" target="_top" class="showLoadingIndeterminate"><i class="material-icons left">keyboard_return</i>Regresar</a></li>
+        <?}?>
+        <li class="active"><a href="#ctnManufacturers" class="options-menu"><i class="material-icons left">library_add</i>Fabricantes</a></li>
+        <li><a href="#ctnParcel" class="options-menu"><i class="material-icons left">settings</i>Paquetería</a></li>
+        <li><a href="#ctnUpdatePrices" class="options-menu"><i class="material-icons left">update</i>Actualizar precios</a></li>
+        <li><a href="#ctnPriceAnalysis" class="options-menu"><i class="material-icons left">list_alt</i>Análisis y orden de compra</a></li>
+        <li><a href="#ctnHistoryData" class="options-menu"><i class="material-icons left">history</i>Historial</a></li>
+        <li><a href="#ctnSpecies" class="options-menu"><i class="material-icons left">assignment</i>Especies</a></li>
+      </ul>
+      
+      <!-- Contenido base -->
+      <div class="ctn-container">
+        
+        <!-- Contenedor de fabricantes -->
+        <div id="ctnManufacturers">
+          <h1>Fabricantes</h1>
+          <p>A continuación se muestra el listado de todos los fabricantes actuales</p>
+          <div class="panel-primary">
+            <div class="panel-primary-header">Líneas de fabricantes</div>
+            <div class="panel-primary-body">
+              
+              <div class="row ctn-search-table" >
+                <div class="col s12 m6" style="margin-top: 24px;">
+                  <button id="btnSendMailManufacturers" data-position="right" data-tooltip="Enviar correo de actualización de datos" type="button" class="tooltipped btn #e53935 red darken-1 waves-effect waves-light" disabled><i class="material-icons">mail</i></button>
+                  <a id="btnAddManufacturers" class="#26a69a teal lighten-1 waves-effect waves-light btn"><i class="material-icons left">add</i>Fabricante</a>
+                  <button id="btnAssignFamilies" type="button" class="tooltipped btn #e53935 teal lighten-1 waves-effect waves-light" disabled><i class="material-icons left">add</i>Asignar Familias</button>
+                </div>
+                <div class="col s12 m6">
+                  <div class="input-field">
+                    <i class="material-icons prefix">search</i>
+                    <input id="txtSearchTableManufacturers" type="text" class="validate">
+                    <label for="txtSearchTableManufacturers">Buscar</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <table id="tblManufacturers" class="responsive-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Fabricante</th>
+                      <th>RFC</th>
+                      <th>Contacto</th>
+                      <th>Correo</th>
+                      <th>Última actualización</th>
+                      <th>Estado</th>
+                      <th class="text-center" style="width:40px;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="info-message">
+                    <td colspan="8">No hay fabricantes para mostrar.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="row">
+                 <div class="col s12 ctn-pagination">
+                   <span class="left spnTotalPagination"></span>
+                   <ul class="pagination pager" id="ulPaginationManufacturers"></ul>
+                 </div>
+               </div>
+               
+            </div>
+          </div>
+        </div>
+        
+        <!-- Contenedor de paquetería -->
+        <div id="ctnParcel" class="hidden">
+          
+          <h1>Paquetería</h1>
+          <p>A continuación se muestra el listado de todos los de paquetería registrados hasta la fecha</p>
+          <div class="panel-primary">
+            <div class="panel-primary-header">Lista de paquetería</div>
+            <div class="panel-primary-body">
+            
+              <div class="row ctn-search-table" >
+                <div class="col s12 m6" style="margin-top: 24px;">
+                  <button id="btnSendMailParcel" data-position="right" data-tooltip="Enviar correo de actualización de datos" type="button" class="tooltipped btn #e53935 red darken-1 waves-effect waves-light" disabled><i class="material-icons">mail</i></button>
+                  <a id="btnAddParcel"class="#26a69a teal lighten-1 waves-effect waves-light btn"><i class="material-icons left">add</i>paqueteria</a>
+                </div>
+                
+                <div class="col s12 m6">
+                  <div class="input-field">
+                    <i class="material-icons prefix">search</i>
+                    <input id="txtSearchTableParcel" type="text" class="validate">
+                    <label for="txtSearchTableParcel">Buscar</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <table id="tblParcels" class="responsive-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Comercio</th>
+                      <th>Razón Social</th>
+                      <th>RFC</th>
+                      <th>Contacto</th>
+                      <th>Correo</th>
+                      <th>Última actualización</th>
+                      <th>Estado</th>
+                      <th class="text-center" style="width:40px;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="info-message">
+                     <td colspan="9">No hay paquetería para mostrar.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="row">
+                 <div class="col s12 ctn-pagination">
+                   <span class="left spnTotalPagination"></span>
+                   <ul class="pagination pager" id="ulPaginationParcels"></ul>
+                 </div>
+               </div>
+               
+            </div>
+          </div>
+          
+        </div>
+        
+        
+      
+        <!-- Contenedor de Actualización de precios -->
+        <div id="ctnUpdatePrices" class="hidden">
+          
+          <h1>Actualización de precios</h1>
+          <p>A continuación se muestra el listado de las especies</p>
+          <div class="panel-primary">
+            <div class="panel-primary-header">Lista de especies</div>
+            <div class="panel-primary-body">
+            
+              <div class="row ctn-search-table" >
+                <div class="col s12 m6" style="margin-top: 24px;">
+                
+                  <a class='dropdown-trigger btn' href='#' id="btnAddConceptUpdate" data-target='dropdownAddConcept'>Agregar especie
+                    <i class="material-icons right">arrow_drop_down</i>
+                  </a>
+                  <a class='btn' href='#' id="btnClearTablePrices" style="background: transparent;color: #000;">Borrar especie
+                    <i class="material-icons left">delete</i>
+                  </a>
+                  
+                  <a id="btnUpdateCurrencyTypeHexp" href="javascript:void(0)" class="btn btn-update-hexp" title="Actualización tipo de cambio.">
+                  
+                   <!-- Contenedor Para las banderas-->
+                    <div class="ctn-flag-hexp">
+                      <svg class="flag-hexp" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+                        <circle style="fill:#F0F0F0;" cx="256" cy="256" r="256"> 
+                          <title>Dolares</title>
+                        </circle>
+                        <g>
+                          <path style="fill:#D80027;" d="M244.87,256H512c0-23.106-3.08-45.49-8.819-66.783H244.87V256z"></path>
+                          <path style="fill:#D80027;" d="M244.87,122.435h229.556c-15.671-25.572-35.708-48.175-59.07-66.783H244.87V122.435z"></path>
+                          <path style="fill:#D80027;" d="M256,512c60.249,0,115.626-20.824,159.356-55.652H96.644C140.374,491.176,195.751,512,256,512z"></path>
+                          <path style="fill:#D80027;" d="M37.574,389.565h436.852c12.581-20.529,22.338-42.969,28.755-66.783H8.819C15.236,346.596,24.993,369.036,37.574,389.565z"></path>
+                        </g>
+                        <path style="fill:#0052B4;" d="M118.584,39.978h23.329l-21.7,15.765l8.289,25.509l-21.699-15.765L85.104,81.252l7.16-22.037C73.158,75.13,56.412,93.776,42.612,114.552h7.475l-13.813,10.035c-2.152,3.59-4.216,7.237-6.194,10.938l6.596,20.301l-12.306-8.941c-3.059,6.481-5.857,13.108-8.372,19.873l7.267,22.368h26.822l-21.7,15.765l8.289,25.509l-21.699-15.765l-12.998,9.444C0.678,234.537,0,245.189,0,256h256c0-141.384,0-158.052,0-256C205.428,0,158.285,14.67,118.584,39.978z M128.502,230.4l-21.699-15.765L85.104,230.4l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822l-21.7,15.765L128.502,230.4zM120.213,130.317l8.289,25.509l-21.699-15.765l-21.699,15.765l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L120.213,130.317z M220.328,230.4l-21.699-15.765L176.93,230.4l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822l-21.7,15.765L220.328,230.4z M212.039,130.317l8.289,25.509l-21.699-15.765l-21.699,15.765l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L212.039,130.317z M212.039,55.743l8.289,25.509l-21.699-15.765L176.93,81.252l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L212.039,55.743z">
+                        </path>
+                      </svg>
+                      
+                      <svg class="flag-hexp" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+                        <circle style="fill:#0052B4;" cx="256" cy="256" r="256"><title>Euros</title></circle> 
+                        <g>
+                          <polygon style="fill:#FFDA44;" points="256.001,100.174 264.29,125.683 291.11,125.683 269.411,141.448 277.7,166.957  256.001,151.191 234.301,166.957 242.59,141.448 220.891,125.683 247.712,125.683 	"/>
+                          <polygon style="fill:#FFDA44;" points="145.814,145.814 169.714,157.99 188.679,139.026 184.482,165.516 208.381,177.693 181.89,181.889 177.694,208.381 165.517,184.482 139.027,188.679 157.992,169.714 	"/>
+                          <polygon style="fill:#FFDA44;" points="100.175,256 125.684,247.711 125.684,220.89 141.448,242.59 166.958,234.301 151.191,256 166.958,277.699 141.448,269.411 125.684,291.11 125.684,264.289 	"/>
+                          <polygon style="fill:#FFDA44;" points="145.814,366.186 157.991,342.286 139.027,323.321 165.518,327.519 177.693,303.62 181.89,330.111 208.38,334.307 184.484,346.484 188.679,372.974 169.714,354.009 	"/>
+                          <polygon style="fill:#FFDA44;" points="256.001,411.826 247.711,386.317 220.891,386.317 242.591,370.552 234.301,345.045 256.001,360.809 277.7,345.045 269.411,370.552 291.11,386.317 264.289,386.317 	"/>
+                          <polygon style="fill:#FFDA44;" points="366.187,366.186 342.288,354.01 323.322,372.975 327.519,346.483 303.622,334.307 330.112,330.111 334.308,303.62 346.484,327.519 372.974,323.321 354.009,342.288 	"/>
+                          <polygon style="fill:#FFDA44;" points="411.826,256 386.317,264.289 386.317,291.11 370.552,269.41 345.045,277.699 360.81,256 345.045,234.301 370.553,242.59 386.317,220.89 386.317,247.712 	"/>
+                          <polygon style="fill:#FFDA44;" points="366.187,145.814 354.01,169.714 372.975,188.679 346.483,184.481 334.308,208.38 330.112,181.889 303.622,177.692 327.519,165.516 323.322,139.027 342.289,157.991 	"/>
+                        </g>
+                      </svg>
+                     
+                    </div>
+                  </a>
+               
+                  <!-- Opciones para agregar los comceptos -->
+                  <ul id="dropdownAddConcept" class="dropdown-content" style="margin-top: 2% !important; margin-left: 5% !important;">
+                    <li>
+                      <a id="addConceptsForProject">Por proyecto</a>
+                    </li>
+                    <li class="divider"></li>
+                    <li><a id="addConceptUpdate">Por búsqueda</a></li>
+                    <li class="divider"></li>
+                    <li><a id="addConceptUpdateForFamily">Por familia</a></li>
+                  </ul> 
+                 
+                  
+                </div>
+                
+                <div class="col s12 m6">
+                  <div class="input-field">
+                    <i class="material-icons prefix">search</i>
+                    <input id="txtSearchTableUpdatePrices" type="text" class="validate">
+                    <label for="txtSearchTableUpdatePrices">Buscar</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <table id="tblUpdatePrices" class="responsive-table striped">
+                  <thead>
+                    <tr>
+                      <th>Nombre de la especie</th>
+                      <th>Familia</th>
+                      <th>Unidad</th>
+                      <th>Cantidad</th>
+                      <th>C.U. Max</th>
+                      <th>C.U. Min.</th>
+                      <th class="text-center" ><span class="span-cost" style="background-color: #975d0d;" id="amountMax">0</span><br>Importe Max.</th>
+                      <th class="text-center" ><span class="span-cost" style="background-color: #0d9780;" id="amountMin">0</span><br>Importe Min.</th>
+                      <th class="text-center" style="width:40px;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="info-message">
+                     <td colspan="9">No hay especies para mostrar.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="row">
+                 <div class="col s12 ctn-pagination">
+                   <span class="left spnTotalPagination"></span>
+                   <ul class="pagination pager" id="ulPaginationUpdatePrices"></ul>
+                 </div>
+              </div>
+              
+              <div class="row">
+                <div class="col s12 text-right">
+                  <button class="btn btn-primary" id="btnSendUpdatePrices">Solicitar actualización de precios</button>
+                </div>
+              </div>
+               
+            </div>
+          </div>
+          
+        </div><!-- Cierre contenedor de actualizar precios -->
+        
+        <!-- Contenedor de análisis de precios -->        
+        <div id="ctnPriceAnalysis" class="hidden"> 
+          <h1>Análisis de precios y órdenes de compra</h1>
+          <p>A continuación se muestra un resumen de los precios ingresados por los fabricantes y permite la generación de ordenes de compra.</p>
+          <div class="panel-primary">
+            <div class="panel-primary-header">Búsqueda de especies</div>
+            <div class="panel-primary-body">
+              
+              <form id="frmSearchConceptOC" autocomplete="off">
+                <div class="row">
+                  <div class="col s12 m6 xl6">
+                    <label for="contDepartmentSearchOC">Departamento:</label>
+                    <div class="chips chips-autocomplete" id="contDepartmentSearchOC">
+                      <input style="width:100% !important">
+                    </div>
+                  </div>
+                  <div class="col s12 m6 xl6">
+                    <label for="contFamilySearchOC">Familia:</label>
+                    <div class="chips chips-autocomplete" id="contFamilySearchOC">
+                      <input style="width:100% !important">
+                    </div>
+                  </div>
+                </div>
+                  <div class="row">
+                    <div class="col s12 m6 xl6">
+                      <label for="contKeywordSearchOC">Palabra clave:</label>
+                      <div class="chips chips-autocomplete" id="contKeywordSearchOC">
+                        <input style="width:100% !important">
+                      </div>
+                    </div>
+                    <div class="col s12 m6 xl6">
+                      <label for="contManufacturersOC">Fabricante:</label>
+                      <div class="chips chips-autocomplete" id="contManufacturersOC">
+                        <input style="width:100% !important">
+                      </div>
+                    </div>
+                  </div>
+                <div class="row">
+                  <div class="col s12 m12 xl12">                    
+                    <label for="contSpecieSearchOC">Especie:</label>
+                      <div class="chips chips-autocomplete" id="contSpecieSearchOC">
+                        <input style="width:100% !important">
+                      </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col s12 text-right">
+                    <button id="btnUpdateConceptListOC" title="Actualizar lista de precios" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons">refresh</i></button>
+                    <button id="btnSearchConceptOC" type="submit" class="btn waves-effect waves-light btn-secundary">Buscar</button>
+                  </div>
+                </div>
+              </form>
+              
+              <!--
+              <form id="frmSearchConceptOC" autocomplete="off">
+                <div class="row" style="margin-bottom: 0px;">
+                  <div class="col s12 m6 input-field">
+                    <i class="material-icons prefix" id="btnDepartmentSearchUpdateOC">account_circle</i>
+                    <input id="txtDepartmentSearchUpdateOC" type="text" style="text-transform: uppercase;">
+                    <label for="txtDepartmentSearchUpdateOC" class="">Departamento</label>
+                  </div>
+                  <div class="col s12 m6 input-field">
+                    <i class="material-icons prefix" id="btnFamilySearchUpdateOC">account_circle</i>
+                    <input id="txtFamilySearchUpdateOC" type="text" style="text-transform: uppercase;">
+                    <label for="txtFamilySearchUpdateOC">Familia</label>
+                  </div>
+                </div>
+                
+                <div class="row" style="margin-bottom: 0px;">                  
+                  <div class="col s12 m6 input-field">
+                    <i class="material-icons prefix" id="btnKeywordSearchUpdateOC">account_circle</i>
+                    <input id="txtKeywordSearchUpdateOC" type="text" style="text-transform: uppercase;">
+                    <label for="txtKeywordSearchUpdateOC">Palabra clave</label>
+                  </div>
+                  <div class="col s12 m6 input-field">
+                    <i class="material-icons prefix" id="btnManufacturersOC">account_circle</i>
+                    <input id="txtManufacturersOC" type="text" style="text-transform: uppercase;">
+                    <label for="txtManufacturersOC">Fabricante</label>
+                  </div>
+                </div>
+                
+                <div class="row" style="margin-bottom: 0px;">
+                  <div class="col s12 input-field">
+                    <input id="txtSpecieSearchUpdateOC" type="text" style="text-transform: uppercase;">
+                    <label for="txtSpecieSearchUpdateOC">Especie</label>
+                  </div>
+                </div>
+                
+                <div class="row" style="display:none;">
+                  <div class="col s12 m12 xl12 input-field" id="pnlGenderSearchUpdateOC">
+                  </div>
+                </div>
+                
+                <div class="row">
+                  <div class="col s12 text-right">
+                    <button id="btnUpdateConceptListOC" title="Actualizar lista de especies" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons">refresh</i></button>
+                    
+                    <button id="btnSearchConceptOC" type="submit" class="btn waves-effect waves-light btn-secundary">Buscar</button>
+                  </div>
+                </div>
+              </form>
+              -->
+              <div class="row" style="width: 100%;overflow: auto;">
+                <table id="tblPriceAnalysisOC" class="responsive-table mdl-bordered">
+                  <thead>
+                    <tr></tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
+              </div>
+              <div class="row">
+                <div class="col s12 ctn-paginationOC" style="text-align: right;">
+                  <span class="left spnTotalPaginationOC"></span>
+                  <ul class="pagination pager" id="ulPaginationPriceAnalysisOC"></ul>
+                </div>
+              </div>
+            </div>
+            <div class="panel-primary-header" style="background-color: #daf9eb; padding: 7px; line-height: initial; font-weight: 700;">
+              <i class="material-icons left size-24" style="margin-right: 0px; margin-top: 0px;width: 25px;">playlist_add_check</i>
+              Listado de especies seleccionadas
+            </div>
+            <div class="panel-primary-body">
+              <div class="row">
+                <div class="col s12 m12 xl12 text-right">
+                  <button id="btnGenerateOrder" title="Generar nueva orden de compra" type="button" class="btn blue waves-effect">
+                  <i class="material-icons left size-24">list_alt</i> Orden de compra
+                  </button>
+                <!--  <button id="btnUpdatePricesSummary" title="Actualizar resumen de precios" type="button" class="btn waves-effect">
+                  <i class="material-icons left size-24">refresh</i> resumen de precios
+                  </button>
+                 -->
+                </div>
+              </div>
+              <div class="row">
+                <table id="tblConceptSelected" class="responsive-table mdl-bordered">
+                  <thead>
+                    <tr>
+                      <th class="center">Acciones</th>
+                      <th>Nombre de la especie</th>
+                      <th class="center">Unidad</th>
+                      <th class="center">Unidad cliente</th>
+                      <th class="center">Cantidad</th>
+                      <th>Costo</th>
+                      <th>Fabricante</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="info-message">
+                      <td colspan="7">No hay fabricantes seleccionados para mostrar.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="row">
+                <div class="col s12 ctn-pagination">
+                  <span class="left spnTotalPaginationSlt"></span>
+                  <ul class="pagination pager" id="ulPaginationConceptSelected"></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><!-- Cierre contenedor de ver datos -->
+        
+         <!-- Contenedor de análisis de precios -->
+        <div id="ctnHistoryData" class="hidden">
+          <h1>Historial de órdenes de compra</h1>
+          <p>A continuación se muestra la lista de órdenes de compra generadas hasta la fecha</p>
+          <div class="col s12 m12 xl12 between__flex">
+            <div class="search__filters">
+              <div class="input-field">
+                <i class="material-icons prefix">search</i>
+                <input id="txtSearchTablOrderHistory" type="text" class="validate">
+                <label for="txtSearchTablOrderHistory">Buscar</label>
+              </div>
+              <button id="btnShowFilters" title="Filtros" type="button" data-target="slideOrderFilter" class="btn #616161 grey darken-2 btn-small sidenav-trigger">
+                <i class="material-icons center size-24">filter_list</i>
+              </button>
+
+              <ul id="slideOrderFilter" class="sidenav sidenav__filter not__select">
+                <li class="sidenav-header blue">
+                  <div>
+                    <i class="material-icons center size-24 circle responsive-img valign profile-image">filter_list</i>
+                    <div class="col s8">Realizar filtros</div>
+                  </div>
+                  <label title="Cerrar panel de filtro" class="sidenav-close">
+                    <i class="material-icons center size-24">close</i>
+                  </label>
+                </li>
+                <li class="padding__sidenav-text">
+                  <h5>Filtrar historial de órdenes</h5>
+                  <p>A continuación puedes filtrar los registros seleccionando el fabricante, Id orden o producto.</p>
+                  <form id="frmOrderFilters">
+                    <h6>Tipo de filtro:</h6>
+                    <p>
+                      <label>
+                        <input class="with-gap" name="filterOrderType" type="radio" value="manufacturer" checked="true" />
+                        <span>Fabricante</span>
+                      </label>
+                    </p>
+                    <p>
+                      <label>
+                        <input class="with-gap" name="filterOrderType" value="orderId" type="radio" />
+                        <span>ID Orden</span>
+                      </label>
+                    </p>
+                    <p>
+                      <label>
+                        <input class="with-gap" name="filterOrderType" value="product" type="radio" />
+                        <span>Producto</span>
+                      </label>  
+                    </p>
+
+                    <div class="row">
+
+                      <div class="col s12 input-field">
+                        <select searchable='Buscar fabricante' id="sltFilterOrderManufacturer" multiple="true"></select>
+                        <label for="sltFilterOrderManufacturer">Seleccione un fabricante <span class="md-asterisk">*</span></label>
+                      </div>
+
+                      <div class="col s12 input-field default__hidden-filter">
+                        <select searchable='Buscar Orden ID' id="sltFilterOrderId" multiple="true"></select>
+                        <label for="sltFilterOrderId">Seleccione un ID de orden <span class="md-asterisk">*</span></label>
+                      </div>
+
+                      <!--<div class="col s12 input-field default__hidden-filter">
+                        <select searchable='Buscar producto' id="sltFilterOrderProduct" multiple="true"></select>
+                        <label for="sltFilterOrderProduct">Seleccione un producto <span class="md-asterisk">*</span></label>
+                      </div>-->
+
+                      <div class="col s12 input-field">
+                        <input id="txtFilterOrderProduct" type="text">
+                        <label for="txtFilterOrderProduct">Seleccione un producto <span class="md-asterisk">*</span></label>
+                      </div>
+
+                      <div class="col s12 center">
+                        <button type="button" class="btn #616161 grey darken-2 btn-small" id="btnClearOrderFilter">Borrar filtros</button>
+                        <button type="submit" class="waves-effect waves-light btn-small">Aplicar filtro</button>
+                      </div>
+                    </div>
+
+                  </form>
+                </li>                
+              </ul>
+
+            </div>
+            <button id="btnUpdateHistoryData" title="Actualizar historial de órdenes de compra" type="button" class="btn waves-effect">
+              <i class="material-icons left size-24">refresh</i> historial
+            </button>
+          </div>
+
+          <div class="row">
+            <table id="tblHistoryData" class="responsive-table mdl-bordered" >
+              <thead>
+                <tr class="th__total">
+                 <th colspan="4">Importe Total:</th>
+                 <th colspan="3" class="th__importe-order">$0</th>
+                </tr>
+                <tr>
+                 <th>Id orden</th>
+                 <th>Fabricante</th>
+                 <th>Correo del fabricante</th>
+                 <th>Fecha de creación</th>
+                 <th>Importe</th>
+                 <th>Estado</th>
+                 <th class="center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="info-message">
+                  <td colspan="7">No hay ordenes para mostrar.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="row">
+            <div class="col s12 ctn-pagination">
+              <span class="left spnTotalPagination"></span>
+              <ul class="pagination pager" id="ulPaginationHistoryData"></ul>
+            </div>
+          </div>
+          
+        </div> <!-- Cierre contenedor de ver datos -->
+        
+        <!-- Agregamos el contenedor del panel de administración de especies -->
+        <?!= includeHtmlFile("Html_AdminSpecies", false, false) ?>
+       
+      </div> 
+    </div>
+
+    <!-- Modal Structure -->
+    <div id="mdlEditFamily" class="modal modal-fixed-footer">
+      <div class="modal-content">
+        <h4>Editar familia ofertada</h4>
+        <p>Por favor seleccione las familias de la lista izquierda para asignar como familias ofertadas.</p>
+        <select multiple="multiple" id="sltEditFamilyMdl" required="true">
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-close waves-effect waves-light btn btn-cancel-confirm" type="button">Cancelar</button>
+        <button class="waves-effect waves-light btn btn-primary" id="btnEditFamilyMdl">
+          <i class="material-icons left">update</i> Actualizar familias
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal: Para ver detalles de los fabricantes -->
+    <div id="mdlDetailsManufacturer" class="modal modal-fixed-footer mdl-manufacturer">
+      <div class="modal-content">
+      
+        <div>
+          <h5>Detalles</h5>
+          
+          <div class="row">
+        
+            <div class="col s4 mdl-details">
+              <label>Fabricante</label>
+              <span id="spnManufacturerName"></span>
+            </div>
+            
+            <div class="col s4 mdl-details">
+              <label>Razón Social</label>
+              <span id="spnSocialReason"></span>
+            </div>
+          
+            <div class="col s4 mdl-details">
+              <label>RFC</label>
+              <span id="spnRfc"></span>
+            </div>
+            
+          </div>
+          
+          <div class="row">
+          
+            <div class="col s12 mdl-details">
+              <label>
+                Familias ofertadas
+                <button id="btnEditFamilyAdq" class="btn-icon-table btn-floating blue-gray waves-effect">
+                  <i class="material-icons left">edit</i> Editar
+                </button>
+              </label>
+              <span id="spnFamiliesOffered"></span>
+              <!--<div class="col s12 m6 xl6">
+                <label for="contFamilySearchOC">Familia:</label>
+                <div class="chips chips-autocomplete" id="contFamilyEditMF">
+                  <input style="width:100% !important">
+                </div>
+              </div>-->
+            </div>
+            
+          </div>
+          
+          <div class="row">
+            
+             <div class="col s6 mdl-details">
+               <label>Domicilio fiscal</label>
+               <span id="spnTaxResidence"></span>
+            </div>
+            
+            <div class="col s6 mdl-details">
+              <label>Domicilio bodega</label>
+              <span id="spnDomicileWinery1"></span>
+            </div>
+            
+          </div>
+          
+          <div class="row">
+            
+            <div class="col s6 mdl-details">
+              <label>Domicilio bodega 1</label>
+              <span id="spnDomicileWinery2"></span>
+            </div>
+            
+            <div class="col s6 mdl-details">
+              <label>Domicilio bodega 2</label>
+              <span id="spnDomicileWinery3"></span>
+            </div>
+            
+          </div>
+          
+          <div class="row">
+          
+            <div class="col s4 mdl-details">
+              <label>Nombre de contacto</label>
+              <span id="spnContact"></span>
+            </div>
+            
+            <div class="col s4 mdl-details">
+              <label>Teléfono oficina</label>
+              <span id="spnOfficePhone"></span>
+            </div>
+          
+            <div class="col s4 mdl-details">
+              <label>Teléfono móvil</label>
+              <span id="spnMobilePhone"></span>
+            </div>
+            
+          </div>
+          
+          <div class="row">
+          
+            <div class="col s4 mdl-details">
+              <label>Correo electrónico</label>
+              <span id="spnEmail"></span>
+            </div>
+            
+            <div class="col s4 mdl-details">
+              <label>Correo alterno</label>
+              <span id="spnOtherEmail"></span>
+            </div>
+          
+            <div class="col s4 mdl-details">
+              <label>Sitio web</label>
+              <span id="spnWebUrl"></span>
+            </div>
+            
+          </div>
+          
+        </div><!-- Fin contenedor del panel de búsqueda-->
+      
+      </div>
+      
+      <div class="modal-footer">
+        <a  href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-primary">Aceptar</a>
+      </div>
+    
+    </div> <!-- Final del modal de crear cotización a partir de otra -->
+    
+    <!-- Modal: Para ver detalles de las paqueterías -->
+    <div id="mdlDetailsParcels" class="modal modal-fixed-footer">
+      <div class="modal-content">
+      
+        <div>
+          <h5>Detalles</h5>
+          
+          <div class="row">
+        
+            <div class="col s6 mdl-details">
+                <label>Comercio</label>
+                <span id="spnPCommerce"></span>
+            </div>
+    
+            <div class="col s6 mdl-details">
+                <label>Razón Social</label>
+                <span id="spnPBusinessName"></span>
+            </div>
+          
+          </div>
+          
+          <div class="row">
+             
+            <div class="col s12 mdl-details">
+                <label>Sucursal</label>
+                <span id="spnPBranch"></span>
+            </div>
+                     
+          </div>
+          
+          <div class="row">
+            
+            <div class="col s3 mdl-details">
+                <label>Número de cliente</label>
+                <span id="spnPClientNumber"></span>
+            </div>
+    
+            <div class="col s3 mdl-details">
+                <label>RFC</label>
+                <span id="spnPRfc"></span>
+            </div>
+            
+            <div class="col s3 mdl-details">
+                <label>Nombre del contacto</label>
+                <span id="spnPContact"></span>
+            </div>
+            
+            <div class="col s3 mdl-details">
+                <label>Teléfono fijo</label>
+                <span id="spnPOfficePhone"></span>
+            </div>
+            
+          </div>
+          
+          <div class="row">
+        
+            <div class="col s4 mdl-details">
+                <label>Teléfono móvil</label>
+                <span id="spnPMobilePhone"></span>
+            </div>
+            
+            <div class="col s4 mdl-details">
+                <label>Correo electrónico</label>
+                <span id="spnPEmail"></span>
+            </div>
+            
+            <div class="col s4 mdl-details">
+                <label>Correo alterno</label>
+                <span id="spnPOtherEmail"></span>
+            </div>
+            
+          </div>
+          
+        </div><!-- Fin contenedor del panel de búsqueda-->
+      
+      </div>
+      
+      <div class="modal-footer">
+        <a  href="javascript:void(0)" class="modal-close waves-effect waves-light btn btn-primary">Aceptar</a>
+      </div>
+    
+    </div> <!-- Final del modal de crear cotización a partir de otra -->
+    
+    
+    <!-- Modal: Para creación de fabricantes o paqueteria-->
+    <div id="mdlCreateMP" class="modal modal-fixed-footer mdl-manufacturer">
+      <form id="frmCreateMP" autocomplete="off" > 
+        <div class="modal-content">
+      
+            <h5 id="creationTypeName">Creación </h5>
+           
+            <div class="panel-primary">
+              <div class="panel-primary-header">
+                Datos
+              </div>
+              <div class="panel-primary-body">
+                <div class="row">
+                  
+                  <div class="col s12 m6 xl6 input-field">
+                    <i class="material-icons prefix">business</i>
+                    <input id="txtNameMP" type="text" required>
+                    <label for="txtNameMP" id="lblNameMP">Nombre<span class="md-asterisk">*</span></label>
+                  </div> 
+                  
+                  <div class="col s12 m6 xl6 input-field">
+                    <i class="material-icons prefix">person</i>
+                    <input id="txtContactNameMP" type="text" required>
+                    <label for="txtContactNameMP">Nombre del contacto<span class="md-asterisk">*</span></label>
+                  </div>
+                  
+                  <div class="col s12 m6 xl6 input-field">
+                    <i class="material-icons prefix">email</i>
+                    <input id="txtEmailMP" type="text" required>
+                    <label for="txtEmailMP">Correo<span class="md-asterisk">*</span></label>
+                  </div>
+                  
+                  <div class="col s12 m6 xl6 input-field" id="ctnPasswordM">
+                    <i class="material-icons prefix">lock</i>
+                    <input id="txtPasswordMP" type="text" required>
+                    <label for="txtPasswordMP">Contraseña<span class="md-asterisk">*</span></label>
+                  </div>
+                  
+                </div>
+              </div>
+            </div>
+        </div> <!--FIn modal-content-->
+        
+        <div class="modal-footer">
+         <button class="waves-effect waves-light btn btn-cancel-confirm" type="button" id="btnCancelCreation" >Cancelar</button>
+         <button class="btn waves-effect waves-light" type="submit" style ="background-color: var(--main-color-blue) !important;">Registrar Datos</button>
+        </div>
+      </form>
+    </div> <!-- Final del modal de creación de fabricantes o paqueteria-->
+    
+    
+    <!-- Modal: Para asignar familias a los fabricantes-->
+    <div id="mdlAssignFam" class="modal modal-fixed-footer">
+      <form id="frmAssignFam" autocomplete="off" > 
+        <div class="modal-content">
+      
+            <h5>Asignar Familias al Fabricante <span id="spnNombreFrabricanteFamilias"></span></h5>
+           
+            <div class="panel-primary">
+              <div class="panel-primary-header">
+                Familias
+              </div>
+              
+              <!-- Familias Ofertadas -->
+              <div class="col s12 m6 xl6 input-field">
+                <div class="form-group">
+                  <label for="spnFamiliasOfrecidas" class="col-form-label">Familias Ofertadas: <span class="md-asterisk">*</span></label>
+                  <select id="spnFamiliasOfrecidas" class="custom-select" required="true" multiple="true"></select>
+                </div>
+              </div>
+              
+            </div>
+        </div> <!--FIn modal-content-->
+        
+        <div class="modal-footer">
+          <input type="hidden" id="iptManufacturerId" value=""/>
+          <input type="hidden" id="iptRowIndex" value=""/>
+         <button class="waves-effect waves-light btn btn-cancel-confirm" type="button" id="btnCancelAssign" >Cancelar</button>
+         <button class="btn waves-effect waves-light" type="submit" style ="background-color: var(--main-color-blue) !important;">Registrar Datos</button>
+        </div>
+      </form>
+    </div> <!-- Final del modal para asignar familias a los fabricantes -->
+    
+    <!-- Modal: Búsqueda de especies -->
+    <div id="mdlSearchConceptsUpdate" class="modal modal-fixed-footer modal-fixed-header">
+      <!--<div class="modal-content">
+      
+        <div id="mdlPanelSearch">
+          <h5>Búsqueda de especies</h5>
+          <form id="frmSearchConcept" autocomplete="off">
+            <div class="row">
+              <div class="col s12 m3 xl3 input-field">
+                <input id="txtDepartmentSearchConcepts" type="text">
+                <label for="txtDepartmentSearchConcepts">Departamento</label>
+              </div>
+              <div class="col s12 m3 xl3 input-field">
+                <input id="txtSpecieSearchConcepts" type="text">
+                <label for="txtSpecieSearchConcepts">Especie</label>
+              </div>
+              <div class="col s12 m3 xl3 input-field">
+                <input id="txtFamilySearchConcepts" type="text">
+                <label for="txtFamilySearchConcepts">Familia</label>
+              </div>
+              <div class="col s12 m3 xl3 input-field">
+                <input id="txtKeywordSearchConcepts" type="text">
+                <label for="txtKeywordSearchConcepts">Palabra clave</label>
+              </div>
+            </div>
+            
+            <div class="row">
+              <div class="col s12 text-right">
+                <button id="btnUpdateConceptList" title="Actualizar lista de especies" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons size-24">refresh</i></button>
+                <button id="btnSearchConcept" type="submit" class="btn waves-effect waves-light btn-secundary">Buscar</button>
+              </div>
+            </div>
+          </form>
+          
+          <div class="row">
+            <table id="tblConceptList" class="responsive-table">
+              <thead>
+                <tr>
+                  <th>Departamento</th>
+                  <th>Especie</th>
+                  <th>Familia</th>
+                  <th>Palabra clave</th>
+                  <th class="center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="info-message">
+                  <td colspan="5">No hay especies para mostrar</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="row">
+            <div class="col s12 ctn-pagination" style="text-align: right;">
+              <span class="left spnTotalPagination"></span>
+              <ul class="pagination" id="ulConceptPagination"></ul>
+            </div>
+          </div>
+        
+        </div>
+      </div>--><!-- Fin contenedor del panel de búsqueda-->
+      
+        <div class="modal-header">
+          <div class="row">
+            <div class="col s12 m12 xl12 content__header-modal" id="ctnTitleSearchConcepts">
+            	<h4>Búsqueda de especies</h4>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-content">
+          <div id="mdlPanelSearch">
+            <form id="frmSearchConcept" autocomplete="off">
+              <div class="row" style="margin-bottom: 0px;">
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" id="btnDepartmentSearchUpdate">account_circle</i>
+                  <input id="txtDepartmentSearchUpdate" type="text" style="text-transform: uppercase;">
+                  <label for="txtDepartmentSearchUpdate">Departamento</label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" id="btnFamilySearchUpdate">account_circle</i>
+                  <input id="txtFamilySearchUpdate" type="text" style="text-transform: uppercase;">
+                  <label for="txtFamilySearchUpdate">Familia</label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <i class="material-icons prefix" id="btnKeywordSearchUpdate">account_circle</i>
+                  <input id="txtKeywordSearchUpdate" type="text" style="text-transform: uppercase;">
+                  <label for="txtKeywordSearchUpdate">Palabra clave</label>
+                </div>
+              </div>
+              
+              <div class="row" style="margin-bottom: 0px;">
+                <div class="col s12 input-field">
+                  <input id="txtSpecieSearchUpdate" type="text" style="text-transform: uppercase;">
+                  <label for="txtSpecieSearchUpdate">Especie</label>
+                </div>
+              </div>
+              
+              <div class="row" style="display:none;">
+                <div class="col s12 m12 xl12 input-field" id="pnlGenderSearchUpdate">
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col s12 text-right">
+                  <button id="btnUpdateConceptList" title="Actualizar lista de especies" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons">refresh</i></button>
+                  <!--<button id="btnOpenAddConcept" type="button" class="waves-effect waves-light btn btn-primary">Crear especie</button>-->
+                  <button id="btnSearchConcept" type="submit" class="btn waves-effect waves-light btn-secundary">Buscar</button>
+                </div>
+              </div>
+            </form>
+            
+            <div class="row">
+              <table id="tblConceptList" class="responsive-table">
+                <thead style="background: #e8e8e8;">
+                  <tr>
+                    <th>Departamento</th>
+                    <th>Especie</th>
+                    <th>Familia</th>
+                    <th>Palabra clave</th>
+                    <th>Precio</th>
+                    <th class="center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="info-message">
+                    <td colspan="6">No hay especies para mostrar.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="row">
+              <div class="col s12 ctn-pagination" style="text-align: right;">
+                <span class="left spnTotalPagination"></span>
+                <ul class="pagination" id="ulConceptPagination"></ul>
+              </div>
+            </div>
+          
+          </div><!-- Fin contenedor del panel de búsqueda-->
+          
+          <!-- Panel: de creación de nueva especie-->
+          <div id="mdlPanelConceptSearch" class="container__card-species" style="display:none;">
+            <div class="row"id="contentPanelConcept">
+            </div>
+          </div><!-- Fin contenedor del panel de creación de una especie nueva-->
+          
+          <!-- Panel: de creación de nueva especie basado en otra-->
+          <div id="mdlPanelAddConceptMirror" style="display:none;">
+            <h5>Creación de nueva especie</h5>
+            <div class="panel-primary-header " style="display:none;">
+              <div class="row">
+                <div class="col s12 m4 ">
+                  Nombre clave
+                </div>
+                <div class="col s12 m8 text-right">
+                  <strong id="structureName-Mirror">-----</strong>
+                </div>
+              </div>
+            </div>
+            <form id="frmAddConceptMirror" autocomplete="off">
+              <div class="row">
+                <div class="col s12 m12 xl12">
+                  <div class="input-field">
+                    <input id="txtName-Mirror" type="text">
+                    <label for="txtName-Mirror">Nombre </label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltDepartment-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltDepartment-Mirror">Departamento</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltFamily-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltFamily-Mirror">Familia</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltMaterial-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltMaterial-Mirror">Material</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltKeyword-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltKeyword-Mirror">Palabra clave</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltUnitSpecie-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltUnitSpecie-Mirror">Unidad</label>
+                  </div>
+                </div>
+                  <div class="col s12 m4 xl4">
+                    <div class="input-field">
+                    <input id="txtPriceSpecie-Mirror" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$">
+                    <label for="txtPriceSpecie-Mirror">Precio sugerido <span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltCurrencySpecie-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltCurrencySpecie-Mirror">Moneda<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4">
+                  <div class="input-field">
+                    <input placeholder="Costo refacción" id="txtSpareCostSpecie-Mirror" pattern="^(\d|-)?(\d|,)*\.?\d*$" type="text">
+                    <label for="txtSpareCostSpecie-Mirror">Costo refacción<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltGender-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltGender-Mirror">Genero<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltNominalDiameterInput-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltNominalDiameterInput-Mirror">Diámetro nominal (Entrada)<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltNominalDiameterOutput-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltNominalDiameterOutput-Mirror">Diámetro nominal (Salida)<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltPieceLength-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltPieceLength-Mirror">Longitud de la pieza<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltConnectionTypeInput-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltConnectionTypeInput-Mirror">Tipo de conexión (Entrada)<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltConnectionTypeOutput-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltConnectionTypeOutput-Mirror">Tipo de conexion de (Salida)<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltHeight-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltHeight-Mirror">Altura</label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltSizeOrCapacity-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltSizeOrCapacity-Mirror">Tamaño o capacidad<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltWidth-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltWidth-Mirror">Ancho<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <div >
+                    <select id="sltCaliber-Mirror">
+                      <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltCaliber-Mirror">Calibre<span class="md-asterisk">*</span></label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col s12 text-right">
+                  <button id="btnMdlback-Mirror" type="button" class="waves-effect waves-light btn btn-cancel-confirm">Regresar</button>
+                  <button id="btnAddConcept-Mirror" type="submit" class="btn waves-effect waves-light btn-secundary">Registrar</button>
+                </div>
+              </div>
+            </form>
+          
+          </div><!-- Fin contenedor del panel de creación de una especie nueva-->
+          
+          <!-- Panel: de creación de nueva especie-->
+          <div id="mdlPanelAddConcept" style="display:none;">
+            <h5>Creación de nueva especie</h5>
+            <form id="frmAddConcept" autocomplete="off">
+              <div class="row">
+                <!--<div class="col s12 m4 xl4 input-field">
+                  <input id="txtDepartmentAdd" type="text" required>
+                  <label for="txtDepartmentAdd">Departamento <span class="md-asterisk">*</span></label>
+                </div>-->
+                <div class="col s12 m4 xl4 input-field">
+                  <input id="txtSpecieAdd" type="text" required>
+                  <label for="txtSpecieAdd">Especie <span class="md-asterisk">*</span></label>
+                </div>
+               
+                <div class="col s12 m4 xl4 input-field">
+                  <input id="txtUnitAdd" type="text" required>
+                  <label for="txtUnitAdd">Unidad <span class="md-asterisk">*</span></label>
+                </div>
+                <div class="col s12 m4 xl4 input-field">
+                  <input id="txtPriceAdd" type="text" pattern="^[0-9]+(?:\.[0-9]{1,2}){0,1}$" required>
+                  <label for="txtPriceAdd">Precio sugerido <span class="md-asterisk">*</span></label>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col s12 text-right">
+                  <button id="btnMdlback" type="button" class="waves-effect waves-light btn btn-cancel-confirm">Regresar</button>
+                  <button id="btnAddConcept" type="submit" class="btn waves-effect waves-light btn-secundary">Registrar</button>
+                </div>
+              </div>
+            </form>          
+          </div>
+        </div><!-- Fin contenedor del panel de creación de una especie nueva-->
+      
+      <div class="modal-footer">
+        <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+      </div>
+     
+    </div> <!-- Final modal de búsqueda de especies -->
+     
+      
+    <!-- Modal: Búsqueda de especies -->
+    <div id="mdlSearchConceptsUpdateForFamily" class="modal modal-fixed-footer">
+      <div class="modal-content">
+      
+        <div id="mdlPanelSearch">
+          <h5>Búsqueda de especies por familia</h5>
+          <form id="frmSearchConceptForFamily" autocomplete="off">
+            <div class="row">
+              <div class="col s12 m12 xl12">
+                <label for="contFamilySearchForUpdate">Familia:</label>
+                <div class="chips chips-autocomplete" id="contFamilySearchForUpdate">
+               	 <input style="width:100% !important">
+                </div>
+              </div>
+              
+            </div>
+            
+            <div class="row">
+              <div class="col s12 text-right">
+                <button id="btnUpdateConceptListForFamily" title="Actualizar lista de especies" type="button" class="btn waves-effect" style="background: transparent;color: #000;"><i class="material-icons size-24">refresh</i></button>
+                <button id="btnSearchConceptForfamily" type="submit" class="btn waves-effect waves-light btn-secundary">Agregar</button>
+              </div>
+            </div>
+          </form>
+        
+        </div><!-- Fin contenedor del panel de búsqueda-->
+      </div>
+      <div class="modal-footer">
+        <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+      </div>
+     
+     </div> <!-- Final modal de búsqueda de especies -->
+    
+     <!-- Modal: Búsqueda de especies para actualizar precios por proyecto-->
+      <div id="mdlAddConceptsForProject" class="modal modal-fixed-footer" style="overflow: visible;max-height: 100%;">
+        <form id="frmSearchConceptsForProject" autocomplete="off">
+          <div class="modal-content">
+          
+            <div>
+              <h5>Búsqueda de especies por proyecto</h5>
+              <br><p>A continuación puede seleccionar uno o varios proyectos, para luego consultar las especies solicitadas en su momento.</p><br>
+              <div class="row">
+                
+                <div class="col s12 m12 xl12 text-right">
+                  <button id="btnUpdateProjects" title="Actualizar lista de proyectos" type="button" class="btn waves-effect" style="background: transparent;color: #000;">
+                    <i class="material-icons left size-24">refresh</i> Lista de proyectos
+                  </button>
+                </div>
+                
+                <div class="col s12 m10 xl10">
+                  <div class="chips chips-autocomplete" id="contUpdateProjects">
+                     <input style="width:100% !important">
+                  </div>
+                </div>
+                <div class="col s12 m2 xl2" style="margin-top: 25px;">
+                  <button id="btnSearchConceptByProject" title="Buscar" type="button" class="btn waves-effect">
+                    Buscar
+                  </button>
+                </div>
+                
+              </div>
+              
+              <div class="row hidden">
+                <div class="col s12">
+                  
+                  <table id="tblSelectedProjects" class="responsive-table striped">
+                    <thead>
+                      <tr>
+                        <th>Nombre del proyecto</th>
+                        <th>Versión</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="info-message">
+                       <td colspan="2">No hay proyectos para mostrar.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  
+                </div>
+              </div>
+              
+            </div><!-- Fin contenedor del panel de búsqueda-->
+            
+          </div>
+          <div class="modal-footer">
+            <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button id="btnAddConceptsByProject" type="submit" class="btn waves-effect waves-light btn-secundary">Agregar</button>
+          </div>
+        </form>
+            
+      </div> <!-- Final del modal de especies para actualizar precios -->
+    
+      <!-- Modal: Actualziación de precios de especies de fabricante por parte de Hidro-->
+      <div id="mdlUpdatePriceSpecie" class="modal modal-fixed-footer modal-fixed-header" style="overflow: visible;max-height: 100%;">
+        <div class="modal-header" style="border: 2px solid #FFFFFF;">
+          <div class="row">
+            <div class="col s12 m12 xl12 content__header-modal" id="ctnTitleSearchConcepts">
+              <h4>Actualización de precio de especie por fabricante</h4>
+            </div>
+          </div>
+        </div>
+        
+        <form id="frmUpdatePriceSpecieF9" autocomplete="off">
+          <div class="modal-content">
+          
+            <div>
+              <br><p>A continuación puede actualizar el precio de la especie.</p><br>
+              <div class="row">
+                
+                <div class="col s12 m6 xl6">
+                
+                  <div class="input-field">
+                    <select id="sltUpdatePriceManufacturerF9"  required>
+                   	 <option value="">--Seleccione--</option>
+                    </select>
+                    <label for="sltUpdatePriceManufacturerF9">Fabricante</label>
+                  </div>
+                </div>
+                
+                <div class="col s12 m12 xl12 manufacturer__modal-details">
+                  <fieldset>
+                    <legend>Información básica del producto</legend>
+                    
+                    <div class="manufacturer__data-item">
+                      <b>Nombre concepto (Hidro)</b>
+                      <span class="md-asterisk" id="spnManufacturerNameHidroF9">-</span>
+                    </div>
+                    
+                    <div class="div__manufacturer-data">
+                    
+                      <div class="manufacturer__data-item">
+                         <b>Número del fabricante</b>
+                         <span class="md-asterisk" id="spnManufacturerNumberF9">-</span>
+                      </div>
+                      
+                      <div class="manufacturer__data-item">
+                         <b>Fabricante</b>
+                         <span class="md-asterisk" id="spnManufacturerNameF9">-</span>
+                      </div>
+                      
+                      <div class="manufacturer__data-item">
+                         <b>Última actualización</b>
+                         <span class="md-asterisk" id="spnManufacturerDateF9">-</span>
+                      </div>
+                      
+                      <div class="manufacturer__data-item">
+                        <div class="col s12 m6 xl4 input-field">
+                          <input id="txtExchangeUsdF9" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required="true" >
+                          <label for="txtExchangeUsdF9">Tipo cambio Dolar<span class="md-asterisk">*</span></label>
+                        </div>
+                        
+                        <div class="col s12 m6 xl4 input-field">
+                          <input  id="txtExchangeEurF9" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required="true" >
+                          <label for="txtExchangeEurF9">Tipo cambio Euro<span class="md-asterisk">*</span></label>
+                        </div>
+                      </div>
+                      
+                    </div>
+                  </fieldset>
+                </div>
+                
+                <!-- tabla con la información basica del concepto -->
+                <div class="col s12 manufacturer__modal-details">
+                    <br>
+                    <table class="table__bordered table__f9-list">
+                      <thead>
+                        <tr class="primary__color">
+                          <th style="width: 160px;">Código del producto</th>
+                          <th>Nombre del producto</th>
+                          <th style="width: 76px;">Unidad</th>
+                          <th style="width: 162px;">Moneda</th>
+                          <th style="width: 74px;">Cantidad</th>
+                          <th style="width: 40px;">Precio de distribución</th>
+                          <th style="width: 40px;">Importe</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>
+                            <div class="input-field">
+                              <input id="txtUpdateCodeSpecieManufacturerF9" type="text" required="true"  >
+                            </div>
+                          </td>
+                          <td>
+                            <div class="input-field">
+                              <input id="txtUpdateNameSpecieManufacturerF9" type="text" required="true"  >
+                            </div>
+                          </td>
+                          <td>
+                            <div class="input-field">
+                              <select id="sltUnitUpdatePriceManufacturerF9" required="true" >
+                                <option value="">--Seleccione--</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="input-field">
+                              <select id="sltCurrencyUpdatePriceManufacturerF9" required="true" >
+                                <option value="">-- Seleccione una opción --</option>
+                                <option value="MX">Moneda Mexicana</option>
+                                <option value="USD">Dolar</option>
+                                <option value="EUR">Euro</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="input-field">
+                              <input id="txtQuantityManufacturerF9" type="text" required="true" >
+                            </div>
+                          </td>
+                          <td>
+                            <div class="input-field">
+                              <input id="txtPriceSpecieManufacturerF9" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required>
+                            </div>
+                          </td>
+                          <td id="spnTotalF9"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    
+                  </div>
+                  
+                  <div class="col s12 manufacturer__modal-details">
+                    <table class="table__bordered table__f9-summary">
+                      <thead>
+                        <tr class="primary__color">
+                          <th colspan="2">Resumen</th>
+                        </tr>
+                        <tr class="secondary__color">
+                          <th>Descripción</th>
+                          <th>Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Subtotal</td>
+                          <td id="tdF9Subtotal">0</td>
+                        </tr>
+                        <tr>
+                          <td>Descuento (%)</td>
+                          <td>
+                            <div class="input-field">
+                              <input id="txtDiscountAppliedF9" type="text" min="0" max="100" required="true">
+                            </div>
+                          </td>
+                        </tr>
+                          <tr>
+                            <td>Iva (%)</td>
+                            <td>
+                              <select id="sltProductIvaF9" class="custom-select" required="true">
+                                <option value="">-- Seleccione una opción --</option>
+                                <option value="0">0</option>
+                                <option value="8">8</option>
+                                <option value="16">16</option>
+                              </select>
+                            </td>
+                          </tr>
+                          <tr>
+                            <th>Total MX</th>
+                            <th id="tdF9Total">0</th>
+                          </tr>
+                      </tbody>
+                    </table>
+                </div>
+                
+              </div>
+              
+            </div><!-- Fin contenedor del panel de búsqueda-->
+            
+          </div>
+          <div class="modal-footer">
+            <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button type="submit" class="btn waves-effect waves-light btn-secundary">Actualizar</button>
+          </div>
+        </form>
+            
+      </div> <!-- Final del modal de actualziación de precioes por parte de Hidro -->
+      
+      
+      
+      
+      
+       <!-- Modal: Actualización tipo de cambio -->
+      <div id="mdlCurrencyType" class="modal" style="overflow: visible;max-height: 100%;">
+        <form id="frmCurrencyType" autocomplete="off">
+          <div class="modal-content">
+          
+            <div>
+              <h5>Actualización tipo de cambio</h5>
+              
+              <div class="pnl-info">
+                <div>Fecha ultima actualización: <strong id="stgMdlUpdateDate"></strong></div>
+                <div>Quién actualizo: <strong id="stgMdlResponsible"></strong></div>
+                <div  id="pnlInfo"></div>
+              </div>
+              
+              <br><p>La actualización se realizará sobre todos los productos del fabricante.</p><br>
+              <div class="row" id="ctnCurrencyTypeField">
+                
+                <div class="col s12 m12 xl12 input-field">
+                  <input id="txtUpdateCurrencyTypeUSD" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required >
+                  <label for="txtUpdateCurrencyTypeUSD">Tipo de cambio <span class="md-asterisk">*</span></label>
+                </div>
+                
+                <div class="col s12 m12 xl12 input-field">
+                  <input id="txtUpdateCurrencyTypeEUR" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required >
+                  <label for="txtUpdateCurrencyTypeEUR">Tipo de cambio (Euros)<span class="md-asterisk">*</span></label>
+                </div>
+                
+                
+              </div>
+            </div>
+            
+          </div>
+          <div class="modal-footer">
+            <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button id="btnUpdateCurrencyType" type="submit" class="btn waves-effect waves-light btn-secundary">Actualizar</button>
+          </div>
+        </form>
+            
+      </div> <!-- Final del modal de especies para actualizar precios -->
+    
+    
+    
+       <!-- Modal: Actualización tipo de cambio -->
+      <div id="mdlChangeCurrencyHexp" class="modal modal-fixed-footer" style="overflow: visible;max-height: 100%;">
+        <form id="frmCurrencyTypeHexpDE" autocomplete="off">
+          <div class="modal-content">
+          
+            <div>
+              <h5>Actualización tipo de cambio</h5>
+              
+              <div class="pnl-info">
+                <div>Fecha última actualización: <strong id="stgMdlUpdateDateHexp"></strong></div>
+                <div>Quién actualizo: <strong id="stgMdlResponsibleHexp"></strong></div>
+                <div  id="pnlInfoHexp">
+                  <div>Tipo de cambio actual (dolar): <strong id="strUSD"></strong></div>
+                  <div>Tipo de cambio actual (euros): <strong id="strEUR"></strong></div>
+                </div>
+              </div>
+              
+              <br><p>La actualización se realizará sobre todos las especies que esten o se agregen a la tabla.</p><br>
+              <div class="row" >
+                
+                <div class="col s12 m12 xl12 input-field">
+                  <i class="material-icons prefix">
+                    <svg class="field-flag" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+                      <circle style="fill:#F0F0F0;" cx="256" cy="256" r="256">
+                        <title>Dolares</title>
+                      </circle>
+                      <g>
+                        <path style="fill:#D80027;" d="M244.87,256H512c0-23.106-3.08-45.49-8.819-66.783H244.87V256z"></path>
+                        <path style="fill:#D80027;" d="M244.87,122.435h229.556c-15.671-25.572-35.708-48.175-59.07-66.783H244.87V122.435z"></path>
+                        <path style="fill:#D80027;" d="M256,512c60.249,0,115.626-20.824,159.356-55.652H96.644C140.374,491.176,195.751,512,256,512z"></path>
+                        <path style="fill:#D80027;" d="M37.574,389.565h436.852c12.581-20.529,22.338-42.969,28.755-66.783H8.819C15.236,346.596,24.993,369.036,37.574,389.565z"></path>
+                      </g>
+                      <path style="fill:#0052B4;" d="M118.584,39.978h23.329l-21.7,15.765l8.289,25.509l-21.699-15.765L85.104,81.252l7.16-22.037C73.158,75.13,56.412,93.776,42.612,114.552h7.475l-13.813,10.035c-2.152,3.59-4.216,7.237-6.194,10.938l6.596,20.301l-12.306-8.941c-3.059,6.481-5.857,13.108-8.372,19.873l7.267,22.368h26.822l-21.7,15.765l8.289,25.509l-21.699-15.765l-12.998,9.444C0.678,234.537,0,245.189,0,256h256c0-141.384,0-158.052,0-256C205.428,0,158.285,14.67,118.584,39.978z M128.502,230.4l-21.699-15.765L85.104,230.4l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822l-21.7,15.765L128.502,230.4zM120.213,130.317l8.289,25.509l-21.699-15.765l-21.699,15.765l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L120.213,130.317z M220.328,230.4l-21.699-15.765L176.93,230.4l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822l-21.7,15.765L220.328,230.4z M212.039,130.317l8.289,25.509l-21.699-15.765l-21.699,15.765l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L212.039,130.317z M212.039,55.743l8.289,25.509l-21.699-15.765L176.93,81.252l8.289-25.509l-21.7-15.765h26.822l8.288-25.509l8.288,25.509h26.822L212.039,55.743z">
+                      </path>
+                    </svg>
+                  </i>
+                  <input id="txtUpdateCurrencyTypeUSDHexp" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required >
+                  <label for="txtUpdateCurrencyTypeUSDHexp">Tipo de cambio (Dolares)<span class="md-asterisk">*</span></label>
+                </div>
+                
+                <div class="col s12 m12 xl12 input-field">
+                
+                   <i class="material-icons prefix">
+                     <svg class="field-flag" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+                       <circle style="fill:#0052B4;" cx="256" cy="256" r="256">
+                         <title>Euros</title>
+                       </circle>
+                       <g>
+                         <polygon style="fill:#FFDA44;" points="256.001,100.174 264.29,125.683 291.11,125.683 269.411,141.448 277.7,166.957 256.001,151.191 234.301,166.957 242.59,141.448 220.891,125.683 247.712,125.683 "/>
+                         <polygon style="fill:#FFDA44;" points="145.814,145.814 169.714,157.99 188.679,139.026 184.482,165.516 208.381,177.693 181.89,181.889 177.694,208.381 165.517,184.482 139.027,188.679 157.992,169.714 "/>
+                         <polygon style="fill:#FFDA44;" points="100.175,256 125.684,247.711 125.684,220.89 141.448,242.59 166.958,234.301 151.191,256 166.958,277.699 141.448,269.411 125.684,291.11 125.684,264.289"/>
+                         <polygon style="fill:#FFDA44;" points="145.814,366.186 157.991,342.286 139.027,323.321 165.518,327.519 177.693,303.62 181.89,330.111 208.38,334.307 184.484,346.484 188.679,372.974 169.714,354.009 "/>
+                         <polygon style="fill:#FFDA44;" points="256.001,411.826 247.711,386.317 220.891,386.317 242.591,370.552 234.301,345.045 256.001,360.809 277.7,345.045 269.411,370.552 291.11,386.317 264.289,386.317 "/>
+                         <polygon style="fill:#FFDA44;" points="366.187,366.186 342.288,354.01 323.322,372.975 327.519,346.483 303.622,334.307 330.112,330.111 334.308,303.62 346.484,327.519 372.974,323.321 354.009,342.288"/>
+                         <polygon style="fill:#FFDA44;" points="411.826,256 386.317,264.289 386.317,291.11 370.552,269.41 345.045,277.699 360.81,256 345.045,234.301 370.553,242.59 386.317,220.89 386.317,247.712 	"/>
+                         <polygon style="fill:#FFDA44;" points="366.187,145.814 354.01,169.714 372.975,188.679 346.483,184.481 334.308,208.38 330.112,181.889 303.622,177.692 327.519,165.516 323.322,139.027 342.289,157.991"/>
+                       </g>
+                     </svg>
+                  </i>
+                  <input id="txtUpdateCurrencyTypeEURHexp" type="text" pattern="^(\d|-)?(\d|,)*\.?\d*$" required >
+                  <label for="txtUpdateCurrencyTypeEURHexp">Tipo de cambio (Euros)<span class="md-asterisk">*</span></label>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+          <div class="modal-footer">
+            <a href="javascript:void(0)" style="margin-right: 25px;" class="modal-close waves-effect waves-light btn btn-cancel-confirm">Cerrar</a>
+            <button id="btnUpdateCurrencyTypeHexpDE" type="submit" class="btn waves-effect waves-light btn-secundary">Actualizar</button>
+          </div>
+        </form>
+            
+      </div> <!-- Final del modal de especies para actualizar precios -->
+    
+    <!-- Libreria de propia del producto -->
+    <?!= includeHtmlFile("Js_MainAcquisition", false, true, {userRole: userRole}) ?>
+    
+  </body>
+</html>

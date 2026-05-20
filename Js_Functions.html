@@ -1,0 +1,2539 @@
+<script>
+
+// Inicializamos el selector
+//google.load("picker", "1");
+gapi.load('picker', function() {});
+
+// Función que se ejecuta al cargar la página
+$(document).ready(function() {
+  
+  // Se definen las opciones para inicializar el feedback
+  var optionsFeedback = {
+    buttonId: "btnFeedBack",
+    projectName: "HEXP - Hidrocotizador",
+    receiverMail: "developers@sinova.co",
+    functionName: "getUserMail",
+    cc: "dev@hidro.expert",
+    subject: "SNVA - Reporte incidencias del hidrocotizador"
+  }; 
+  
+  // inicializamos la opción de inicalizar la opción de feedback
+  feedback_snva.init(optionsFeedback);
+  
+  // definimos la tradución del campo de fecha 
+  var i18n = {
+    months: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
+    monthsShort: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"],
+    weekdays: ["Domingo","Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
+    weekdaysShort: ["Dom","Lun", "Mar", "Mie", "Jue", "Vie", "Sab"],
+    weekdaysAbbrev: ["D","L", "M", "M", "J", "V", "S"]
+  }
+
+  // obtenemos el rol del usuario
+  var userRole = <?= params.userRole ?>;
+  
+  // agregamos prevenimos el evento por defceto de todos los elemento a en los modales
+  $("a.modal-close").click(function(e){
+    e.preventDefault();
+  });
+
+  // Mostramos el loading
+  SnvaJsApi.manageLoading("block", "Iniciando el aplicativo...<br>Espera un momento por favor.");
+  
+  // obtenemos los datos de configuración general
+  google.script.run.withSuccessHandler(initGeneralFields).withFailureHandler(SnvaJsApi.onFailure).getGeneralData();
+  
+  // inicializamos la lista de años
+  initfieldYear("sltProjectYears");
+  
+  // validamos si el rol es sales para mostrar por defecto
+  if(userRole == "sales"){
+    
+    // eliminamos el contenedor de proyectos
+    $("#ctn-projects").remove();
+    
+    // mostramos el panel de lista de solicitudes de refacciones
+    $("#ctn-renovation").removeClass("hidden");
+    
+    // Agregamos la clase "active" en las opciones del menu
+    $("li > a[href='#ctn-renovation']").parent().addClass("active");
+    
+  } else {
+    
+    // Evento para agregar un concpeto al grupo 
+    $("#btnAddConceptToGroup").click( {panelId: "addConceptoToGroup"}, openModalSearchConcept);
+    
+    // habilitamos la funcionalidad de busqueda en la tabla de grupos
+    $("#txtSearchGroup").keyup({paginationId: "ulSearchingGroupsPagination", tableId: "tblSearchingGroups"}, searchByTable);
+
+    // agregamos el evento para expandir
+    $("#btnExpand").click(expandAll);
+    
+    // agregamos el evento para colapsar
+    $("#btnCollapsible").click(collapseAll);
+    
+    // obtenemos los datos de configuración del panel de creación
+    google.script.run.withSuccessHandler(initCreatePanel).withFailureHandler(SnvaJsApi.onFailure).getCreatePanelData(userRole);
+  
+  }
+  
+  /**
+   * Permite iniciarlizar el campo de año
+  **/
+  function initfieldYear(fieldId){
+    
+    // se referencia el select
+    var $select = $("#" + fieldId);
+    
+    // obtenemos el año actual
+    var currentYear = new Date().getFullYear();
+    
+    // recorremos desde el año 2017 al actual
+    for(var i = currentYear; i >= 2017; i--){
+      
+      // Agregamos cada una de las opciones
+      $select.append(
+        $("<option>").attr({value: i, selected: (i == 0 ? true : false)}).text(i)
+      );
+      
+    }
+    
+    // Inicializamos el select
+    $select.formSelect();
+    
+    // se valida si el id es "sltProjectYears"
+    if(fieldId == "sltProjectYears"){
+    
+      // Agregamos ele evento
+      $select.change(function(){
+        
+        // Obtenemos el año seleccionado
+        var yearSelected = $("#sltProjectYears").val();
+        
+        // Mostramos el loading
+        SnvaJsApi.manageLoading("block", "Consultando lista de cotizaciones para el <b>" + yearSelected + "</b>...");
+        
+        // obtenemos los datos de configuración del panel de creación
+        google.script.run.withSuccessHandler(function(response){
+          
+          // Agregamos la lista
+          insertRecordsFromTable(response);
+          
+          // Ocultamos el loading
+          SnvaJsApi.manageLoading("none", "Espera un momento...");
+          
+        }).withFailureHandler(SnvaJsApi.onFailure).getProjectByYear(userRole, yearSelected);
+        
+      });
+    }
+    
+  }
+  
+  /**
+   * Función que permite expandir todos los paneles de presupuesto
+  **/
+  function expandAll(e){
+    
+    // Se previene el evento por defecto
+    e.preventDefault();
+    
+    // referenciamos el contenedor de los collapsables de presuupuesto
+    var $container = $("#ctnOrdersPanels").parent();
+    
+    // agregamos la clase "active" para mostrar los paneles
+    $container.find("div.collapsible-header").closest("li").addClass("active");
+    
+    // configuramos el colapsable para que no realiza el acordion
+    $container.find("ul.collapsible").collapsible({accordion: false});
+  }
+  
+  /**
+   * Función que permite colapsar los paneles de presupuesto
+  **/  
+  function collapseAll(e){
+    
+    // Se previene el evento por defecto
+    e.preventDefault();
+    
+    // referenciamos el contenedor de los collapsables de presuupuesto
+    var $container = $("#ctnOrdersPanels").parent();
+    
+    // removemos la clase "active"
+    $container.find("div.collapsible-header").closest("li").removeClass("active");
+    
+    // removemos el atributo "style"
+    $container.find("div.collapsible-body").removeAttr("style");
+    
+    // restablecemos el acordión
+    $container.find("ul.collapsible").collapsible({accordion: true});
+  }
+  
+  // establecemos un evento que se ejecuta cuando se cambia de tamaño el aplicativo
+  $(window).resize(function() {
+    
+    // obtenemos el ancho de la pantalla
+    var width = $(this).width();
+    
+    // validamos si el tamaño es mayor a 992px
+    if(width > 992){
+      
+      // referenciamos la instancia del menu
+      var instanceMenu = M.Sidenav.getInstance($("#ctn-menu-fixed"));
+      
+      // existe la instancia
+      if(instanceMenu){
+        
+        //cerramos el menu
+        instanceMenu.close();
+      }
+      
+    }
+  });
+  
+  /**
+   * Función que permite inicializar los campos generales de la herramienta
+  **/
+  function initGeneralFields(objectData){
+    
+    // agregamos el evento a las opciones del menu
+    $("a.options-menu").click(changePanel);
+    
+    // agregamos el evento a la opción que tenga la clase "showLoadingIndeterminate"
+    $("a.showLoadingIndeterminate").click(function(e){
+      
+      // Mostramos el loading
+      SnvaJsApi.manageLoading("block", "Accediendo al módulo de adquisiciones...");
+      
+    });
+    
+    // inicializamos el collapsible
+    $("#ulFormCollapsible").collapsible();
+    
+    // cambiamos la imagen del usuario
+    $("#imgUser, #ctn-menu-fixed img.circle").attr("src", objectData.userData.photoUrl);
+    
+    // cambiamos el nombre corto del usuario 
+    $("#lblUserShortName").text(objectData.userData.name);
+    
+    // cambiamos el nombre  completo del usuario
+    $("#ctn-menu-fixed span.name").text(objectData.userData.fullName);
+    
+    // cambiamos el correo del usuario
+    $("#ctn-menu-fixed span.email").text(objectData.userData.email);
+    
+    // iniciamos el menu que se muestra en dispositivos moviles
+    $("#ctn-menu-fixed").sidenav({break: 'small'});
+    
+    // inicializamos el campo de nombre en el formulario de creación de cot. de proyecto y refacciones
+    $("#txtClient, #txtClientRenovation").data("clientsData", objectData.clientsData.clients).change(insertSocialReasonData).autocomplete({
+      data: objectData.clientsData.fieldData,
+      limit: 10
+    });
+    
+    // agregamos el listado de estado en el select de creación de cotización de un proyecto
+    insertStateList("sltState", objectData.stateList, "sltMunicipality", "sltLocation");
+    
+    // agregamos el listado de estado en el select de creación de cotización de uan refacción
+    insertStateList("sltStateRenovation", objectData.stateList, "sltMunicipalityRenovation", "sltLocationRenovation");
+    
+    // inicializamos el modal
+    $("#mdlSearchConcepts").data("arrayData", objectData.conceptList).modal({
+      dismissible: false
+    });
+    
+    // obtenemos los datos del departamento,familia, palabra clave y Unidad
+    var conceptFiltersData = getConceptFilterData(objectData.conceptList);
+    
+    // obtenemos los datos de configuración general
+    google.script.run.withSuccessHandler(initIconConceptSearch).withFailureHandler(SnvaJsApi.onFailure).testGetFilderData();
+    
+    // establecemos los eventos de los distintos campos segun los conceptos
+    setConceptFiltersDataField(conceptFiltersData);
+    
+    var idUpdateConceptList = null;
+    
+    //establecemos el evento del boton de actualizar el listado de Especies
+    $("#btnUpdateConceptList, #btnUpdateConceptListOther").click(function(){
+      
+      // Mostramos el loading
+      SnvaJsApi.manageLoading("block", "Actualizando el listado de especies, espera un momento por favor...");
+      
+      idUpdateConceptList = $(this).attr('id');      
+      
+      // obtenemos el token y mostramos el selector
+      google.script.run.withSuccessHandler(function(conceptArray){
+        
+        // obtenemos los datos del departamento,familia, palabra clave y Unidad
+        conceptFiltersData = getConceptFilterData(conceptArray);	
+        
+        // establecemos los eventos de los distintos campos segun los conceptos	
+        setConceptFiltersDataField(conceptFiltersData);
+        
+        // agregamos los datos en modal de especies
+        $("#mdlSearchConcepts").data("arrayData", conceptArray);
+
+        
+        // refrescamos los valores dependientes de los campos
+        $("#txtDepartmentSearch, #txtFamilySearch, #txtKeywordSearch, #txtDepartmentSearchOther, #txtFamilySearchOther, #txtKeywordSearchOther").change();
+        
+        // validamos que botón se activo
+        if(idUpdateConceptList == "btnUpdateConceptList"){
+
+           // activamos el botón de consulta
+ 	       $("#btnSearchConcept").click();
+
+           
+        }else if(idUpdateConceptList == "btnUpdateConceptListOther"){
+        
+ 	       $("#btnSearchConceptOther").click();
+        }
+        // Ocultamos el loading
+        SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+        
+      }).withFailureHandler(SnvaJsApi.onFailure).getConceptList();
+    });
+    
+    // establecemos el evento al boton de creación del nuevo especie
+    $("#frmAddConcept").submit(addNowConcept);
+    
+    // obtenemos los datos de los parametros de las especies
+    google.script.run.withSuccessHandler(insertDataSelectConceptsMirror).withFailureHandler(SnvaJsApi.onFailure).getDataSelects();
+    
+    // Evento para que solo inserte numero 
+    $("#txtPriceSpecie-Mirror, #txtSpareCostSpecie-Mirror").on("paste keypress", SnvaJsApi.validateNumberFormat).on("keyup change",function(){ 
+    
+      // Referenciamos el elemento
+      var $element =  $(this);
+      
+      // Damos formato al nuevo tipo de cambio
+      $element.val(SnvaJsApi.formatValue($element.val()));
+    
+    });
+    
+    // establecemos el evento al boton de creación del nuevo especie basado en otro
+    $("#frmAddConceptMirror").submit(addMirrorConcept);
+    
+    // Evento para gennerar el nombre 
+    $("#frmAddConceptMirror select, #txtMake-Mirror").on("change", generateNameSpecieMirror);
+  
+    // establecemos el evento al boton de búsqueda de especie
+    $("#frmSearchConcept").submit(runSearchConcepts);
+    
+    //establecemos el evento al campo de mostrar panel de crear nueva especie
+    $("#btnOpenAddConcept").click(function(){
+      
+      // reseteamos el formulario
+      $("#frmAddConcept")[0].reset();
+      
+      // mostramos el panel de creación de especie
+      $("#mdlPanelAddConcept").show();
+      
+      // ocultamos el panel de búsqueda de especies
+      $("#mdlPanelSearch, #mdlPanelAddConceptMirror").hide();
+    });
+    
+    //establecemos el evento al campo de regresar al panel de búsqueda
+    $("#btnMdlback, #btnMdlback-Mirror").click(function(){
+      
+      // ocultamos el panel de creación de especies
+      $("#mdlPanelAddConcept, #mdlPanelAddConceptMirror").hide();
+      
+      // mostramos el panel de búsqueda de especies
+      $("#mdlPanelSearch").show();
+    });
+    
+    // iniciamos los select de municipio y localidad
+    $("#sltMunicipalityRenovation, #sltLocationRenovation, #sltMunicipality, #sltLocation").formSelect();
+    
+    // Ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+    
+    // validamos si el rol es diferente a "Ventas"
+    if(userRole != "sales"){
+      
+      // asignamos un evento a todos los campos del formulario de creación de cotización de proyectos
+      $("#frmCreateQuotation").find("input,select,textarea").on("keyup change", updateTemporalData);
+      
+      // asignamos un evento a todos los campos del formulario de creación de cotización de refacción
+      $("#frmCreateRenovation").find("input,select,textarea").on("keyup change", updateTemporalDataRenovation);
+      
+      // validamos si exiset una propiedad para recuperar datos de un proyecto
+      var recoverProjectData = verifyIfExistTempData("snva_temporal_data");
+      
+      // se valida si no se tubo que recuperar un proyecto, entonces se valida si se debe de recuperar una refacción
+      if(recoverProjectData == false){
+        
+        // Se valida si existen datos de refacción para recuperar
+        verifyIfExistTempData("snva_temporal_data_renovation");
+        
+      }
+    }
+    
+    // Establecemos la configuración de las sogerencias de especies
+    addAutocompleteSpecies($('input#txtSpecieSearch'), objectData.conceptList);
+    
+    // Establecemos la configuración de las sogerencias de especies de otros
+    addAutocompleteSpecies($('input#txtSpecieSearchOther'), objectData.conceptList);
+    
+  }
+  
+  /*
+  * insertamos la información de los conceptos en los respectivos campos
+  */
+  function setConceptFiltersDataField(conceptFiltersData){
+  
+    // agregamos los datos autocompletable de los campos de filtros de especies    
+    $("#txtDepartmentSearch").autocomplete({ data: conceptFiltersData.departament});
+    $("#txtFamilySearch").autocomplete({ data: conceptFiltersData.family, limit: 6 });
+    $("#txtKeywordSearch").autocomplete({ data: conceptFiltersData.keyWord, limit: 6 });
+    
+    // agregamos los datos autocompletable de los campos de filtros de especies para el modulo de especies similares     
+    $("#txtDepartmentSearchOther").autocomplete({ data: conceptFiltersData.departament, limit: 6 });
+    $("#txtFamilySearchOther").autocomplete({ data: conceptFiltersData.family, limit: 6 });
+    $("#txtKeywordSearchOther").autocomplete({ data: conceptFiltersData.keyWord, limit: 6 });
+    
+    // agregamos el evento para obtener los generos
+    $("#txtDepartmentSearch, #txtFamilySearch,#txtKeywordSearch").off("change").change({"conceptFiltersData": conceptFiltersData}, changeViewGender);
+    // agregamos el evento para obtener los generos en especies similares 
+    $("#txtDepartmentSearchOther, #txtFamilySearchOther,#txtKeywordSearchOther").off("change").change({"conceptFiltersData": conceptFiltersData}, changeViewGenderSimilar);
+  }
+  
+  /**
+   * Permite habilitar el autocompletado del campo de especies en el modal de busqueda
+  **/
+  function addAutocompleteSpecies($input, conceptList){
+    
+    // Variable para usar como data de una especie
+    var initData = getItemAutocompleteSpecies(conceptList, "");
+    
+    // Agregamos el evento al campos de busqueda de especies
+    $input.autocomplete({
+      data: initData,
+      //minLength: 3,
+      onAutocomplete: function(e){
+        $input.trigger("keyup");
+      }
+    });
+    
+    // Agregamos el evento para que cuandto se realice un cambio
+    $input.off("keyup").on("keyup", function(e){
+      
+      // obtenemos el código
+      var keyCode = e.keyCode;
+      //$input.popover("destroy");
+      // Se valida que sea diferente a las teclas de dirección o al enter o (*)
+      if([187, 13, 37, 38, 39, 40].indexOf(keyCode) == -1){
+      
+        // obtenemos el valor actual
+        var currValue = $input.val();
+        
+        // Se referencia la instancia del autocomplete
+        var instance = M.Autocomplete.getInstance($input[0]);
+        
+        // Se valida si existe la instancia
+        if(instance){
+          
+          // obtenemos los datos
+          initData = getItemAutocompleteSpecies(conceptList, currValue);
+          
+          // Actualizamos las sugerencias
+          instance.updateData(initData);
+          
+          // se valida si existe sugerencias
+          if(Object.keys(initData).length > 1 || (Object.keys(initData).length == 1 && initData[currValue] !== null)){
+            
+            // Mostramos el buscador
+            instance.open();
+          }
+        }
+      }
+    });
+    
+    // Mostramos el popover
+    $input.popover({
+      title: 'Agregar comodín',
+      trigger: 'custom_specie',
+      placement: 'bottomLeft',
+      content: function(){
+     
+        // Retornamos el listado actualizado 
+        return getComodinListPopover($input, conceptList); 
+      }
+    });
+    
+  }
+  
+  // Adicionamos el evento pal boton de aceptar con la clase "btn__add-commodin"
+  $(document).on('click', 'button.btn__add-commodin', function(event) {
+  
+  	// obtenemos el id del campo
+    var fieldId = $(this).attr("data-input");
+    
+    // obtenemos el id del campo donde debemos de cambiar los valores
+    var $input = $("#" + fieldId);
+    
+    // Refernciamos el contendor
+    var $content = $("select.list__comoddin-data").parent();
+    
+    // obtenemos el valor del comodin y del valor
+    var formData = {
+      property: $("select.list__comoddin-data").val(),
+      value: $("select.list__comoddin-values").val()
+    };
+    
+    // ocultamos el mensaje de erroro
+    manageErrorPopoverSpecie($content, false);
+    
+    // validamos si existe la propiedad seleccionada
+    if(formData.property == "" || formData.value == ""){
+      
+      // mostramos el mensaje en el popover
+      manageErrorPopoverSpecie($content, true, formData.property == "" ? "Se debe de seleccionar un comodín." : "Se debe de seleccionar el valor del comodín.");
+      
+    } else {
+    
+      // obtenemos el valor actual del campo
+      var currValueField = $input.val().replace(/\*$/g, " ");
+      
+      // agregamos el comodin
+      currValueField += "${" + formData.property + "=" + formData.value + "}";
+      
+      // insertamos el nuevo valor
+      $input.val(currValueField);
+      
+      // se garantiza que no exista ningun panel abiertp
+      document.querySelectorAll('.popover__open').forEach(function(element) {
+        element.click();
+      });
+    }
+  });
+  
+  // Adicionamos el evento para mover hacia atras la fila 
+  $(document).on('click', '.btn__cancel-commodin', function(event) {
+  
+    // se garantiza que no exista ningun panel abiertp
+    document.querySelectorAll('.popover__open').forEach(function(element) {
+      element.click();
+    });
+  });
+  
+  // Agregamos el evento al campo de tipo de comodin
+  $(document).on('change', 'select.list__comoddin-data', updateValuesCommodin);
+  
+  /**
+   * Permite mostrar u ocultar el error
+  **/
+  function manageErrorPopoverSpecie($content, isShow, message){
+    
+    // referenciamos el contenedor del error
+    var $errorContent = $content.find(".popover__error-content").html(message || '');
+    
+    // se valida si se debe mostrar
+    if(isShow){
+      $errorContent.show();
+    } else {
+      $errorContent.hide();
+    }
+  }
+  
+  
+  /**
+   * Permite obtener los valores del campo "data-values y mostrarlo en el siguiente campo de tipo select"
+  **/
+  function updateValuesCommodin(){
+    
+    // referenciamos el campos acrual
+    var $element = $(this);
+    
+    // obtenemos la lista de valores
+    var valuesList = [];
+    
+    // obtenemos los valores de la opción respectiva
+    var dataValues = $element.find("option:selected").attr("data-values");
+    
+    // validamos si existe valores
+    if(dataValues){
+      
+      // Convertimos el texto en array
+      valuesList = String(dataValues).split(",");
+    }
+    
+    // referenciamos el campo de valores
+    var $selectValues = $element.parent().find("select.list__comoddin-values");
+    
+    // Incializamos el campo de valores de comodines
+    $selectValues.html('<option value="">-- Seleccione un valor --</option>');
+    
+    // recorremos cada una de las opciones
+    for(var i = 0; i < valuesList.length; i++){
+      
+      // Agregamos la opción respectiva
+      $selectValues.append(
+        $("<option>").attr("value", valuesList[i]).text(valuesList[i])
+      );
+    }
+    
+  }
+  
+  /**
+   * Permite obtener los grupos actuales como objeto
+  **/
+  function getCommodinsObject(currValue){
+    
+    // obtenemos los grupos actuales
+    var currGroups = currValue.match(/(?:\${.*?})/g);
+    
+    // definimos el objeto actual
+    var currOptions = {}, tempMatch = null;
+    
+    // se valida si ya existen grupos
+    if(currGroups != null){
+      
+      // recorre cada uno de los grupos
+      for(var i = 0; i < currGroups.length; i++){
+      
+        // se obtiene el valor y la propiedad
+      	tempMatch = currGroups[i].match(/(?:\{(.*?)=(.*?)})/);
+        
+        // se valida si es valido el grupo
+        if(tempMatch != null){
+          
+          // Agregamos la nueva propiedad y valor
+          currOptions[tempMatch[1]] = tempMatch[2];
+          
+        }
+      }
+    }
+    
+    // retornamos los datos
+    return currOptions;
+    
+  }
+  
+  /**
+   * Permite consultar la lista de comodines
+  **/
+  function getComodinListPopover($element, conceptList){
+    
+    
+    /*Modificación por @ Antonio Cespedes  <dirtic@hidro.expert> */
+    // obtenemos el valor del departamento, familia y palabra clave
+    var formDataFilters = {
+      departament: $("#txtDepartmentSearch").val(),
+      family: $("#txtFamilySearch").val(),
+      keyWord: $("#txtKeywordSearch").val()
+    };
+    /* termina modificación */
+ 
+    // obtenemos el valor actual
+    var currValue = String($element.val()).trim();
+    
+    // definimos el objeto actual
+    var currOptions = getCommodinsObject(currValue);
+    
+    // obtenemos la lista de comodines
+    var comodineList = getComodinesList(conceptList, currValue, currOptions, formDataFilters);
+
+    // definimos el contenedor
+    var $content = $("<div>").html('<div class="popover__error-content" style="display:none;"></div>');
+    
+    // creamos el select del comodín
+    var $comodin = $("<select>").attr({class: "form__control-field list__comoddin-data"}).html('<option value="">-- Seleccione un comodín --</option>');
+    
+    // obtenemos las claves organizadas
+    var sortKeys = Object.keys(comodineList).sort();
+    
+    // Se recorre cada uno de los items
+    for(var index = 0; index < sortKeys.length; index++){
+      
+      /*Modificación por @ Antonio Cespedes  <dirtic@hidro.expert> */
+      // obtenemos los valores del select para separarlos y organizarlos
+      var dataValues = comodineList[sortKeys[index]].toString();
+      
+      // guardamos en un array los valores separados por coma, para ordenarlos
+      dataValues = dataValues.split(",");
+      
+      // declaramos nuestro array asociativo
+      var dataValuesArr = [];
+      var numbers = 0;
+      var strings = 0;
+      
+      dataValues.forEach(value => {        
+               
+        // Obtenemos el valor numerico dentro de value
+        let relativeValue = extractNumber(value);
+        
+        let newValueinArray = [];
+        
+        if (relativeValue>0){
+          newValueinArray = {
+            "label": value,
+            "numeric_value": Number(relativeValue)
+          }
+          numbers++;
+        } else {
+          newValueinArray = {
+            "label": value,
+            "numeric_value": value
+          }
+          strings++;
+        }
+        
+        // Agregamos el objeto al array
+        dataValuesArr.push(newValueinArray);
+        
+      });
+
+      // ordenamos los valores en funcion de su valor numerico
+      // Si generalmente son numeros los ordenamos por valor numerico 
+      if(numbers>=strings){
+        dataValuesArr.sort(function (x, y) {
+            return x.numeric_value - y.numeric_value;
+        });
+      } else {
+        dataValuesArr.sort(function (x, y) {
+            let a = x.label.toUpperCase(),
+                b = y.label.toUpperCase();
+            return a == b ? 0 : a > b ? 1 : -1;
+        });
+      }    
+      
+            
+      // declaramos variable de salida para impresión dentro del data-values del combo
+      var dataValuesTxt = "";
+      dataValuesArr.forEach(el => {
+        if (dataValuesTxt == ""){
+          dataValuesTxt = el.label;
+        }else{
+          dataValuesTxt = dataValuesTxt+","+el.label;
+        }
+      });  
+      
+      /* termina modificación*/
+      
+      // Agregamos la opción
+      $comodin.append(
+        $("<option>").attr({"value": sortKeys[index], "data-values": dataValuesTxt}).text(sortKeys[index])
+      )
+    }
+    
+    // creamos el select del comodín
+    var $comodinValue = $("<select>").attr({class: "form__control-field list__comoddin-values"}).html('<option value="">-- Seleccione un valor --</option>');
+    
+    // Agregamos los campos
+    $content.append($comodin).append($comodinValue);
+    
+    // Agregamos las opciones de cancelar o agregar
+    $content.append(
+      $("<div>").attr({class: "content__popover-buttons"}).append(
+        $("<button>").attr({class: "waves-effect waves-light btn-small white grey-text btn__cancel-commodin"}).text("Cancelar")
+      ).append(
+        $("<button>").attr({class: "waves-effect waves-light btn-small btn__add-commodin", "data-input": $element.attr('id')}).text("Aceptar")
+      )
+    );
+    
+    // retornamos el contenedor
+    return $content.html();    
+  }
+  
+  /**
+  * Antonio Cespedes <dirtic@hidro.expert
+  * Esta función extrae un numero de un texto para asignar valor
+  **/
+  function extractNumber(str) {
+    
+    var doubleNumber = Number(str.replace(/[^0-9\.]+/g,""));
+    
+    var fractionNumber = str.match(/(?:[1-9][0-9]*|0)\/[1-9][0-9]*|((?:[1-9][0-9]*|0)-(?:[1-9][0-9]*|0)\/[1-9][0-9]*)/g,"");
+    
+    // es numero fraccion o double
+    if(fractionNumber){    
+      // Conseguir el valor absoluto de esta fracción.
+      // Dividimos el string por -, esto indica que tiene un numero entero a la izquierda.
+      var disolveFraccion = fractionNumber[0].split("-");
+      var absoluteValue = 0;
+      
+      if(disolveFraccion.length>1){        
+        var absoluteDecimalArr = disolveFraccion[1].split("/");
+        var absoluteDecimalValue = absoluteDecimalArr[0]/absoluteDecimalArr[1];   
+        absoluteValue = Number(disolveFraccion[0])+Number(absoluteDecimalValue);        
+      }else{
+        var absoluteDecimalArr = disolveFraccion[0].split("/");
+        var absoluteDecimalValue = absoluteDecimalArr[0]/absoluteDecimalArr[1];   
+        absoluteValue = Number(absoluteDecimalValue);   
+      }      
+      return absoluteValue;      
+    }else{
+      return doubleNumber;
+    }   
+    
+  }
+  
+  /**
+   * Permite obtener la lista de comodines y sus respectivos valores
+  **/
+  function getComodinesList(conceptList, currValue, currOptions, formDataFilters){
+
+    // obtenemos el index desde donde empieza el ptimer comodin
+    var startIndex = currValue.indexOf("${");
+    
+    // Se valida si existe comodines
+    if(startIndex != -1){
+    
+      // eliminamos texto de comodines
+      currValue = currValue.substring(0, startIndex);
+    }
+    
+    // Reemplazamos el ultimo astetisco si existe
+    currValue = currValue.replace(/\*$/g, "");
+    
+    // Variables temporales
+    var currSpecieArray = null, returnData = {}, specieEscape = "";
+    
+    // verificamos la cadema para determinar caracter que requieres ser espacapddo
+    specieEscape = SnvaJsApi.escapeRegExp(currValue);
+    
+    // Definimso las propiedade y columna de cada una de ellas
+    var properties = getPropertiesComodin();
+    
+    // definimos el regexp
+    var regExpValue = new RegExp("^(" + specieEscape + ")", "gi"), isValid = false, currComodin = {};
+    
+    var genderDataSelected = $("#pnlGenderSearch").data("genderData");
+       
+    // recorras cada uno de los conceptos
+    for(var i = 0; i < conceptList.length; i++){
+    
+      /*Modificación por @ Antonio Cespedes  <dirtic@hidro.expert> */
+      // En este punto podemos validar si existen conceptos que no estén dentro de los terminos preestablecidos para descartarlos.
+      // Omitir por departamento seleccionado
+      if (formDataFilters.departament && conceptList[i][0].toString() != formDataFilters.departament){
+         continue;
+      }
+      
+      // Omitir por familia seleccionada
+      if (formDataFilters.family && conceptList[i][2].toString() != formDataFilters.family){
+         continue;
+      }     
+      
+      // omitir por gender
+      var mustSkip = 0;
+      
+      if (genderDataSelected){
+        for (var j = 0; j < genderDataSelected.length; j++){           
+           if (conceptList[i][8].toString() != genderDataSelected[j]){
+             mustSkip++;
+           } else {
+             mustSkip--;
+           }        
+        }
+        
+        if(mustSkip>0){
+           continue;
+        }
+        
+      }
+      
+      /*termina modificacion*/
+      
+      // partimos de que el registro es valido
+      isValid = true;
+      
+      // se valida si curren values esta vacia
+      if(currValue != "" && currValue != "*"){
+        
+        // obtenermos el grupo
+        var matchValue = conceptList[i][1].toString().match(regExpValue);
+       
+        // validamos si el texto esta dentro de un de los concepros
+        if(matchValue == null){
+          
+          // Establecemos falso por nos indica que no cumple con el inicio de un concepto
+          isValid = false;
+        }
+      }
+      
+      // validamos con los comodines actuales
+      isValid = isComodinValue(conceptList[i], currOptions, properties);
+      
+      // si el registro es valido
+      if(isValid){
+        
+        // variable para colocar el valor actual del comodin
+        var currTempValue = "";
+        
+        // recorremos cada uno de los tipos de comodines para agregarlos a la lista
+        for(var property in properties){
+          
+          // Validamos si la propedad aun no existe
+          if(!currOptions[property]){
+          
+            // Se obtiene el valor actual
+            currTempValue = conceptList[i][properties[property]];
+            
+            // se valida que exista un valor
+            if(currTempValue){
+            
+              // se valida si la propiedad aun no existe
+              if(!returnData[property]){
+                
+                // Inicializamos la propiedad
+                returnData[property] = [];
+              }
+              
+              // se valida que aun no exista el valor en el comodin
+              if(returnData[property].indexOf(currTempValue) == -1){
+                
+                // se agrega el valor
+                returnData[property].push(currTempValue);
+                
+              }
+            }
+          }// Fin
+          
+        }
+      }
+    }
+
+    // retornamos los datos
+    return returnData;
+  }
+  
+  /**
+   * Se valida si pertenecce a uno de los grupos
+  **/
+  function isComodinValue(record, currOptions, properties){
+    
+    // Se recorre cada uno de los grupos actuales
+    for(var key in currOptions){
+      
+      // se valida si la referncia de la propiedad existe
+      if(properties[key] && record[properties[key]] != currOptions[key]){
+        
+        // retornamos false;
+        return false;
+        
+      }
+    }
+    
+    // se retorna el estado por defecto
+    return true;
+  }
+  
+  /**
+   * Permite obtener la lista de propiedades junto a la columna a validar
+  **/
+  function getPropertiesComodin(){
+    
+    // Se retorna la lista de propiedades
+    return {
+      //"GENERO": 8, // GENERO
+      "MATERIAL": 9, // MATERIAL
+      "VARIEDAD": 10, // VARIEDAD
+      "CÉDULA RD": 11, // CÉDULA RD
+      "CÉDULA ESPESOR": 12, // CÉDULA ESPEASOR
+      "DIAM. NOM ENTRADA MM": 13, // DIAM. NOM ENTRADA MM
+      "DIAM. NOM ENTRADA PULG": 14, // DIAM. NOM ENTRADA PULG
+      "DIAM. NOM SALIDA MM": 15, // DIAM. NOM SALIDA MM
+      "DIAM. NOM SALIDA PULG": 16, // DIAM. NOM SALIDA PULG
+      "LONGITUD DE LA PIEZA M": 17, // LONGITUD DE LA PIEZA M
+      "LONGITUD DE LA PIEZA PIES": 18, // LONGITUD DE LA PIEZA PIES
+      "TIPO DE CONEXIÓN ENTRADA": 19, // TIPO DE CONEXIÓN ENTRADA
+      "TIPO DE CONEXIÓN SALIDA": 20, // TIPO DE CONEXIÓN SALIDA
+      "ALTURA": 21, // ALTURA
+      "ALTURA_U": 22, // ALTURA UNIDAD
+      "AJUSTE": 23, // AJUSTE
+      "MARCA": 24, // MARCA UNIDAD
+      "TAMAÑO/CAPACIDAD UNIDAD": 25, // TAMAÑO/CAPACIDAD UNIDAD
+      "ANCHO DE LA PIEZA M": 26, // ANCHO DE LA PIEZA M
+      "ANCHO DE LA PIEZA P": 27, // ANCHO DE LA PIEZA P
+      "CALIBRE MIL": 28, // CALIBRE MIL
+      "MODELO": 29, // MODELO
+      "CAUDAL LPH": 30, // CAUDAL LPH
+      "CAUDAL LPS": 31, // CAUDAL LPS
+      "SEPARACIÓN CM": 32 // SEPARACIÓN CM
+    };
+    
+    /*return {
+      //"GENERO": 8, // GENERO
+      "MATERIAL": 9, // MATERIAL
+      "VARIEDAD": 10, // VARIEDAD
+      "CÉDULA RD": 11, // CÉDULA RD
+      "CÉDULA ESPEASOR": 12, // CÉDULA ESPEASOR
+      "DN_EM": 13, // DIAM. NOM ENTRADA MM
+      "DN_EP": 14, // DIAM. NOM ENTRADA PULG
+      "DN_SM": 15, // DIAM. NOM SALIDA MM
+      "DN_SP": 16, // DIAM. NOM SALIDA PULG
+      "L_PM": 17, // LONGITUD DE LA PIEZA M
+      "L_PP": 18, // LONGITUD DE LA PIEZA PIES
+      "T_CE": 19, // TIPO DE CONEXIÓN ENTRADA
+      "T_CS": 20, // TIPO DE CONEXIÓN SALIDA
+      "ALTURA": 21, // ALTURA
+      "ALTURA_U": 22, // ALTURA UNIDAD
+      "AJUSTE": 23, // AJUSTE
+      "MARCA": 24, // MARCA UNIDAD
+      "TAMAÑO": 25, // TAMAÑO/CAPACIDAD UNIDAD
+      "ANCHO_PM": 26, // ANCHO DE LA PIEZA M
+      "ANCHO_PP": 27, // ANCHO DE LA PIEZA P
+      "CALIBRE": 28, // CALIBRE MIL
+      "MODELO": 29, // MODELO
+      "CAUDAL_LPH": 30, // CAUDAL LPH
+      "ALTURA_LPS": 31, // CAUDAL LPS
+      "SEPARACIÓN": 32 // SEPARACIÓN CM
+    };*/
+    
+  }
+  
+  /**
+   * Permite recorrer cada uno de los conceptos y asi retorna la lista de opciones
+  **/
+  function getItemAutocompleteSpecies(conceptList, currValue){
+    
+    // Variables temporales
+    var currSpecieArray = null, returnData = {}, specieEscape = "";
+    
+    // verificamos la cadema para determinar caracter que requieres ser espacapddo
+    specieEscape = SnvaJsApi.escapeRegExp(currValue);
+    
+    // definimos el regexp
+    var regExpValue = new RegExp(("^(" + specieEscape + ")(?: \\S*|\\S*)"), "gi");
+    
+    // recorras cada uno de los conceptos
+    for(var i = 0; i < conceptList.length; i++){
+      
+      // obtenemos la especie sepada en array
+      currSpecieArray = String(conceptList[i][1]).split(" ");
+      
+      // se valida si curren values esta vacia
+      if(currValue == "" && currSpecieArray && currSpecieArray.length > 0){
+      	
+        // se valida que la primera palabra no existe en el objeto principal
+        returnData[currSpecieArray[0]] = null;
+        
+      } else if(currValue != ""){
+        
+        // obtenermos el grupo
+        var matchValue = conceptList[i][1].toString().match(regExpValue);
+        
+        // validamos si el texto esta dentro de un de los concepros
+        if(matchValue != null){
+          
+          // se valida que la primera palabra no existe en el objeto principal
+          returnData[matchValue[0]] = null;
+          
+        }
+        
+      }
+    }
+   
+    // retornamos los datos
+    return returnData;
+  }
+  
+  /*
+  * función que carga los eventos de cada uno de los botones
+  */
+  function initIconConceptSearch(objcetData){
+   
+   $("#btnDepartmentSearch, #btnDepartmentSearchOther").click(function(){
+      chargeConceptDataSearch("department", 1, 28,"Despliegue de departamento", $(this).closest("form").attr("id"), objcetData);
+    });
+   $("#btnFamilySearch, #btnFamilySearchOther").click(function(){
+      chargeConceptDataSearch("family", 1, 3,"Despliegue de familia", $(this).closest("form").attr("id"), objcetData);
+    });
+   $("#btnKeywordSearch, #btnKeywordSearchOther").click(function(){
+      chargeConceptDataSearch("keyWord", 1, 2,"Despliegue de palabra clave", $(this).closest("form").attr("id"), objcetData);
+    });
+  }
+  
+  /*
+  * función que carga los datos del panel
+  */
+  function chargeConceptDataSearch(typeConcept,indexNameConcept, indexImageConcept, tittleConcept, idForm, objcetData){
+    
+    // referenciamos el contenido del panel
+    let $contentPanelConcept = $("#contentPanelConcept");
+    
+    // validamos si es el panel de conceptos
+    if(idForm == "frmSearchConcept"){
+    
+      // Se cambia el titulo del panel y se agrega la opción de volver
+      $("#ctnTitleSearchConcepts").html('').append(
+        $("<a>").attr({class: "btn btn-small waves-effect btn__back-modal"}).append(
+          $("<i>").attr({class: "material-icons left"}).text("keyboard_backspace")
+        ).click({formId: idForm}, backModalSearchSpecies).append(" Regresar")
+      ).append(
+        $("<h4>").text(tittleConcept)
+      );
+      
+      // se asigna el titulo al panel
+      $("#tittlePanelConcept").text(tittleConcept);
+    }else{
+    
+      $contentPanelConcept = $("#contentPanelConceptMirror");
+      
+      // Se cambia el titulo del panel y se agrega la opción de volver
+      $("#ctnTitleSimilarConcepts").html('').append(
+        $("<a>").attr({class: "btn btn-small waves-effect btn__back-modal"}).append(
+          $("<i>").attr({class: "material-icons left"}).text("keyboard_backspace")
+        ).click({formId: idForm}, backModalSearchSpecies).append(" Regresar")
+      ).append(
+        $("<h4>").text(tittleConcept)
+      );
+      // se asigna el titulo al panel
+      $("#titleMdlSimilarConcepts").text(tittleConcept);
+    }
+    
+    
+    // limpiamos el contenido del panel
+    $contentPanelConcept.html("");
+    
+    // validamos que exista el concepto en el objeto
+    if(objcetData[typeConcept]){
+    
+      // se recorre la lista de conceptos
+      for(var i = 0 ; i < objcetData[typeConcept].length; i++){
+        
+        // validamos que exista información de determinado concepto
+        if(objcetData[typeConcept][i] && objcetData[typeConcept][i][indexNameConcept]){
+          
+          $contentPanelConcept.append(
+            $("<div>").attr({class: "col s6 m3 xl2 input-field"}).append(
+              $("<div>").attr({class: "card"}).append(
+                $("<div>").attr({class: "card-image"}).append(
+                  $("<img>").attr({src: (objcetData[typeConcept][i][indexImageConcept] || "")})
+                ).append(
+                  $("<a>").attr({class: "btn-floating btn-small halfway-fab waves-effect waves-light red", title: "Permite agregar este ítem como texto de búsqueda."}).append(
+                    $("<i>").attr({class: "material-icons"}).click({nameConcept: objcetData[typeConcept][i][indexNameConcept], typeConcept: typeConcept, idForm: idForm}, addConceptToSearch).text("add")
+                  )
+                )
+              ).append(
+                $("<div>").attr({class: "card-content"}).append(
+                  $("<p>").text(objcetData[typeConcept][i][indexNameConcept])
+                )
+              )
+            )
+          );
+        }
+      }
+      
+      // ocultamos el panel de búsqueda de especies
+      $("#mdlPanelSearch, #mdlPanelSearchMirror, #mdlPanelConceptSearchMirror, #mdlPanelConceptSearch").hide();
+      
+      // validamos si es el panel de conceptos
+      if(idForm == "frmSearchConcept"){
+        
+        // mostramos el panel de creación de especie
+        $("#mdlPanelConceptSearch").show();
+      }else{
+        
+        // mostramos el panel de creación de especie
+        $("#mdlPanelConceptSearchMirror").show();
+      }
+    }
+  }
+  
+  /**
+   * Permite regresar al panel de busqueda de especies
+  **/
+  function backModalSearchSpecies(e){
+    
+    // Prevenismo el evento por defecto
+    e.preventDefault();
+    
+    // Obtenemos la referencia el id formulario que se activo
+    var formId = e.data.formId;
+    
+    // opciones del modal
+    var $mdlPanelSearchOn = null, $mdlPanelSearchOff = null;
+    
+    // validamos desde que formulario se realiza la consulta
+    if(formId == "frmSearchConcept"){
+      
+      // actualizaos el titulo del modal
+      $("#ctnTitleSearchConcepts").html('<h4>Búsqueda de especies</h4>');
+      // Refrenciamos los modales respectivos
+      $mdlPanelSearchOn = $("#mdlPanelSearch");
+      $mdlPanelSearchOff = $("#mdlSimilarConcepts");
+    }else if(formId == "frmSearchSpecieOther"){
+      
+      // actualizaos el titulo del modal
+      $("#ctnTitleSimilarConcepts").html('<h4>Búsqueda de especies</h4>');
+      // Refrenciamos los modales respectivos
+      $mdlPanelSearchOn = $("#mdlSimilarConcepts");
+      $mdlPanelSearchOff = $("#mdlPanelSearch");
+    }
+    
+    // ocultamos el panel de creación de especie
+    $("#mdlPanelConceptSearch, #mdlPanelConceptSearchMirror").hide();
+    $mdlPanelSearchOff.hide();
+    
+    // mostramos el panel de búsqueda de especies
+    $mdlPanelSearchOn.show();
+    
+  }
+  
+  /*
+  * adiciona el dato seleccionado para la consulta y activa el evento de consulta
+  */
+  function addConceptToSearch(e){
+    
+    // Prevenimos el evento por defecto 
+    e.preventDefault();
+    
+    // actualizaos el titulo del modal
+    $("#ctnTitleSearchConcepts, #ctnTitleSimilarConcepts").html('<h4>Búsqueda de especies</h4>');
+    
+    // Obtenemos la referencia del concepto seleccionado
+    var nameConcept = e.data.nameConcept;
+    // Obtenemos la referencia del tipo de concepto
+    var typeConcept = e.data.typeConcept;
+    // Obtenemos la referencia el id formulario que se activo
+    var idForm = e.data.idForm;
+    
+    let $txtDepartmentSearch = null, $txtFamilySearch = null, $txtKeywordSearch = null, $btnSearchConcept = null, $mdlPanelSearchOn = null, $mdlPanelSearchOff = null;
+    // validamos desde que formulario se realiza la consulta
+    if(idForm == "frmSearchConcept"){
+      $txtDepartmentSearch = $("#txtDepartmentSearch");
+      $txtFamilySearch = $("#txtFamilySearch");
+      $txtKeywordSearch = $("#txtKeywordSearch");
+      $btnSearchConcept = $("#btnSearchConcept")
+      $mdlPanelSearchOn = $("#mdlPanelSearch");
+      $mdlPanelSearchOff = $("#mdlSimilarConcepts");
+    }else if(idForm == "frmSearchSpecieOther"){
+      $txtDepartmentSearch = $("#txtDepartmentSearchOther");
+      $txtFamilySearch = $("#txtFamilySearchOther");
+      $txtKeywordSearch = $("#txtKeywordSearchOther");
+      $btnSearchConcept = $("#btnSearchConceptOther")
+      $mdlPanelSearchOn = $("#mdlSimilarConcepts");
+      $mdlPanelSearchOff = $("#mdlPanelSearch");
+    }
+    
+    
+    // validamos el tipo de concepto
+    if(typeConcept == "department"){
+      // seleccionamos el tipo de concepto
+      $txtDepartmentSearch.val(nameConcept).change();
+    }else 
+    // validamos el tipo de concepto
+    if(typeConcept == "family"){
+      // seleccionamos el tipo de concepto
+      $txtFamilySearch.val(nameConcept).change();
+    }else 
+    // validamos el tipo de concepto
+    if(typeConcept == "keyWord"){
+      // seleccionamos el tipo de concepto
+      $txtKeywordSearch.val(nameConcept).change();
+    }
+    
+    // activamos el evento de busqueda
+    $btnSearchConcept.click();
+    
+    // actualizamos los campos
+    M.updateTextFields();
+    
+    // mostramos el panel de creación de especie
+    $("#mdlPanelConceptSearch, #mdlPanelConceptSearchMirror").hide();
+    $mdlPanelSearchOff.hide();
+    // ocultamos el panel de búsqueda de especies
+    $mdlPanelSearchOn.show();
+  }
+/*
+* permite seleccionar o deseleccionar todos los elementos de la tabla 
+*/
+function changeViewGender(e){
+  
+  // Prevenimos el evento por defecto 
+  e.preventDefault();
+  
+  // ocultamos el panel de generos
+  $("#pnlGenderSearch").parent().hide();
+  
+  // Obtenemos la referencia de los datos generales
+  //var conceptFiltersData = e.data.conceptFiltersData;
+  
+  // obtenemos los datos de busqueda que estan almacenados en el modal
+  var conceptFiltersData = $("#mdlSearchConcepts").data("arrayData") || [];
+ 
+  // obtenemos el valor del departamento, familia y palabra clave
+  var formData = {
+    departament: $("#txtDepartmentSearch").val(),
+    family: $("#txtFamilySearch").val(),
+    keyWord: $("#txtKeywordSearch").val()
+  };
+  
+  let arrayGender = [], arrayAux = [];
+  
+  // obtenemos el id del campo actual
+  var fieldId = $(this).attr("id"), currentValue = $(this).val();
+  
+  // obtenemos los valores a ingresar
+  var newList = {};
+  
+  // validamos si el campo actual es deperatamento
+  if(fieldId == "txtDepartmentSearch"){
+    
+    // Consultamos la información de los valores actualizados
+    newList = definedValuesList(conceptFiltersData, formData, "departament", currentValue);
+    
+  } else if(fieldId == "txtFamilySearch"){ // validamos si el campo actual es familia
+    
+    // Consultamos la información de los valores actualizados
+    newList = definedValuesList(conceptFiltersData, formData, "family", currentValue);
+    
+  } else if(fieldId == "txtKeywordSearch"){ // validamos si el campo actual es palabra clave
+    
+    // Consultamos la información de los valores actualizados
+    newList = definedValuesList(conceptFiltersData, formData, "keyWord", currentValue);
+    
+  }
+ 
+  // se valida si existe datos de departamentos
+  if(newList.departament){
+    $("#txtDepartmentSearch").autocomplete({ data: newList.departament, limit: 6 });
+  }
+  if(newList.family){
+    $("#txtFamilySearch").autocomplete({ data: newList.family, limit: 6 });
+  }
+  if(newList.keyWord){
+    $("#txtKeywordSearch").autocomplete({ data: newList.keyWord, limit: 6 });
+  }
+  
+  // referenciamos el panel
+  var $pnlGenderSearch = $("#pnlGenderSearch").data("genderData",[]);
+  
+  // limpiamos el panel
+  $pnlGenderSearch.html("");
+  
+  // asignamos los estilos al panel
+  $pnlGenderSearch.attr({class: "col s12 m12 xl12 lst-items-tag left-tag"});
+  
+  // organizamos la lista de etiquetas
+  newList.gender = newList.gender.sort();
+  
+  // recorremos el listado de generos
+  for(var i = 0 ; i < newList.gender.length; i++){
+  
+    // agregamos las respectivas etiquetas y le asignamos el respectivo evento
+    $pnlGenderSearch.append(
+      $("<div>").attr({class: "item-tag", id: "itemGender"+i}).click({"gender": newList.gender[i]}, updateGenderData).append(newList.gender[i])
+    );
+  }
+  
+  // si existe generos mostramos el panel
+  if(newList.gender.length > 0){
+    
+    // ocultamos el panel de generos
+  	$("#pnlGenderSearch").parent().show();
+  }
+}
+
+/**
+ * permite determinar los valores a mostrar ya sea en departamento, familia o palabra clave
+**/
+function definedValuesList(mainData, formData, currentProperty, currentValue){
+  
+  // definimos el objeto a retornar
+  var returnObject = {
+    departament: {},
+    family: {},
+    keyWord: {},
+    gender: []
+  };
+  
+  // recorremos cada uno de los registros
+  for(var i = 0; i < mainData.length; i++){
+    
+    // validamos si la familia y palabra clave corresponde 
+    if((!formData.departament || formData.departament == mainData[i][0]) && 
+        (!formData.family || formData.family == mainData[i][2]) && 
+        (!formData.keyWord || formData.keyWord == mainData[i][3])){
+      
+      if(mainData[i][0]) returnObject.departament[mainData[i][0]] = null;
+      if(mainData[i][2]) returnObject.family[mainData[i][2]] = null;
+      if(mainData[i][3]) returnObject.keyWord[mainData[i][3]] = null;
+      
+      // de valida que palabras claves se deben de agregar
+      if((formData.departament || formData.family || formData.keyWord) && mainData[i][8] && returnObject.gender.indexOf(mainData[i][8]) == -1){
+        returnObject.gender.push(mainData[i][8]);
+      }
+    }
+    
+  }
+  
+  // no se tiene en cuenta la propiedad del campo actual
+  returnObject[currentProperty] = null;
+  
+  // retornamos loa datos
+  return returnObject;
+}
+
+/*
+* guardamos la referencia del genero seleccionado en el panel y cambiamos el estilo del mismo
+*/
+function updateGenderData(e){
+
+  // Prevenimos el evento por defecto 
+  e.preventDefault();
+  
+  // Obtenemos la referencia del genero seleccionado
+  var gender = e.data.gender;
+  
+  var style = $(this).hasClass("item-tag-required");
+  
+  var $pnlGenderSearch = $(this).closest("div.lst-items-tag");
+  var genderData = $pnlGenderSearch.data("genderData");
+  
+  // validamos si tiene el estilo respectivo
+  if(style){
+    
+    // quitamos el valor del array
+    genderData.splice(genderData.indexOf(gender),1);
+    
+    // actualizamos la lista
+    $pnlGenderSearch.data("genderData",genderData );
+    $(this).removeClass("item-tag-required");
+    
+  }else{
+    $(this).addClass("item-tag-required");
+    if(!genderData){
+      $pnlGenderSearch.data("genderData", [gender]);
+    }else{
+      genderData.push(gender)
+      $pnlGenderSearch.data("genderData",genderData);
+    }
+  }
+  
+  // activamos el evento de consulta
+//  $("#btnSearchConcept").click();
+}
+/*
+* Se valida que valores de la lista tiene en comun
+*/
+function validateComunValues(ArrayTotal, newArray){
+  let resultArray = [];
+  // recorremos los valores del nuevo array
+  for(var i = 0 ; i < newArray.length; i++){
+    // validamos si los elementos del nuevo array se encuentran en el array Total
+    if(ArrayTotal.indexOf(newArray[i]) != -1){
+      // adicionamos los valores a un array auxiliar
+      resultArray.push(newArray[i]);
+    }
+  }
+  return resultArray;
+}
+  /**
+   + Se verifica si existen datos para recuperar de proyectos o cotizaciones de reffaciones
+  **/
+  function verifyIfExistTempData(property){
+    
+    // obtenemos la propiedad de localStorage
+    var temporalData = Lockr.get(property);
+   
+    // se define los mensajes
+    var confirmMessage = "¿Desea restablecer los datos de un proyecto diligenciados anteriormente?";
+    
+    // Se valida si se esta validando una refacción
+    if(property == "snva_temporal_data_renovation"){
+    
+      // Se valida si se debe mostrar el mensaje de renovación
+      confirmMessage = "¿Desea restablecer los datos de una cotización de refacción diligenciados anteriormente?";
+    }
+    
+    // validamos si existe esa propiedad
+    if(temporalData){
+    
+      // mostramos el mensaje de confirmación
+      mbox.custom({
+        message: confirmMessage,
+        options: {}, // see Options below for options and defaults
+        buttons: [
+          {
+            label: "NO",
+            color: "btn-cancel-confirm",
+            callback: function() {
+            
+              // borramos la propiedad del localStorage
+              Lockr.rm(property);
+            
+            }
+          },
+          {
+            label: "SI",
+            color: "btn-ok-confirm",
+            callback: function() {
+              
+              // se valida si se debe cargar de un proyecto
+              if(property == "snva_temporal_data"){
+              
+                // mostramos el panel de creación
+                createQuotation(false);
+                
+                // agregamos la propiedad en el contenedor de orden de proyecto, la cual detemina que debe agregar algun valor
+                $("#ctnOrdersPanels").data("orderProjects", temporalData.orderProjects);
+                
+                // agregamos los datos al formulario
+                addDataToForm(temporalData);
+              } else {
+                
+                // MOstramos sesión
+                $("#nav-mobile a.options-menu[href='#ctn-renovation']").click();
+                
+                // Mostramos el panel de renovación
+                showCreateRenovation(false);
+                
+                // Agregamos los datos de renovación
+                addDataToFormRenovation(temporalData);
+                
+              }
+            
+            }
+          }
+        ]
+      });
+      
+      // Retornamos verdadero 
+      return true;
+    
+    } else {
+      
+      // retornamos falso
+      return false;
+    }
+    
+  }
+  
+  /**
+   * Función que permite ir actualizando la información de LocalStorage cada vez que voy diligenciando los datos en el formulario de creación de una cotización
+  **/
+  function updateTemporalDataRenovation(){
+  
+    // referenciamos el formulario como objeto Jquery
+    var $form = $("#frmCreateRenovation");
+    
+    // se obtiene que tipo de acción que se debe realizar
+    var action = $form.data("action");
+    
+    // validamos si la acción es crear y existe la propiedad
+    if(action == "creation" && Lockr.get("snva_temporal_data_renovation")){
+    
+      // obtenemos los datos del formulario
+      var formData = getRenovationData();
+      
+      // agregamos los datos del formulario en localStorage
+      Lockr.set("snva_temporal_data_renovation", formData);
+      
+    }
+    
+  }
+  
+  /**
+   * Creamos la función que permite cambiar entre paneles
+  **/
+  function changePanel(e){
+    
+    // prevenimos el evento por defecto
+    e.preventDefault();
+    
+    //validamos si esta creado el trigger de guardado automatico
+    if((triggerAutoSaveRequest)){
+    
+      // Eliminamos la funcion que se ejecuta en el intervalo
+      clearInterval(triggerAutoSaveRequest);
+    
+    }
+    
+    // obtenemos la referencia del elemento seleccionado
+    var $element = $(this);
+    
+    // obtenemos el id del panel a mostrar
+    var panelId = $element.attr("href");
+    
+    // Validamos si es el panenl principal
+    if(panelId == "#ctn-projects"){
+      
+      // ocultamos el panel de creación
+      $("#pnlCreateQuotation").hide();
+      
+      // borramos la propiedad del localStorage
+      Lockr.rm("snva_temporal_data");
+      
+      //validamos si esta creado el trigger de guardado automatico
+      if((triggerAutoSaveRequest)){
+        
+        // Eliminamos la funcion que se ejecuta en el intervalo
+        clearInterval(triggerAutoSaveRequest);
+      
+      }
+      
+      // reseteamos el formulario
+      resetCreateForm();
+      
+      // mostramos el panel de inicio
+      $("#pnlMain").show();
+      
+    
+    }
+    
+    // ocultamos los 2 paneles
+    $("#ctn-projects, #ctn-renovation, #ctn-setting-line, #ctn-catalog").addClass("hidden");
+    
+    // removemos el active en las opciones
+    $("a.options-menu").parent().removeClass("active");
+    
+    // agregamos la clase "active" en la opción elegida en ambos paneles
+    $("a.options-menu[href='" + panelId + "']").parent().addClass("active")
+    
+    // mostramos el respectivo panel
+    $(panelId).removeClass("hidden");
+    
+    // validanos si el panel de detalles de catálogo de especies se encuentra visible
+    if($("#pnlCatalog").is(":visible")){
+    
+      // ocultamos el panel de edición del catálogo
+      $("#pnlCatalog").hide();
+      
+      // Removemos la cantidad de estilo de scroll
+      $("#ctnScroll")[0].style.height = "0px";
+    }
+    
+    // referenciamos la instancia del menu
+    var instanceMenu = M.Sidenav.getInstance($("#ctn-menu-fixed"));
+    
+    // cerramos el menu
+    instanceMenu.close();
+    
+  }
+  
+  /**
+   * Función encargado de mostrar el panel para crear nueva cotización
+  **/
+  function createQuotation(notInit){
+    
+    // validamos si no se debe inicializar
+    if(notInit != false){
+      
+      // Se previene el evento por defecto
+      notInit.preventDefault();
+      
+    }
+    
+    // ubicamos el scroll en la parte superior
+    $(window).scrollTop(0);
+    
+    // ocultamos el panel principal, el boton de abrir cotización y las opciones de colapsar
+    $("#pnlMain, #btnOpenFile, #btnExpand, #btnCollapsible, #ctnVersion, #btnCreateFederal, #btnFederalCot, #btnCatalog, #btnStatalCot").hide();
+    
+    // cambiamos el texto del boton de enviar cotización
+    $("#btnManagerQuotation").text("Crear cotización");
+    
+    // cambiamos el título del panel
+    $("#lblTitleForm").text("Crear cotización");
+    
+    // deshabilitamos el campo de selecionar proyecto
+    $("#sltProyectClass").attr("disabled", true).formSelect();
+    
+    // reseteamos el formulario
+    resetCreateForm();
+    
+    // removemos  la propiedad "requestObj"
+    $("#btnCreateFederal").removeData("requestObj");
+    
+    // se define que el formulario se debe comportar como creación
+    $("#frmCreateQuotation").data("action", "creation");
+    
+    // Mostramos el panel de seleccionar carpeta
+    $("#btnSelectedFolder").closest("ul.panel-collapsible").show();
+    
+    // mostramos el panel de crear cotización
+    $("#pnlCreateQuotation").show();
+    
+    // mostramos todos los colapsables
+    $("ul.panel-collapsible").each(function(){
+      
+      // referenciamos la instancia todos los colapsables
+      var instanceCollapsible = M.Collapsible.getInstance(this);
+      
+      // validamos si existe existe la instancia
+      if(instanceCollapsible){
+      
+        // mostramos todos los colapsables
+        instanceCollapsible.open();
+        
+        // destruimos la instancia
+        instanceCollapsible.destroy();
+      }
+      
+    });
+    
+    // removemos el atributo requerido en el campo de versión
+    $("#sltVersion").removeAttr("required");
+    
+    // validamos si no requiere iniciar los datos temporales
+    if(notInit){
+    
+      // creamos la propiedad para guardar los datos temporales
+      Lockr.set('snva_temporal_data', {});
+    }
+    
+  }
+  
+  /**
+   * Función que permite cancelar la creaciòn de la cotizaciòn
+  **/
+  function cancelCreation(){
+    
+    // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+    SnvaJsApi.confirm("¿Esta seguro que desea cancelar la creación de esta cotización?", function(){
+      
+      // ocultamos el panel de creación
+      $("#pnlCreateQuotation").hide();
+      
+      // borramos la propiedad del localStorage
+      Lockr.rm("snva_temporal_data");
+      
+      
+      //validamos si esta creado el trigger de guardado automatico
+      if((triggerAutoSaveRequest)){
+        
+        // Eliminamos la funcion que se ejecuta en el intervalo
+        clearInterval(triggerAutoSaveRequest);
+      
+      }
+      
+      // reseteamos el formulario
+      resetCreateForm();
+      
+      // mostramos el panel de inicio
+      $("#pnlMain").show();
+      
+    });
+    
+  }
+  
+  /**
+   * Función que permite resetear el formulario de creación
+  **/
+  function resetCreateForm(){
+    
+    // referenciamos el formulario
+    var $form = $("#frmCreateQuotation");
+    
+    // se rereferencia el select de versiones
+    $("#sltVersion").html("").formSelect();
+    
+    // reseteamos todos los campos
+    $form[0].reset();
+    
+    // iniciamos el campo de total en cero
+    $("#allOrderTotal").text("0");
+    
+    // borramos el contenido del panel de selecciòn de carpeta
+    $("#ctnLink").html("");
+    
+    // agregamos el valor por defecto a Vigencia y ejecución
+    $("#txtValidity").val("15");
+    $("#txtExecution").val("60");
+    
+    // actualizamos los campos
+    M.updateTextFields();
+    
+    // referenciamos la instancia del campo de fecha
+    var instancePicker = M.Datepicker.getInstance($("#txtIssue"));
+    
+    // validamos si existe instancia
+    if(instancePicker){
+      // establecemos la fecha actual
+      instancePicker.setDate(new Date());
+    }
+    
+  }
+   
+  /**
+   * Función que permite insertar cada uno de los registros de cot. en la tabla
+   **/
+  function insertRecordsFromTable(requestData) {
+    
+    // referenciamos la tabla de lista de cotizaciones
+    var $table = $("#tblQuotationList");
+    
+    // obtenemos el cuerpo de la tabla
+    var $tBody = $table.find("tbody");
+    
+    // restablecemos el contenido
+    $tBody.html('<tr class="info-message" style="display: none;"><td colspan="9">No hay cotizaciones para mostrar</td></tr>');
+    
+    // variable para almacenar la referencia de la fila creada
+    var $row = null;
+    
+    // variable para guardar la estructura
+    var currentStructure = {};
+    
+    // recorremos cada uno de los datos
+    for(var i = 0; i < requestData.length; i++){
+      
+      // obtenemos la estructura actual
+      currentStructure = requestData[i].structures[requestData[i].mainSheetName] ? JSON.parse(requestData[i].structures[requestData[i].mainSheetName].structure) : {};
+      
+      // validamos que exista alguna propiedad
+      if(Object.keys(currentStructure).length > 0){
+      
+        // creamos una nueva fila
+        $row = $("<tr>").attr({class: "isValid"});
+        
+        // agregamos la fila al cuerpo de la tabla
+        $tBody.append($row);
+        
+        // creamos la fila de: Seleccionar
+        $row.append(
+          $("<td>").attr({class: "text-center"}).append(
+            $("<label>").append(
+              $("<input>").attr({class: "with-gap", type: "radio", name: "radProject"}).data("requestData", requestData[i]).click({$table: $table}, enabledOption)
+            ).append(
+              $("<span>")
+            )
+          )
+        );
+        
+        // creamos la fila de: Nombre del creador
+        $row.append(
+          $("<td>").text(requestData[i].applicant)
+        );
+        
+        // creamos la fila de: RFC
+        $row.append(
+          $("<td>").text(currentStructure.federalRecord)
+        );
+        
+        // creamos la fila de: Nombre del cliete
+        $row.append(
+          $("<td>").text(requestData[i].name)
+        );
+        
+        // creamos la fila de: Tipo de sistema de riego
+        $row.append(
+          $("<td>").text(requestData[i].typeIrrigation)
+        );
+        
+        // creamos la fila de: Ubicación del proyecto
+        $row.append(
+          $("<td>").text(requestData[i].location)
+        );
+        
+        // creamos la fila de: Fecha de emisión
+        $row.append(
+          $("<td>").text(requestData[i].date)
+        );
+        
+        // creamos la fila de: Oferta
+        $row.append(
+          $("<td>").text(SnvaJsApi.formatValue(requestData[i].proposal))
+        );
+        
+        // definimos los atributos para la opción de abrir federal
+        var federalAttr = {class: "btn-icon-table btn-floating blue waves-effect", href: "javascript:void(0)", title: "No existe cotización de federal", disabled: true};
+        
+        // se valida si existe el id de la cotización de federal
+        if(requestData[i].federalFileId){
+          
+          // asignamos los atributos
+          federalAttr = {class: "btn-icon-table btn-floating blue waves-effect", href: ("https://docs.google.com/document/d/" + requestData[i].federalFileId), target: "_blank", title: "Abrir cotización de federal"}
+          
+        }
+        
+        // creamos la fila de: acciones 
+        $row.append(
+          $("<td>").attr({class: "text-center td-project-options"}).append(
+            $("<a>").attr({title: "Editar cotización", href: "javascript:void(0)", class: "btn-icon-table btn-floating orange waves-effect"}).append(
+              $("<i>").attr("class", "material-icons").text("edit")
+            ).click({requestData: requestData[i]}, modifyQuotation)
+          )/*.append(
+            $("<a>").attr({title: "Crear cotización de federal", href: "javascript:void(0)", class: "btn-icon-table btn-floating blue-gray waves-effect"}).append(
+              $("<i>").attr("class", "material-icons").text("insert_drive_file")
+            ).click({requestData: requestData[i]}, createCotFederal)
+          )*/.append(
+            $("<a>").attr({title: "Crear cotización de estatal", href: "javascript:void(0)", class: "btn-icon-table btn-floating blue-gray waves-effect"}).append(
+              $("<i>").attr("class", "material-icons").text("insert_drive_file")
+            ).click({requestData: requestData[i]}, createCotStatal_)
+          ).append(
+            $("<a>").attr({title: "Eliminar cotización", href: "javascript:void(0)", class: "btn-icon-table btn-floating red waves-effect"}).append(
+              $("<i>").attr("class", "material-icons").text("delete")
+            ).click({documentId: requestData[i].documentId, row: requestData[i].row, tableId: "tblQuotationList", paginationId: "ulPagination", module: "quotation"}, deleteQuotation)
+          ).append(
+            $("<a>").attr({class: "btn-icon-table btn-floating green waves-effect", href: ("https://docs.google.com/spreadsheets/d/" + requestData[i].documentId), target: "_blank", title: "Abrir cotización del proyecto"}).append(
+              $("<i>").attr("class", "material-icons").text("open_in_new")
+            )
+          ).append(
+            $("<a>").attr(federalAttr).append(
+              $("<i>").attr("class", "material-icons").text("open_in_new")
+            )
+          )
+        );
+      }
+      
+    }
+    
+    // deshabilitamos el boton de generar cotización a partir de otra
+    $("#btnCreateCotByOther").attr({disabled: true});
+    
+    // iniciaizamos el paginador
+    SnvaJsApi.initPaginationByTable($table, "ulPagination", 10);
+    
+  }
+
+  /**
+   * Función que permite crear la cotización de estatal
+  **/
+  function createCotStatal_(e, requestData_){
+    
+    // validamos que e sea diferente de null
+    if(e != null){
+    
+      // prevenimos el evento por defecto
+      e.preventDefault();
+    }
+    
+    // validamos si no existe el dato de requestData
+    if(!requestData_){
+    
+      // se referencia los datos de la solicitud
+      requestData_ = e.data.requestData;
+    }
+
+    // mostramos mensaje de confirmación
+    SnvaJsApi.confirmTitle("Generar cotización estatal", "¿Seguro(a) desea crear la cotización estatal?", function(){
+
+      // mostramos el loading
+      SnvaJsApi.manageLoading("block", "Generando cotización de federal, espera un momento por favor...");
+      
+      //Invocamos a la función que trae del servidor los datos de las carpetas hijas de la carpeta principal y sus respectivos archivos
+      google.script.run.withSuccessHandler(function(response_){
+        
+        // mostramos el panel de inicio
+        $("#pnlMain").show();
+          
+        // ocultamos el panel de creación
+        $("#pnlCreateQuotation").hide();
+        
+        // iniciamos con la creación del documento de la cotización de federal
+        initCreationStatalFile_(requestData_, response_);
+      
+      }).withFailureHandler(SnvaJsApi.onFailure).getFederalData(requestData_.documentId, 1);
+    });
+    
+  }
+  
+  /**
+   * Función que permite crear la cotización de federal
+  **/
+  function createCotFederal(e, requestData){
+    
+    // validamos que e sea diferente de null
+    if(e != null){
+    
+      // prevenimos el evento por defecto
+      e.preventDefault();
+    }
+    
+    // validamos si no existe el dato de requestData
+    if(!requestData){
+    
+      // se referencia los datos de la solicitud
+      requestData = e.data.requestData;
+    }    
+    
+    // mostramos ventana para ingresar el vínculo del archivo de datos técnicos
+    mbox.prompt("Ingresa el vínculo del archivo de datos técnicos, recuerda que debe ser una hoja de cálculo.", function(fileUrl) {
+      
+      // se valida si es una url valida
+      if(SnvaJsApi.isUrl(fileUrl)){
+          
+        // validanso que si es una url tambien se valida que sea una url de hoja de cálculo
+        if(validateUrlSpreadsheet(fileUrl)){
+        
+          // mostramos el loading
+          SnvaJsApi.manageLoading("block", "Generando cotización de federal, espera un momento por favor...");
+          
+          //Invocamos a la función que trae del servidor los datos de las carpetas hijas de la carpeta principal y sus respectivos archivos
+          google.script.run.withSuccessHandler(function(response){
+            
+            // mostramos el panel de inicio
+            $("#pnlMain").show();
+             
+            // ocultamos el panel de creación
+            $("#pnlCreateQuotation").hide();
+            
+            // iniciamos con la creación del documento de la cotización de federal
+            initCreationFederalFile(requestData, response, fileUrl);
+          
+          }).withFailureHandler(SnvaJsApi.onFailure).getFederalData(requestData.documentId);
+          
+        } else {
+        
+          // mostramos el respectivo mensaje
+          SnvaJsApi.showAlert("El vínculo proporcionado no es una hoja de cálculo.");
+          
+        }
+        
+      } else {
+        
+        // mostramos el respectivo mensaje
+        SnvaJsApi.showAlert("Ingresa un vínculo valido.");
+        
+      }
+    });
+    
+  }
+  
+  /**
+   * Función que permite validar que sea un vínculo de tipo spreadSheet
+  **/
+  function validateUrlSpreadsheet(url){
+  
+    // Obtenemos el id de la url
+    var urlInfo = url.match(/\/d\/(.*?)\//);
+    
+    // se valida si existe el id
+    if(urlInfo && urlInfo.length > 1){
+      
+      // retornamos verdadero
+      return true;
+    }
+    
+    // se retorna por defecto falso
+    return false;
+  }
+  
+  /**
+   * Función que permite habilitar la opción de crear cot. a partir de otra
+  **/
+  function enabledOption(e){
+    
+    // se referencia la tabla
+    var $table = e.data.$table;
+    
+    // se valida si existe algun opción selecciondo
+    if($table.find("tbody tr input[type='radio'][name='radProject']:checked").length > 0){
+      
+      // habilitamos el botón
+      $("#btnCreateCotByOther").attr({disabled: false});
+      
+    } else {
+      
+      // deshabilitamos el boton de generar cotización a partir de otra
+      $("#btnCreateCotByOther").attr({disabled: true});
+      
+    }
+    
+  }
+  
+  /**
+   * Función que permite mostrar el modal de para crera una cotización a partir de otra
+  **/
+  function showMdlDuplicateQuotation(e){
+  
+    // obtenemos los datos de la solicitud
+    var requestData = e.data ? e.data.requestData : null;
+    
+    // se referencia la tabla
+    var $table = $("#tblQuotationList");
+    
+    // obtenemos las opciones seleccionadas
+    var $radSelected = $table.find("tbody tr input[type='radio'][name='radProject']:checked");
+    
+    // se valida si existe algun opción selecciondo
+    if(requestData || $radSelected.length > 0){
+      
+      // se valida si no existen datos de la solicitud
+      if(!requestData){
+        
+        // obtenemos el data de radio button
+        requestData = $radSelected.data("requestData");
+        
+      }
+      
+      // agregamos los datos de la solicitud
+      $("#btnCreateMdlDuplicateQuotation").data("requestData", requestData);
+      
+      // se referencia el modal de seleccionar la carpeta destivo 
+      var $modal= $("#mdlDuplicateQuotation");
+      
+      // creamos la instancia del modal
+      var instanceMdl = M.Modal.getInstance($modal);
+      
+      // validamos si existe la instancia
+      if(instanceMdl){
+        
+        // borramos el contenido del vínculo de la carpeta
+        $("#ctnLinkModal").html("");
+        
+        // cerramos el modal
+        instanceMdl.open();
+      }
+      
+    } else {
+      
+      // Mostramos un mensaje informando que se debe seleccinar una cotización
+      SnvaJsApi.showAlert("Se debe seleccionar una cotización antes continuar con esta opción.");
+      
+    }
+  }
+  
+  /**
+   * Función que permite obter la respuesta luego de crear la cotización a partir de otra
+  **/
+  function responseCreateDuplicateQuotation(response){
+    
+    // actualizamos el listado de solicitudes
+    insertRecordsFromTable(response.requestData);
+    
+    // se referencia el modal de seleccionar la carpeta destivo 
+    var $modal= $("#mdlDuplicateQuotation");
+    
+    // creamos la instancia del modal
+    var instanceMdl = M.Modal.getInstance($modal);
+    
+    // validamos si existe la instancia
+    if(instanceMdl){
+    
+      // cerramos el modal
+      instanceMdl.close();
+    }
+    
+    // ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+    
+    // mostramos mensaje de confirmación
+    SnvaJsApi.confirm("Cotización generada exitosamente. ¿Desea abrir la cotización en modo de edición?", function(){
+     
+      // emulamos el clic en la opción de modificar 
+      $("#tblQuotationList tbody tr.isValid:first-child td:last a:eq(0)").click();
+      
+    });
+    
+  }
+  
+  /**
+   * Función encargado de mostrar el panel para crear nueva cotización, pero en modo de edición
+  **/
+  function modifyQuotation(e){
+    
+    // prevenimos el evento por defecto 
+    e.preventDefault();
+    
+    // Mostramos el loading
+    SnvaJsApi.manageLoading("block", "Habilitando la cotización en modo de edición...");
+    
+    // cambiamos el texto del boton de enviar cotización
+    $("#btnManagerQuotation").text("Modificar cotización");
+    
+    // cambiamos el título del panel
+    $("#lblTitleForm").text("Modificar cotización");
+    
+    // se referncia los datos de la solicitud actual
+    var requestData = e.data.requestData;
+    
+    // obtenemos todas las structuras
+    var allStructures = requestData.structures;
+    
+    // obtenemos la estructura que debemos revisar y el nombre de la hoja
+    var currentStructure = allStructures[requestData.mainSheetName].structure;
+    
+    // se obtienen los datos actualizados de la solicitud
+    google.script.run.withSuccessHandler(function(objectData){
+    
+      // se rereferencia el select de versiones
+      var $sltVersion = $("#sltVersion");
+      
+      // agregamos el requerido
+      $sltVersion.attr({required: true});
+      
+      // ocultamos el panel principal
+      $("#pnlMain").hide();
+      
+      // reseteamos el formulario
+      resetCreateForm();
+      
+      // actualizamos el listado de nombre de versiones en el select
+      updateVersionList($sltVersion, requestData.sheets, allStructures, requestData.mainSheetName);
+      
+      // mostramos el panel de seleccionar carpeta
+      $("#ctnLink").closest("div.panel-primary").hide();
+      
+      // se define que el formulario se debe comportar como modificación
+      $("#frmCreateQuotation").data({consecutive: requestData.id, "action": "modification", "rowIndex": requestData.row, "documentId": requestData.documentId, "lastRow": objectData.lastRow});
+      
+      // agregamos cada uno de los campos al formulario
+      addDataToForm(objectData.currentData);
+      
+      // agregamos la propiedad para el boton de crear federal
+      $("#btnCreateFederal").show().data({"requestObj": objectData.currentData, chosenFactor: requestData.chosenFactor});
+      
+      // agregamos la propiedad para el boton de crear cotización de federal y administrar el catálogo
+      $("#btnFederalCot, #btnCatalog, #btnStatalCot").data({"requestData": requestData}).show();
+      
+      // Ocultamos el panel de seleccionar carpeta
+      $("#btnSelectedFolder").closest("ul.panel-collapsible").hide();
+      
+      // Habilitamos el campo de selecionar proyecto
+      $("#sltProyectClass").attr("disabled", false).formSelect();
+      
+      // agregamos el evento para administrar los paneles colapsables
+      $("ul.panel-collapsible").collapsible({
+        accordion: true,
+        onCloseStart: collapsibleCloseEvent,
+        onOpenStart: collapsibleOpenEvent
+      });
+      
+      // mostramos todos los colapsables
+      $("ul.panel-collapsible:not(:last)").each(function(){
+        
+        // referenciamos la instancia de los colapsables
+        var instanceCollapsible = M.Collapsible.getInstance(this);
+        
+        // validamos si existe existe la instancia
+        if(instanceCollapsible){
+         
+          // ocultamos todos los colapsables
+          instanceCollapsible.close();
+         
+        }
+        
+      });
+      
+      // mostramos por defecto la generación de presupuesto
+      var instanceCollapsibleLast = M.Collapsible.getInstance($("ul.panel-collapsible:last"));
+      
+      // validamos si existe existe la instancia del colapsable de presupuesto
+      if(instanceCollapsibleLast){
+      
+        // mostramos el colapsables
+        instanceCollapsibleLast.open();
+      
+      }
+      
+      // mostramos el panel de crear cotización y las opciones de colapsar
+      $("#pnlCreateQuotation, #btnExpand, #btnCollapsible, #ctnVersion").show();
+      
+      // agregamos el vínculo de la cotización
+      $("#btnOpenFile").css("display", "inline-block").attr("href", "https://docs.google.com/spreadsheets/d/" + requestData.documentId);
+      
+      // Ocultamos el loading
+      SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+      
+      // función encargada de autoguardar la información
+      //automateSaveRequest(objectData);
+      
+    }).withFailureHandler(SnvaJsApi.onFailure).getInformationeUpdated(requestData.documentId, currentStructure, requestData.mainSheetName);
+    
+  }
+  
+  /**
+   * Función que permite agregar las opciones en el select de Versión
+  **/
+  function updateVersionList($select, sheets, structures, defaultSheet){
+    
+    // variable para definir los atributos
+    var attrs = {};
+    
+    // recorremos la cantidad de hojas
+    for(var i = 0; i < sheets.length; i++){
+      
+      // definimos los atributos por defecto
+      attrs = {value: sheets[i]};
+      
+      // validamos si el nombre de la hoja actual es igual a la que se pasas por defecto
+      if(sheets[i] == defaultSheet){
+        
+        // agregamos el atributo de selección
+        attrs["selected"] = true;
+        
+      }
+      
+      // agregamos la opción
+      $select.append(
+        $("<option>").attr(attrs).data("sheetsData", structures[sheets[i]]).text(sheets[i])
+      );
+      
+    }
+    
+    // actualizamos el select
+    $select.formSelect();
+    
+  }
+  
+  /**
+   * Función que permite realizar una acción al momento de cerrap un colapsable
+  **/
+  function collapsibleCloseEvent(event){
+    
+    // referenciamos el contenedor
+    var $content = $(this.el);
+    
+    // obtenemos los id de referencia para mostrar la info cuando se oculte el panel
+    var reference = String($content.attr("data-reference"));
+    
+    // validamos si exite datos
+    if(reference){
+      
+      // convertimos en array los campos de referencia
+      var referenceArray = reference.split(",");
+      
+      // variable para guardar la información
+      var values = [];
+      
+      // recorremos el listado
+      referenceArray.forEach(function(fieldId){
+        
+        // obtenemos el valor actual
+        var currentValue = (fieldId == "#allOrderTotal" ? $(fieldId).text() : $(fieldId).val());
+        
+        // tiene un valor
+        if(currentValue){
+          
+          // agregamos el valor al listado
+          values.push(currentValue);
+        }
+        
+      });
+      
+      // agregamos la información del campo de referencia
+      $content.find("span.spnDetailsCollapsible").text(values.toString());
+      
+    }
+    
+  }
+  
+  /**
+   * Función que permite realizar una acción al momento de abrir un colapsable
+  **/
+  function collapsibleOpenEvent(e){
+    
+    // referenciamos el contenedor
+    var $content = $(this.el);
+    
+    // restablecemos el valor
+    $content.find("span.spnDetailsCollapsible").text("");
+    
+  }
+  
+  /**
+   * Función que permite agregar los valores en el formulario de creación
+  **/
+  function addDataToForm(arrayData){
+    
+    //############# PLAZOS ############
+    // referenciamos la instancia del campo de fecha
+    var instancePicker = M.Datepicker.getInstance($("#txtIssue"));
+    
+    //############# Nombre del proyecto ############
+    // Agregamos el detalle de nombre del proyecto
+    $("ul.panel-collapsible:nth-child(5) span.spnDetailsCollapsible").text(arrayData.formEmission);
+    
+    // Referenciamos el select
+    var $comunNane = $("#sltComunNameNew"), comunNane = '';
+    
+    // Obtenemos los datos de información de columnName
+    var comunNameList = $comunNane.data('comunNameList') || [];
+  
+     // recorremos cada uno de los registros para validar cual pertenece a nombre general de acuerdo al sistema, clasificación, etc
+    for(var i = 0; i < comunNameList.length; i++){
+    
+      // agregamos cada una de las opciones
+      if(arrayData.systemClasification == comunNameList[i].clasification && arrayData.systemType == comunNameList[i].systemType && arrayData.formEmission == comunNameList[i].emmisionForm && arrayData.features == comunNameList[i].features){
+        
+        // obtenemos el nombre de este grupo
+        comunNane = comunNameList[i].comunName;
+        
+        // Salimos del ciclo
+        break;
+      }
+    }
+    
+    // agregamos el dato del nombre comun
+    $comunNane.val(comunNane);
+    
+    $("#sltCultivation").val(arrayData.cultive); // agregamos el dato del cultivo
+    $("#txtSurface").val(arrayData.surface); // agregamos el dato de la superficie
+    
+    // obtenemos el array de la fecha
+    var issueArray = String(arrayData.issue).split("/");
+    
+    try{
+      // establecemos la fecha actual
+      instancePicker.setDate(new Date(issueArray[1] + "/" + issueArray[0] + "/" + issueArray[2]));
+    }catch(e){}
+    
+    // Agregamos el detalle de plazos
+    $("ul.panel-collapsible:nth-child(1) span.spnDetailsCollapsible").text(arrayData.issue);
+    
+    $("#txtIssue").val(arrayData.issue); // agregamos el dato fecha de emisión
+    $("#txtValidity").val(arrayData.validity); // agregamos el dato de vigencia
+    $("#txtExecution").val(arrayData.execution); // agregamos el dato de ejecución
+    
+    //############# Razon social del solicitante ############
+    // Agregamos el detalle de razon social
+    $("ul.panel-collapsible:nth-child(2) span.spnDetailsCollapsible").text(arrayData.client);
+    
+    $("#txtClient").val(arrayData.client); // agregamos el dato de nombre
+    $("#txtFederalRecod").val(arrayData.federalRecord); // agregamos el dato de registro federal
+    $("#txtAgent").val(arrayData.agent); // agregamos el dato del representante
+    $("#txtFiscalResidence").val(arrayData.fiscalRecidence); // agregamos el dato del domicilio fiscal
+    
+    //############# Ubicación del proyecto ############
+    // Agregamos el detalle de ubicación del proyecto
+    $("ul.panel-collapsible:nth-child(3) span.spnDetailsCollapsible").text(arrayData.municipality + ", " + arrayData.location);
+    
+    $("#sltState").val(arrayData.state); // agregamos el dato estado y emulamos el evento para que obtenga el valor
+    $("#sltMunicipality").data("tempValue", arrayData.municipality); // agregamos el dato de municipio
+    $("#sltLocation").data("tempValue", arrayData.location); // agregamos el dato de localidad
+    
+    //############# Georeferencia ############
+    $("#txtLatitude").val(arrayData.latitude); // agregamos el dato latitud
+    $("#txtLongitude").val(arrayData.longitude); // agregamos el dato de longitud
+    
+    //############# Generación de presupuesto ############
+    $("#sltProyectClass").val(arrayData.projectClass); // agregamos el dato de clase de proyecto y emulamos el evento de cambio
+    
+    // agregamos la propiedad en el contenedor de orden de proyecto, la cual detemina que debe agregar algun valor
+    $("#ctnOrdersPanels").data("orderProjects", arrayData.orderProjects);
+    
+    // actualizamos los campos
+    M.updateTextFields();
+  }
+  
+  /**
+   * Función que permite eliminar una cotización
+  **/
+  function deleteQuotation(e){
+    
+    // Se previene el evento por defecto
+    e.preventDefault();
+    
+    // referenciamos el id del documento cotización
+    var documentId = e.data.documentId;
+    
+    // referenciamos el id de la tabla donde se desea eliminar el registro    
+    var tableId = e.data.tableId;
+    
+    // referenciamos el id del paginador donde se desea eliminar la fila
+    var paginationId = e.data.paginationId;
+    
+    // referenciamos la fila de la cotización en la hoja de cálculo
+    var row = e.data.row;
+    
+    // referenciamos el tipo de módulo del que accede
+    var module = e.data.module;
+    
+    // referenciamos la fila donde se encuentra el usuario
+    var $currentRow = $(this).closest("tr");
+        
+    // mostramos mensaje de confirmación antes de proceder a eliminar la cotización
+    SnvaJsApi.confirm("¿Seguro desea eliminar esta cotización?", function(){
+     
+      // mostramos el loading
+      SnvaJsApi.manageLoading("block", "Eliminando el cotización...");
+      
+      //Invocamos a la función que trae del servidor los datos de las carpetas hijas de la carpeta principal y sus respectivos archivos
+      google.script.run.withSuccessHandler(function(response){
+      
+        // eliminamos la fila
+        $currentRow.remove();
+        
+        // referenciamos el paginador 
+        var $pagination = $("#" + paginationId);
+        
+        // Obtenemos el numero de la pagina 
+        var pageNumberActive = $pagination.find("li.active").text();
+        
+        // iniciaizamos el paginador
+        SnvaJsApi.initPaginationByTable($("#" + tableId), paginationId, 10);
+        
+        // Validamos la cantidad de paginas se encuentre entre la pagina activa
+        if(pageNumberActive > ($pagination.find("li").length - 2)){
+          
+          // Le restamos una pagina 
+          pageNumberActive = Number(pageNumberActive) -1;
+        }
+        
+        // Simulamos el click en la pagina       
+        $pagination.find("li:eq(" + pageNumberActive + ") a").click();
+
+
+        // Ocultamos el loading
+        SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+        
+        // mostramos el respectivo mensaje
+        SnvaJsApi.showAlert("Cotización eliminada satisfactoriamente.");
+      
+      }).withFailureHandler(SnvaJsApi.onFailure).deleteQuotation(documentId, row, module);
+      
+    });
+    
+  }
+
+  /**
+   * Función que permite iniciar el paginador 
+   **/
+  function searchByTable(e) {
+    
+    // referenciamos el id de la tabla
+    var tableId = e.data.tableId;
+    
+    // referenciamos el id del paginador
+    var paginationId = e.data.paginationId;
+    
+    // removemos los acentos
+    var text = SnvaJsApi.removeLatinSymbols($(this).val().trim()).toLowerCase(),
+      currentText = "",
+      $currentRow = null;
+
+    // recorremos las filas actuales de la tabla
+    $("#" + tableId + " tbody tr").each(function() {
+
+      // referenciamos la fila recorrida
+      $currentRow = $(this);
+
+      // obtenemos el texto actual de la fila
+      currentText = SnvaJsApi.removeLatinSymbols($currentRow.text()).toLowerCase();
+      
+      // validamos si el texto ingresado por el usuario equivale a una de las filas
+      if (currentText.indexOf(text) != -1) {
+  
+        // mostramos la fila
+        $currentRow.addClass("isValid");
+
+      } else {
+        // ocultamos la fila
+        $currentRow.removeClass("isValid");
+      }
+
+    });
+
+    // iniciamos el paginador de la tabla respectiva
+    SnvaJsApi.initPaginationByTable($("#" + tableId), paginationId, 10);
+
+  }
+  
+  /***********************************************************************************************************************************
+  *************************************************** FUNCIONES DE CREACIÓN **********************************************************
+  ***********************************************************************************************************************************/
+  <?!= includeHtmlFile("Js_CreateQuotation", true, true); ?>
+  <?!= includeHtmlFile("Js_CreateQuotationF2", true, false); ?>
+  <?!= includeHtmlFile("Js_SearchSpecie", true, false); ?>
+  <?!= includeHtmlFile("Js_Concepts", true, false); ?>
+  
+  /***********************************************************************************************************************************
+  *************************************************** FUNCIONES MODULO DE CATÁLOGO*****************************************************
+  ***********************************************************************************************************************************/
+  <?!= includeHtmlFile("Js_Catalog", true, false); ?>
+  <?!= includeHtmlFile("Js_CatalogF2", true, false); ?>
+  
+  /***********************************************************************************************************************************
+  *********************************************** FUNCIONES DEL MÓDULO REFACCIONES ***************************************************
+  ***********************************************************************************************************************************/
+  // validamos si el rol es sales para mostrar por defecto
+  <?!= includeHtmlFile("Js_Renovation", true, false); ?>
+
+});
+</script>

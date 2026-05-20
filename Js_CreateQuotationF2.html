@@ -1,0 +1,708 @@
+<script>
+   
+/**
+ * Función que permite abrir el módulo de edición de grupos
+**/
+function editGroup(e){
+  
+  // Se previene el evento por defecto
+  e.preventDefault();
+  
+  // obtenemos los datos de la especie seleccionada
+  var conceptData = e.data.conceptData;
+  
+  // agregamos la referncia del panel cuando se abre el modal
+  $("#mdlSearchConcepts").data("panelId", e.data.panelId);
+  
+  //mostramos todas las etiquetas
+  $(".lst-items-tag div.item-tag").show();
+  
+  // Referenciamos el formulario de grupos 
+  var $form = $("#frmAddGroup");
+  
+  // removemos el atributo del formulario
+  $form.removeData("rowIndex");
+  
+   // Obtenemos el tipo con el cual se va a trabajar el grupo 
+  var type = e.data.type;
+  
+  // Referenciamos el titulo del modal 
+  var $txtModalTitle = $("#txtModalTitle");
+  
+  // Referenciamos el boton guardar en el formulario 
+  var $btnAddGroup = $("#btnAddGroup");
+  
+  // Validamos que tipo acción se va a trabajar sobre el grupo 
+  if(type && type == "edit"){
+    
+    // Cambiamos el titulo del modal 
+    $txtModalTitle.html("Edición de grupo");
+    
+    // Cambiamos el nombre del botón
+    $btnAddGroup.text("Editar grupo");
+    
+    // Agregamos la propiedad al formulario que es editar
+    $form.data({"type": "edit", "oldDataGroup": conceptData});
+    
+  } else {
+    
+    // Cambiamos el titulo del modal 
+    $txtModalTitle.html("Creación de grupo.");
+    
+    // Cambiamos el nombre del botón
+    $btnAddGroup.text("Crear grupo");
+    
+    // Agregamos la propiedad al formulario que es editar
+    $form.data("type", "create");
+  }
+
+  // Mostramos el loading
+  SnvaJsApi.manageLoading("block", "Habilitando edición del grupo...<br>Espera un momento por favor.");
+  
+  // obtenemos la información del grupo ya creado
+  google.script.run.withSuccessHandler(function(groupObjectData){
+  
+    // validamos si existe la referencia del grupo
+    if(groupObjectData != null && groupObjectData.groupObj && groupObjectData.groupObj.length > 0){
+    
+      // obtenemos solo los datos de grupos
+      var onlyGroupArray = groupObjectData.groupObj;
+      
+      // variable para almacenar las especies
+      var conceptArray = [];
+      
+      // recorremos cada uno de los datos
+      for(var i = 0; i < onlyGroupArray.length; i++){
+        
+        // Agregamos los datos de la especie
+        conceptArray.push(onlyGroupArray[i].conceptData);
+        
+      }
+      
+      // llamammos la función que inserta los datos
+      insertGroupDataByModify(conceptArray, onlyGroupArray, groupObjectData, "edit");
+      
+    } else {
+    
+      // mostramos el respectivo mensaje
+      SnvaJsApi.showAlert("Lo sentimos la información del grupo no existe, por favor intenta nuevamente o comunicate con el administrador.");
+    }
+    
+    // Ocultamos el loading
+    SnvaJsApi.manageLoading("none", "Espera un momento por favor...");
+    
+  }).withFailureHandler(SnvaJsApi.onFailure).getInfoByGroupName(conceptData);
+  
+}
+
+
+/**
+ * Función que recibe la información del grupo ya creado y la carga en el formulario de creación
+**/
+function insertGroupDataByModify(conceptArray, onlyGroupArray, groupObjectData, type){
+  
+  // validamos si existe especies seleccionadas
+  if(conceptArray.length > 1){
+    
+    //mostramos todas las etiquetas
+    $(".lst-items-tag div.item-tag").show();
+    
+    // validamos que columnas debemos mostrar de atributos
+    var notColumns = filterAttributesByConcept(conceptArray);
+    
+    // restablecemos el formulario
+    $("#frmAddGroup").data({"rowIndex": groupObjectData.rowIndex, "type": type})[0].reset();
+    
+    // removemos las clase "active" en el label
+    $("#frmAddGroup").find("label.active").removeClass("active");
+    
+    // agregamos los registros en la tabla de nuevo grupo
+    addConceptsInTable(conceptArray, notColumns, onlyGroupArray);
+    
+    // variable para referenciar la filaa actual
+    var $currentRow = null,
+        $currentColumn = null;
+      
+    // recorremos cada uno de los registros
+    for(var i = 0; i < onlyGroupArray.length; i++){
+    
+      // referenciamos la fila en la tabla
+      $currentRow = $("#tblAddNewGroup tbody tr:not(.info-message):eq(" + i + ")");
+      
+      // agregamos el valor de cantidad
+      $currentRow.find("input.txtGroupQuantity").val(onlyGroupArray[i].quantity || 0);
+      
+      // agregamos el valor de alias
+      $currentRow.find("input.inpAlias").val(onlyGroupArray[i].alias || "").change();
+      
+      // se valida si existe atributos seleccionados
+      if(onlyGroupArray[i].attrsList && onlyGroupArray[i].attrsList.length > 0){
+        
+        // recorremos cada uno de los atributos
+        for(var j = 0; j < onlyGroupArray[i].attrsList.length; j++){
+          
+          // seleccionamos el la columna
+          $currentColumn = $currentRow.find("td:eq(" + onlyGroupArray[i].attrsList[j].columnIndex + ")");
+          
+          // seleccionamos la columna
+          $currentColumn.click();
+          
+          // agregamos el valor
+          $currentColumn.find("input").val(onlyGroupArray[i].attrsList[j].value || 1);
+          
+          // validamos si se debe deshabilitar el campo o no
+          if(onlyGroupArray[i].attrsList[j].disabled){
+            
+            // validamos si el valor es 2 o 3
+            if(onlyGroupArray[i].attrsList[j].value == 2 || onlyGroupArray[i].attrsList[j].value == 3){
+              
+              // deshabilitamos el campo
+              $currentColumn.find("input").attr({"disabled": true, "data-reference": onlyGroupArray[i].attrsList[j].value});
+              
+              // agregamos la clase "disabled-events"
+              $currentColumn.addClass("disabled-events");
+              
+            } else {
+              
+              // se valida que sea el material
+              if(onlyGroupArray[i].attrsList[j].value == 1){
+                
+                // agregamos la clase "disabled-events"
+                $currentColumn.addClass("disabled-events");
+              }
+              
+              // deshabilitamos el campo
+              $currentColumn.find("input").attr("disabled", true);
+            }
+          }
+        }
+      }
+    }
+    
+    // validamo si existen los datos adicionales
+    if(groupObjectData.aditionalData){
+    
+      // referenciamos la fila en la tabla
+      $("#tblAddNewGroup tbody tr td input.inpAlias:first").change();
+      
+      // agregamos el valor del prefijo
+      $("#txtPrefix-group").val(groupObjectData.aditionalData.prefix).change();
+      
+      // agregamos el valor del prefijo
+      $("#txtSuffix-group").val(groupObjectData.aditionalData.suffix).change();
+      
+      // agregamos el valor del tipo de concexión de entrada
+      $("#sltConectionInput-group").val(groupObjectData.aditionalData.conectionInput).formSelect();
+      
+      // validamos si existe la conexión de salida
+      if(groupObjectData.aditionalData.conectionOutput){
+        
+        // agregamos el valor del tipo de concexión de salida
+        $("#sltConectionOutput-group").val(groupObjectData.aditionalData.conectionOutput).formSelect();
+        
+      }
+      
+      // actualizamos las clase de los campos
+      M.updateTextFields();
+    }
+    
+    // siempre se abre el primer collapsible
+    var instanceCollapsible = M.Collapsible.getInstance($("#ulFormCollapsible"));
+    
+    // validamos si existe el collapsible
+    if(instanceCollapsible){
+      
+      // mostramos el collapsible
+      instanceCollapsible.open(0);
+      
+    }
+    
+    // se referencia el modal
+    var $modal = $("#mdlAddNowGroups");
+    
+    // creamos la instancia del modal
+    var instanceMdl = M.Modal.getInstance($modal);
+    
+    // validamos si existe la instancia
+    if(instanceMdl){
+    
+      // abrimos el modal
+      instanceMdl.open();
+    }
+  } else {
+  
+    // mostramos el respectivo mensaje
+    SnvaJsApi.showAlert("No existe especies para ser agrupadas");
+  }
+}
+/**
+* Función que permite insertar una especie a la tabla principal de especies
+**/
+function addConceptSelected(e) {
+
+  try{
+    // Se previene el evento por defecto
+    e.preventDefault();
+  }catch(error){
+      
+    // mostramos el respectivo mensaje
+    //SnvaJsApi.showAlert("Ocurrio un error, por favor vuelve a intentarlo.");
+  }
+  // referenciamos el contenedor principal de la tabla
+  var mainPanelId = e.data.mainPanelId;
+  
+  // obtenemos los datos de la especie seleccionada
+  var conceptData = e.data.conceptData;
+
+  // Obtenemos la propiedad de la cantidad por si existe
+  let quantityValue_ = e.data.quantityValue || "";
+  
+  // referenciamos la tabla
+  var $table = $("#" + mainPanelId + "_table");
+  
+  // Deseleccionalos el checkcbox  de todos
+  $table.find("thead th input[type='checkbox']").prop('checked', false);
+  
+  // obtenemos el cuerpo de la tabla
+  var $tBody = $table.find("tbody");
+  
+  // validamos que la especie no exista
+  if(validateIfExisteConcept(conceptData, $tBody)){
+  
+    // variable para almacenar la referencia de la fila creada
+    var $row = $("<tr>").attr({class: "isValid"}).data("conceptData", conceptData);
+    
+    // agregamos la fila al cuerpo de la tabla
+    $tBody.append($row);
+    
+     // validamos si el tipo de unidad es diferente a "GRUPO"
+    if(String(conceptData[4]).toLowerCase() != "grupo"){   
+    
+      // creamos la fila para crear un campo de check
+      $row.append(
+        $("<td>").attr("class", "checkbox").append(
+          $("<label>").append(
+            $("<input>").attr({type: "checkbox", class: "filled-in"}).change({"table": $table}, changeCheckboxTable)
+                                                                      
+          ).append(
+            $("<span>")
+          )
+        )
+      );
+      
+    } else {
+      
+      // creamos una columna vacia  S
+      $row.append(
+        $("<td>").attr({class: "center"}).append(
+          $("<a>").attr({title: "Editar grupo", href: "javascript:void(0)", class: "btn btn-icon-concept btn-edit-group btn-group"}).append(
+            $("<i>").attr({class: "material-icons"}).text("edit")
+          ).click({conceptData: conceptData, panelId: mainPanelId, isMainPanel: true, type: "edit"}, editGroup)
+        )
+      );
+      
+    }
+    
+    // creamos la fila de: Nombre
+    $row.append(
+      $("<td>").text(conceptData[1])
+    );
+    
+    // creamos la fila de: Unidad
+    $row.append(
+      $("<td>").text(conceptData[4])
+    );
+    
+    // obtenemos el nombre de la familia
+    var currGender = SnvaJsApi.escapeRegExp(conceptData[8]);
+    
+    // se valida si la familia es ""
+    if(currGender && currGender.match(/TUBO/gi) != null){
+    
+      // creamos la fila de: cantidad
+      $row.append(
+        $("<td>").append(
+          $("<input>").attr({type: "text", pattern: "^[0-9=]+(?:\.[0-9]{1,2}){0,1}$", style: "max-width: 80px;", "data-gender": currGender, value: quantityValue_}).focusin(showFormuleInField).focusout(processFormuleInField).on("keyup change", {price: String(conceptData[5]).replace(/\,|\$/g, "")}, calculateTotal).on("paste keypress", SnvaJsApi.validateNumberFormat)
+        )
+      );
+    } else {
+      
+      // creamos la fila de: cantidad
+      $row.append(
+        $("<td>").append(
+          $("<input>").attr({type: "text", pattern: "^[0-9]+(?:\.[0-9]{1,3}){0,1}$", style: "max-width: 80px;", value: quantityValue_}).focusin(showFormuleInField).focusout(processFormuleInField).on("keyup change", {price: String(conceptData[5]).replace(/\,|\$/g, "")}, calculateTotal).on("paste keypress", SnvaJsApi.validateNumberFormat)
+        )
+      );
+      
+    }
+     
+    // creamos la fila de: Costo unitario
+    $row.append(
+      $("<td>").text(SnvaJsApi.formatValue(String(conceptData[5]).replace(/\$/g, "")))
+    );
+    
+    // creamos la fila de: Total
+    $row.append(
+      $("<td>").text("0")
+    );
+    
+    // Generamos el Id de l Popover
+    var popoverId ="POP_" + SnvaJsApi.generateUUID();
+    
+    // Columna para insertar 
+    var $td = $("<td>").attr({class: "text-center"});
+    
+    // validamos si el tipo de unidad es diferente a "GRUPO"
+    if(String(conceptData[4]).toLowerCase() != "grupo"){  
+       $td.append(
+        $("<a>").attr({title: "Cambiar especie", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+          //$("<i>").attr("class", "material-icons").text("find_replace").click({"$row": $row, "currentData": conceptData, table: $table}, previewConceptSimilars)
+          $("<i>").attr("class", "material-icons").text("find_replace").click({"panelId": "replaceConcept", "$row": $row, "currentData": conceptData, table: $table}, openModalSearchConcept)
+        )
+      );
+    }else{
+       $td.append(
+        $("<a>").attr({title: "Eliminar grupo", href: "javascript:void(0)", class: "btn-icon btn-floating orange waves-effect"}).append(
+          $("<i>").attr("class", "material-icons").text("delete").click({$table: $table, paginationId: mainPanelId + "_pagination"}, deleteConcept)
+        )
+      );
+    
+    }
+    
+    // Creamos el boton para el popover de mover concepto solo en la linea
+    $td.append(
+      $("<a>").attr({"id": popoverId, title: "Mover",class: "btn-icon btn-floating orange waves-effect"}).append(
+    	  $("<i>").attr("class", "material-icons").text("unfold_more")
+      ).data({$table: $table, mainPanelId: mainPanelId})
+    );
+    
+    // Creamoa el boton para el popover de mover o copiar el concpeto entre lineas
+    $td.append(
+      $("<a>").attr({"id": (popoverId + "_MoveOrCopy"), title: "Mover o copiar",class: "btn-icon btn-floating btn-move-or-copy waves-effect"}).append(
+     	 $("<i>").attr("class", "material-icons").text("content_copy")
+      ).data({$table: $table, mainPanelId: mainPanelId})
+    );
+      
+    
+    // insertamos las opciones en la columna del registro 
+    $row.append($td);
+    
+    // Establecemos el popover
+    $("#" + popoverId).popover({
+      title : 'Conceptos',
+      trigger :'click',
+      placement :'left',
+      content : function(){
+     
+          // Retornamos el listado actualizado 
+          return conceptListPopover($table, popoverId, conceptData[1]); 
+        }
+    });
+    
+    // Establecemos el popover
+    $("#" + popoverId + "_MoveOrCopy").popover({
+      title : 'Lineas',
+      trigger :'click',
+      placement :'left',
+      content : function(){
+        
+        // Retornamos el listado actualizado 
+        return conceptListPopoverMoveOrCopy($table, popoverId + "_MoveOrCopy", conceptData[1], mainPanelId); 
+      }
+    });
+    
+    // referenciamos el paginador 
+    var $pagination = $("#" + mainPanelId + "_pagination");
+    
+    // Obtenemos el numero de la pagina 
+    var pageNumberActive = $pagination.find("li.active").text();
+    
+    // iniciaizamos el paginador
+    SnvaJsApi.initPaginationByTable($table, mainPanelId + "_pagination", 10);
+    
+    // Validamos la cantidad de paginas se encuentre entre la pagina activa
+    if(pageNumberActive > ($pagination.find("li").length - 2)){
+    
+      // Le restamos una pagina 
+      pageNumberActive = Number(pageNumberActive) -1;
+    }
+    
+    // Simulamos el click en la pagina       
+    $pagination.find("li:eq(" + pageNumberActive + ") a").click();
+    
+    //Mostramos el mensaje de error
+    M.toast({
+      html: ("La especie: " + conceptData[1] + " ha sido agregado con éxito."),
+      displayLength: 1500
+    });
+  } else {
+    
+    //Mostramos el mensaje de error
+    M.toast({
+      html: ("La especie ya se encuentra registrado."),
+      displayLength: 1500,
+      classes: "orange"
+    });
+  }
+  
+  // llamamos la función de actualizar los datos temporales
+  updateTemporalData();
+  
+}
+
+/*
+* Permite actualziar los valores de las ordenes 
+*/
+function updateDataValueOrders(){
+  
+  // Actualizamo el todl de cad línea
+  refreshTotalLine();
+  
+  // referenciamos todas las tablas dentro del panel de ordenes
+  var $orders = $("#ctnOrdersPanels li"), $orderTotal = null, orderTotalTemp = 0;
+  
+  //Recoremos  cada una de las ordenes
+  $orders.each(function(){
+  
+    // Iniciamos el total de la orden
+    orderTotalTemp = 0;
+    
+    // Recoremos cada unos de los totales de la lineas 
+    $(this).find("span.lineTotal").each(function(){
+      
+      // aumentamos el total de las ordenes
+      orderTotalTemp += Number($(this).text().replace(/\,/g, ""));
+    });
+    
+    // Establecemos el totla de las ordenes 
+    $(this).find("span.orderTotal").text(SnvaJsApi.formatValue(roundDecimal(orderTotalTemp, 2)));
+    
+  });
+  
+  // actualizamos el total 
+  updateAllOrderTotal();
+  
+  // actualizamos el valor total
+  updateValueForAllOrder();
+  
+  // llamamos la función de actualizar los datos temporales
+  updateTemporalData();
+
+}
+
+
+/*
+* Permite actualziar el paginador de la tabla 
+*/
+function updateTablePagination(mainPanelId, $table){
+  
+  // referenciamos el paginador 
+  var $pagination = $("#" + mainPanelId + "_pagination");
+  
+  // Obtenemos el numero de la pagina 
+  var pageNumberActive = $pagination.find("li.active").text();
+  
+  // iniciaizamos el paginador
+  SnvaJsApi.initPaginationByTable($table, mainPanelId + "_pagination", 10);
+  
+  // Validamos la cantidad de paginas se encuentre entre la pagina activa
+  if(pageNumberActive > ($pagination.find("li").length - 2)){
+    
+    // Le restamos una pagina 
+    pageNumberActive = Number(pageNumberActive) -1;
+  }
+  
+  // Simulamos el click en la pagina       
+  $pagination.find("li:eq(" + pageNumberActive + ") a").click();
+  
+}
+
+
+/*
+* Listamos el listado de conceptos para se mantega actualizados
+*/
+function conceptListPopover($table, popoverId, conceptName){
+
+   // definimos la variable para obtener la estructura de conceptos
+   var contenthtml = "", conceptData = "";
+   
+   // agregamos la cabecera
+   contenthtml += "<div id='" + popoverId + "ctnConceptList' class='ctnPopoverConcepts'>";
+   
+   // Agregamos el cierre del cuerpo y la tabla
+   contenthtml += "<table id='" + popoverId + "_table' ><thead class='tableHeadConceptMove'><tr><td></td><td>Nombre del concepto</td></tr></thead> <tbody>";
+   
+   var radioButton = '<td style="padding: 0px 0px !important;"> <label><input class="with-gap" type="radio" name="radConcept"><span></span></label></td>';
+   
+   // Obtenemos el listado de los concpetos
+   $table.find("tbody tr:not(.info-message)").each(function(){
+     
+     // Obtenemos los datos del concepto
+     conceptData = $(this).data("conceptData");
+     
+     // Validamos si no es el concepto que se va a mover
+     if(conceptName != conceptData[1]){
+     
+       // Agregmaos el html para la tabla 
+       contenthtml += "<tr>" + radioButton + "<td>" + conceptData[1] + "</td></tr>";
+       
+     }else{
+      
+      // Agregamos el concepto con un color y quitamos el radiobutton
+      contenthtml += "<tr style='background: #c0e4f5'><td></td><td>" + conceptData[1] + "</td></tr>";
+     }
+     
+   });
+  
+   // Establecemos los botones
+   contenthtml += "</tbody></table></div><br><div data-reference-popover='" + popoverId + "' class='right-align'><button type='button' class='waves-effect waves-light btn #01579b light-blue darken-4' id='btnBeforeConcept'>Antes de</button>&nbsp;<button type='button' class='mbox-button mbox-custom-button-1 waves-effect waves-light btn btn-ok-confirm' id='btnAfterConcept'>Despues de</button></div>";
+   
+   // se retorna el HTML
+   return contenthtml;
+}
+
+ 
+  // Adicionamos el evento para mover hacia atras la fila 
+$(document).on('click', '#btnBeforeConcept', function(event) {
+   
+  // referenciamos el popover de los conceptos
+  var $popover = $(this).parent();
+  
+  // obtenemos los id de referencia para mostrar la info cuando se oculte el panel
+  var reference = String($popover.attr("data-reference-popover"));
+ 
+  // Validamos y realizamos el movimiento de la fila 
+  manageMoveConcept(reference, "before", $(this).parents()[4]);
+ 
+  
+});
+
+// Adicionamos el evento para mover hacia delante la fila
+$(document).on('click', '#btnAfterConcept', function(event) {
+
+  // referenciamos el popover de los conceptos
+  var $popover = $(this).parent();
+  
+  // obtenemos los id de referencia para mostrar la info cuando se oculte el panel
+  var reference = String($popover.attr("data-reference-popover"));
+  
+  // Validamos y realizamos el movimiento de la fila 
+  manageMoveConcept(reference, "after", $(this).parents()[4]);
+  
+});
+
+/*
+* Administramos el movimiento a cierta posicion de la tabla 
+*/
+function manageMoveConcept(reference, action, $popover){
+  
+  // Referenciamos la etiqueta a donde esta los datos 
+  var $referenceTagA =  $("#"+ reference);
+  
+  //Referenciamos la tabla de los conceptos a mover
+  var $table = $referenceTagA.data().$table;
+  
+  // Obtenemos el Id del contenedor 
+  var mainPanelId = $referenceTagA.data().mainPanelId;
+  
+  // Referenciamos la tabla del popover
+  var $tablePopover = $("#" + reference + "_table");
+  
+  // obtenemos las opciones seleccionadas
+  var radSelected = $tablePopover.find("tbody tr input[type='radio'][name='radConcept']:checked");
+  
+  // se valida si existe algun opción selecciondo
+  if(radSelected.length > 0){
+    
+    // Nombre del concepto    
+    var conceptName = radSelected.closest("tr").find("td:eq(1)").text();
+    
+    // Obtenemos la fila para mover 
+    var $row = $referenceTagA.closest("tr");
+    
+    // Obtenemos los datos del concepto
+    var currentRowConceptData = $row.data("conceptData");
+    
+    // validamos de que no sea el mismo nombre del concepto
+    if(conceptName != currentRowConceptData[1]){
+    
+      // Mostramos el loading
+      SnvaJsApi.manageLoading("block", "Moviendo el concepto...");
+      
+      // Posicion del concepto
+      var conceptPosition = $row[0].rowIndex - 1;
+      
+      // Obtenemos las filas de la tabla 
+      var $rows = $table.find("tbody tr:not(.info-message)");
+      
+      // Para la fila que se va a procesar
+      var $currentRow = "", conceptData, newPosition = 0;
+      
+      // Recorremos cada una de las filas 
+      $rows.each(function(){
+        
+        // Obtenemos la fila para analizarla
+        $currentRow = $(this);
+        
+        //obtenemos los datos de la fila
+        conceptData = $currentRow.data("conceptData");
+        
+        //validamos si es el concepto a donde se debe mover
+        if(conceptData[1] == conceptName){
+          
+          // Validamos de si tiene que ir antes 
+          if(action == "after"){
+            
+            // insertamo el elemento despues de la fila en proceso
+            $row.insertAfter($currentRow);
+          }else{
+            
+            // insertamos el eelemento antes de la fila en proceso
+            $row.insertBefore($currentRow);
+          }
+        }
+      });    
+      
+      // referenciamos el paginador 
+      var $pagination = $("#" + mainPanelId + "_pagination");
+      
+      // Obtenemos el numero de la pagina 
+      var pageNumberActive = $pagination.find("li.active").text();
+      
+      // iniciaizamos el paginador
+      SnvaJsApi.initPaginationByTable($table, mainPanelId + "_pagination", 10);
+      
+      // Validamos la cantidad de paginas se encuentre entre la pagina activa
+      if(pageNumberActive > ($pagination.find("li").length - 2)){
+      
+        // Le restamos una pagina 
+        pageNumberActive = Number(pageNumberActive) -1;
+      }
+      
+      // Simulamos el click en la pagina       
+      $pagination.find("li:eq(" + pageNumberActive + ") a").click();
+      
+      // se garantiza que no exista ningun panel abiertp
+      document.querySelectorAll('.popover__open').forEach(function(element) {
+        element.click();
+      });
+      
+      // Ocultamos el loading
+      SnvaJsApi.manageLoading("none", "Espere un momento...");
+    } else {
+      
+      // mostramos un mensaje
+      SnvaJsApi.showAlert("No se puede mover el concepto a la misma posición.");
+    }
+  } else {
+    
+    // mostramos un mensaje
+    SnvaJsApi.showAlert("Debe seleccionar un elemento para mover.");
+    
+  }
+}
+
+
+</script>
+
+
