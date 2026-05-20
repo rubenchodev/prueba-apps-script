@@ -7,10 +7,7 @@ function testGetFilderData() {
   
   return {
     department: getDepartmentData(spreadSheet),
-    keyWord: getKeywordArrayData(spreadSheet)
+    keyWord: getKeywordArrayData(spreadSheet),
+    family: getFamilyData(spreadSheet)
   }
-}
-
-function sss(){
-  console.log("oksss")
 }
